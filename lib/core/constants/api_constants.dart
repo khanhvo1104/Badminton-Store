@@ -5,4 +5,7 @@ abstract final class ApiConstants {
 
   static const String contentType = 'application/json';
   static const String accept = 'application/json';
+
+  /// Soft concurrent request budget for catalog/search fan-out.
+  static const int maxConcurrentRequests = 6;
 }

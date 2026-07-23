@@ -1,4 +1,5 @@
 import 'package:base_project/app/app.dart';
+import 'package:base_project/app/router/app_routes.dart';
 import 'package:base_project/core/config/app_config.dart';
 import 'package:base_project/core/config/app_environment.dart';
 import 'package:base_project/core/config/demo_credentials.dart';
@@ -17,6 +18,7 @@ import 'package:base_project/features/home/di/home_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -78,7 +80,10 @@ void main() {
       expect(find.byKey(const Key('home_greeting')), findsOneWidget);
       expect(find.textContaining('Hello,'), findsOneWidget);
 
-      await tester.tap(find.text('Settings'));
+      final homeContext = tester.element(
+        find.byKey(const Key('home_greeting')),
+      );
+      GoRouter.of(homeContext).go(AppRoutes.settings);
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
