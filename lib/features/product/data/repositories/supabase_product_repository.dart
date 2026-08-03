@@ -49,10 +49,7 @@ final class SupabaseProductRepository implements ProductRepository {
           availableQuantity = availabilityRow['available_quantity'] as int?;
         }
         variants.add(
-          productVariantFromRow(
-            map,
-            availableQuantity: availableQuantity,
-          ),
+          productVariantFromRow(map, availableQuantity: availableQuantity),
         );
       }
 

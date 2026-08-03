@@ -88,20 +88,27 @@ class SettingsPage extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Reduce motion'),
-                    value: appearance.reduceMotion,
-                    onChanged: (value) =>
-                        notifier.setReduceMotion(value: value),
+                  Material(
+                    type: MaterialType.transparency,
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Reduce motion'),
+                      value: appearance.reduceMotion,
+                      onChanged: (value) =>
+                          notifier.setReduceMotion(value: value),
+                    ),
                   ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Ambient background animation'),
-                    value: appearance.ambientAnimation,
-                    onChanged: appearance.reduceMotion
-                        ? null
-                        : (value) => notifier.setAmbientAnimation(value: value),
+                  Material(
+                    type: MaterialType.transparency,
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Ambient background animation'),
+                      value: appearance.ambientAnimation,
+                      onChanged: appearance.reduceMotion
+                          ? null
+                          : (value) =>
+                                notifier.setAmbientAnimation(value: value),
+                    ),
                   ),
                 ],
               ),
@@ -118,10 +125,13 @@ class SettingsPage extends ConsumerWidget {
             Text('Environment', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             GlassCard(
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(config.environment.displayName),
-                subtitle: Text(config.apiBaseUrl),
+              child: Material(
+                type: MaterialType.transparency,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(config.environment.displayName),
+                  subtitle: Text(config.apiBaseUrl),
+                ),
               ),
             ),
             const SizedBox(height: 16),

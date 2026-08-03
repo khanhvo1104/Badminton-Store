@@ -10,23 +10,24 @@ import 'package:base_project/shared/widgets/shop/stock_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final productDetailProvider =
-    FutureProvider.autoDispose.family<Product, String>((ref, productId) async {
-      final result = await ref.read(productRepositoryProvider).getById(productId);
+final productDetailProvider = FutureProvider.autoDispose
+    .family<Product, String>((ref, productId) async {
+      final result = await ref
+          .read(productRepositoryProvider)
+          .getById(productId);
       return result.when(
         success: (data) => data,
         failure: (error) => throw Exception(error.message),
       );
     });
 
-final favoriteStateProvider =
-    FutureProvider.autoDispose.family<bool, String>((ref, productId) async {
-      final result = await ref.read(favoriteRepositoryProvider).contains(productId);
-      return result.when(
-        success: (data) => data,
-        failure: (_) => false,
-      );
-    });
+final favoriteStateProvider = FutureProvider.autoDispose.family<bool, String>((
+  ref,
+  productId,
+) async {
+  final result = await ref.read(favoriteRepositoryProvider).contains(productId);
+  return result.when(success: (data) => data, failure: (_) => false);
+});
 
 class ProductDetailPage extends ConsumerStatefulWidget {
   const ProductDetailPage({required this.productId, super.key});
@@ -77,7 +78,9 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
                 aspectRatio: 1,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Icon(Icons.sports_tennis, size: 96),
@@ -100,10 +103,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
               const SizedBox(height: AppSpacing.xs),
               StockIndicator(quantity: selectedVariant.availableQuantity ?? 0),
               const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Biến thể',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text('Biến thể', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: 8,
@@ -120,10 +120,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
               ),
               if (product.description != null) ...[
                 const SizedBox(height: AppSpacing.lg),
-                Text(
-                  'Mô tả',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text('Mô tả', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: AppSpacing.sm),
                 Text(product.description!),
               ],
@@ -173,7 +170,8 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Không tải được sản phẩm: $error')),
+        error: (error, _) =>
+            Center(child: Text('Không tải được sản phẩm: $error')),
       ),
     );
   }

@@ -16,16 +16,18 @@ final class SupabaseHomeRemoteDataSource implements HomeRemoteDataSource {
         .order('published_at', ascending: false)
         .limit(4);
 
-    return rows.map((row) {
-      final map = Map<String, dynamic>.from(row);
-      return DashboardItemModel(
-        id: map['id'].toString(),
-        title: map['name'].toString(),
-        subtitle: (map['short_description'] ?? map['category_name'] ?? '')
-            .toString(),
-        iconName: _iconNameForCategory(map['category_name']?.toString()),
-      );
-    }).toList(growable: false);
+    return rows
+        .map((row) {
+          final map = Map<String, dynamic>.from(row);
+          return DashboardItemModel(
+            id: map['id'].toString(),
+            title: map['name'].toString(),
+            subtitle: (map['short_description'] ?? map['category_name'] ?? '')
+                .toString(),
+            iconName: _iconNameForCategory(map['category_name']?.toString()),
+          );
+        })
+        .toList(growable: false);
   }
 
   String _iconNameForCategory(String? categoryName) {

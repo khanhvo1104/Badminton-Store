@@ -4,7 +4,9 @@ import 'package:base_project/features/addresses/domain/entities/address.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final addressesProvider = FutureProvider.autoDispose<List<Address>>((ref) async {
+final addressesProvider = FutureProvider.autoDispose<List<Address>>((
+  ref,
+) async {
   final result = await ref.read(addressRepositoryProvider).list();
   return result.when(
     success: (data) => data,
@@ -102,7 +104,8 @@ class AddressesPage extends ConsumerWidget {
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('Không tải được địa chỉ: $error')),
+          error: (error, _) =>
+              Center(child: Text('Không tải được địa chỉ: $error')),
         ),
       ),
     );

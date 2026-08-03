@@ -11,14 +11,11 @@ class FakeAuthRemoteDataSource implements AuthRemoteDataSource {
 
   final Duration delay;
 
-  @override
-  String? get currentAccessToken => 'fake-access-token';
+  UserModel? _currentUser;
+  String? _accessToken;
 
-  UserModel _currentUser = const UserModel(
-    id: 'user-001',
-    email: DemoCredentials.email,
-    displayName: 'Demo User',
-  );
+  @override
+  String? get currentAccessToken => _accessToken;
 
   @override
   Future<AuthResponseModel> login(LoginRequestModel request) async {
@@ -34,11 +31,9 @@ class FakeAuthRemoteDataSource implements AuthRemoteDataSource {
       email: request.email.toLowerCase(),
       displayName: 'Demo User',
     );
+    _accessToken = 'fake-access-token';
 
-    return AuthResponseModel(
-      accessToken: 'fake-access-token',
-      user: _currentUser,
-    );
+    return AuthResponseModel(accessToken: _accessToken!, user: _currentUser!);
   }
 
   @override
@@ -50,5 +45,7 @@ class FakeAuthRemoteDataSource implements AuthRemoteDataSource {
   @override
   Future<void> logout() async {
     await Future<void>.delayed(delay);
+    _currentUser = null;
+    _accessToken = null;
   }
 }

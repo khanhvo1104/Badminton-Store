@@ -2,6 +2,13 @@
   "version": 1,
   "tasks": [
     {
+      "id": "TASK-000",
+      "title": "Restore a green Flutter CI baseline",
+      "task_file": ".automation/tasks/TASK-000-green-ci-baseline.md",
+      "risk": "medium",
+      "status": "complete"
+    },
+    {
       "id": "TASK-001",
       "title": "Audit current application readiness",
       "task_file": ".automation/tasks/TASK-001-audit.md",
@@ -10,4 +17,3 @@
     }
   ]
 }
-

@@ -54,7 +54,11 @@ final class SupabaseAddressRepository implements AddressRepository {
   @override
   Future<Result<Address>> getById(String id) async {
     try {
-      final row = await _client.from('addresses').select().eq('id', id).single();
+      final row = await _client
+          .from('addresses')
+          .select()
+          .eq('id', id)
+          .single();
       return Success(_mapAddress(Map<String, dynamic>.from(row)));
     } on PostgrestException catch (error, stackTrace) {
       return Failure(

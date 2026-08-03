@@ -117,7 +117,8 @@ class CartPage extends ConsumerWidget {
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('Không tải được giỏ hàng: $error')),
+          error: (error, _) =>
+              Center(child: Text('Không tải được giỏ hàng: $error')),
         ),
       ),
     );

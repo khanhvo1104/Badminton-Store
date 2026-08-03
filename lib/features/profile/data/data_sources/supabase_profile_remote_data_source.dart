@@ -51,7 +51,9 @@ final class SupabaseProfileRemoteDataSource implements ProfileRemoteDataSource {
   Future<UserModel> updateProfile(UpdateProfileRequestModel request) async {
     final authUser = _client.auth.currentUser;
     if (authUser == null) {
-      throw const UnauthorizedException('Please sign in to update your profile');
+      throw const UnauthorizedException(
+        'Please sign in to update your profile',
+      );
     }
 
     try {

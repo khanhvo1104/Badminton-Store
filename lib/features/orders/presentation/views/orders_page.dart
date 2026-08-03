@@ -70,7 +70,8 @@ class OrdersPage extends ConsumerWidget {
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('Không tải được đơn hàng: $error')),
+          error: (error, _) =>
+              Center(child: Text('Không tải được đơn hàng: $error')),
         ),
       ),
     );
