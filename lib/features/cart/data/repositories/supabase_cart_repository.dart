@@ -77,7 +77,11 @@ final class SupabaseCartRepository implements CartRepository {
   Future<Result<Cart>> getCart() async {
     try {
       final cartId = await _ensureActiveCart();
-      final cartRow = await _client.from('carts').select().eq('id', cartId).single();
+      final cartRow = await _client
+          .from('carts')
+          .select()
+          .eq('id', cartId)
+          .single();
       final itemRows = await _client
           .from('cart_items')
           .select()
@@ -186,14 +190,19 @@ final class SupabaseCartRepository implements CartRepository {
       return const [];
     }
 
-    final variantIds = itemRows.map((row) => requireString(row, 'variant_id')).toSet();
+    final variantIds = itemRows
+        .map((row) => requireString(row, 'variant_id'))
+        .toSet();
     final variantRows = await _client
         .from('product_variants')
-        .select('id, product_id, name, sku, price, color_name, racket_weight_class, grip_size, shoe_size, clothing_size')
+        .select(
+          'id, product_id, name, sku, price, color_name, racket_weight_class, grip_size, shoe_size, clothing_size',
+        )
         .inFilter('id', variantIds.toList());
     final variantById = {
       for (final row in variantRows)
-        Map<String, dynamic>.from(row)['id'].toString(): Map<String, dynamic>.from(row),
+        Map<String, dynamic>.from(row)['id'].toString():
+            Map<String, dynamic>.from(row),
     };
 
     final productIds = variantById.values
@@ -229,28 +238,28 @@ final class SupabaseCartRepository implements CartRepository {
       );
     }
 
-    return itemRows.map((row) {
-      final variant = variantById[requireString(row, 'variant_id')];
-      final product = variant == null
-          ? null
-          : productById[variant['product_id'].toString()];
-      final productId = variant?['product_id']?.toString();
-      return CartItem(
-        id: requireString(row, 'id'),
-        cartId: requireString(row, 'cart_id'),
-        variantId: requireString(row, 'variant_id'),
-        quantity: requireInt(row, 'quantity'),
-        unitPriceSnapshot: row['unit_price_snapshot'] == null
-            ? (variant == null
-                  ? null
-                  : requireDouble(variant, 'price'))
-            : requireDouble(row, 'unit_price_snapshot'),
-        productId: productId,
-        productName: product?['name']?.toString(),
-        variantLabel: variant == null ? null : _variantLabel(variant),
-        imagePath: productId == null ? null : imageByProductId[productId],
-      );
-    }).toList(growable: false);
+    return itemRows
+        .map((row) {
+          final variant = variantById[requireString(row, 'variant_id')];
+          final product = variant == null
+              ? null
+              : productById[variant['product_id'].toString()];
+          final productId = variant?['product_id']?.toString();
+          return CartItem(
+            id: requireString(row, 'id'),
+            cartId: requireString(row, 'cart_id'),
+            variantId: requireString(row, 'variant_id'),
+            quantity: requireInt(row, 'quantity'),
+            unitPriceSnapshot: row['unit_price_snapshot'] == null
+                ? (variant == null ? null : requireDouble(variant, 'price'))
+                : requireDouble(row, 'unit_price_snapshot'),
+            productId: productId,
+            productName: product?['name']?.toString(),
+            variantLabel: variant == null ? null : _variantLabel(variant),
+            imagePath: productId == null ? null : imageByProductId[productId],
+          );
+        })
+        .toList(growable: false);
   }
 
   String _variantLabel(SupabaseRow row) {

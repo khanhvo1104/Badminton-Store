@@ -79,9 +79,12 @@ class FavoritesPage extends ConsumerWidget {
                   compareAtAmount: variant?.compareAtPrice?.round(),
                   stockQuantity: variant?.availableQuantity,
                   isFavorite: true,
-                  onTap: () => context.push(AppRoutes.productDetail(product.id)),
+                  onTap: () =>
+                      context.push(AppRoutes.productDetail(product.id)),
                   onFavoritePressed: (_) async {
-                    await ref.read(favoriteRepositoryProvider).remove(product.id);
+                    await ref
+                        .read(favoriteRepositoryProvider)
+                        .remove(product.id);
                     ref.invalidate(favoriteProductsProvider);
                   },
                 );
@@ -89,7 +92,8 @@ class FavoritesPage extends ConsumerWidget {
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('Không tải được yêu thích: $error')),
+          error: (error, _) =>
+              Center(child: Text('Không tải được yêu thích: $error')),
         ),
       ),
     );

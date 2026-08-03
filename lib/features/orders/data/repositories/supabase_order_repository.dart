@@ -14,7 +14,11 @@ final class SupabaseOrderRepository implements OrderRepository {
   @override
   Future<Result<Order>> getById(String id) async {
     try {
-      final orderRow = await _client.from('orders').select().eq('id', id).single();
+      final orderRow = await _client
+          .from('orders')
+          .select()
+          .eq('id', id)
+          .single();
       final itemRows = await _client
           .from('order_items')
           .select()

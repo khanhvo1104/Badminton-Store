@@ -12,6 +12,10 @@
 .swiftpm/
 migrate_working_dir/
 
+# Local automation run artifacts
+.automation/runs/*
+!.automation/runs/.gitkeep
+
 # IntelliJ related
 *.iml
 *.ipr

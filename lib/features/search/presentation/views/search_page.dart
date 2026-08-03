@@ -7,20 +7,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-final recentQueriesProvider = FutureProvider.autoDispose<List<String>>((ref) async {
+final recentQueriesProvider = FutureProvider.autoDispose<List<String>>((
+  ref,
+) async {
   final result = await ref.read(searchRepositoryProvider).recentQueries();
-  return result.when(
-    success: (data) => data,
-    failure: (_) => const <String>[],
-  );
+  return result.when(success: (data) => data, failure: (_) => const <String>[]);
 });
 
-final searchResultsProvider =
-    FutureProvider.autoDispose.family<List<Product>, String>((ref, query) async {
+final searchResultsProvider = FutureProvider.autoDispose
+    .family<List<Product>, String>((ref, query) async {
       if (query.trim().isEmpty) {
         return const <Product>[];
       }
-      final result = await ref.read(searchRepositoryProvider).search(query: query);
+      final result = await ref
+          .read(searchRepositoryProvider)
+          .search(query: query);
       return result.when(
         success: (data) => data,
         failure: (error) => throw Exception(error.message),
@@ -73,7 +74,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           ),
           const SizedBox(height: AppSpacing.lg),
           if (_query.isEmpty) ...[
-            Text('Tìm kiếm gần đây', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Tìm kiếm gần đây',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: AppSpacing.sm),
             recentAsync.when(
               data: (queries) => Wrap(
@@ -121,7 +125,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       priceAmount: (variant?.price ?? 0).round(),
                       compareAtAmount: variant?.compareAtPrice?.round(),
                       stockQuantity: variant?.availableQuantity,
-                      onTap: () => context.push(AppRoutes.productDetail(product.id)),
+                      onTap: () =>
+                          context.push(AppRoutes.productDetail(product.id)),
                     );
                   },
                 );

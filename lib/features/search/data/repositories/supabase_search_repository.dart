@@ -31,7 +31,9 @@ final class SupabaseSearchRepository implements SearchRepository {
     if (decoded is! List) {
       return const Success(<String>[]);
     }
-    return Success(decoded.map((item) => item.toString()).toList(growable: false));
+    return Success(
+      decoded.map((item) => item.toString()).toList(growable: false),
+    );
   }
 
   @override
@@ -49,9 +51,8 @@ final class SupabaseSearchRepository implements SearchRepository {
       return Success(
         rows
             .map(
-              (row) => productFromCatalogRow(
-                Map<String, dynamic>.from(row as Map),
-              ),
+              (row) =>
+                  productFromCatalogRow(Map<String, dynamic>.from(row as Map)),
             )
             .toList(growable: false),
       );
@@ -81,6 +82,9 @@ final class SupabaseSearchRepository implements SearchRepository {
       trimmed,
       ...base.where((item) => item.toLowerCase() != trimmed.toLowerCase()),
     ].take(8).toList(growable: false);
-    await _preferences.setString(StorageKeys.recentSearches, jsonEncode(merged));
+    await _preferences.setString(
+      StorageKeys.recentSearches,
+      jsonEncode(merged),
+    );
   }
 }

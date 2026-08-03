@@ -64,7 +64,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign in to continue'), findsOneWidget);
+      expect(find.byKey(const Key('login_email_field')), findsOneWidget);
+      expect(find.byKey(const Key('login_submit_button')), findsOneWidget);
 
       await tester.enterText(
         find.byKey(const Key('login_email_field')),
@@ -94,7 +95,7 @@ void main() {
       await tester.tap(find.byKey(const Key('logout_button')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign in to continue'), findsOneWidget);
+      expect(find.byKey(const Key('login_email_field')), findsOneWidget);
     },
   );
 }

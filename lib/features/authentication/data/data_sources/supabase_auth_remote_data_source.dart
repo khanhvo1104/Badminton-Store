@@ -23,10 +23,7 @@ final class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
       email: request.email,
       password: request.password,
     );
-    return AuthResponseModel(
-      accessToken: currentAccessToken ?? '',
-      user: user,
-    );
+    return AuthResponseModel(accessToken: currentAccessToken ?? '', user: user);
   }
 
   @override

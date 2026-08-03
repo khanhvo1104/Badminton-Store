@@ -19,12 +19,11 @@ final catalogCategoriesProvider = FutureProvider.autoDispose<List<Category>>((
   );
 });
 
-final catalogProductsProvider =
-    FutureProvider.autoDispose.family<List<Product>, String?>((ref, categoryId) async {
-      final result = await ref.read(productRepositoryProvider).list(
-        categoryId: categoryId,
-        pageSize: 60,
-      );
+final catalogProductsProvider = FutureProvider.autoDispose
+    .family<List<Product>, String?>((ref, categoryId) async {
+      final result = await ref
+          .read(productRepositoryProvider)
+          .list(categoryId: categoryId, pageSize: 60);
       return result.when(
         success: (data) => data,
         failure: (error) => throw Exception(error.message),
@@ -85,7 +84,8 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
                   ChoiceChip(
                     label: const Text('Tất cả'),
                     selected: _selectedCategoryId == null,
-                    onSelected: (_) => setState(() => _selectedCategoryId = null),
+                    onSelected: (_) =>
+                        setState(() => _selectedCategoryId = null),
                   ),
                   for (final category in categories)
                     ChoiceChip(
@@ -127,7 +127,8 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
                       priceAmount: (summaryVariant?.price ?? 0).round(),
                       compareAtAmount: summaryVariant?.compareAtPrice?.round(),
                       stockQuantity: summaryVariant?.availableQuantity,
-                      onTap: () => context.push(AppRoutes.productDetail(product.id)),
+                      onTap: () =>
+                          context.push(AppRoutes.productDetail(product.id)),
                     );
                   },
                 );
