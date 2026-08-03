@@ -1,0 +1,29 @@
+{
+  "base_branch": "develop",
+  "branch_prefix": "automation/",
+  "remote": "origin",
+  "cursor_agent": "/Users/khanhvo/.local/bin/agent",
+  "codex_cli": "/Applications/ChatGPT.app/Contents/Resources/codex",
+  "flutter_sdk": "/Users/khanhvo/.local/share/flutter",
+  "cursor_model": null,
+  "max_fix_attempts": 2,
+  "auto_push": true,
+  "auto_create_pr": true,
+  "auto_merge": false,
+  "quality_commands": [
+    "dart format --output=none --set-exit-if-changed .",
+    "flutter analyze",
+    "flutter test",
+    "python3 scripts/automation.py policy-check"
+  ],
+  "supabase_quality_commands": [
+    "supabase migration list --local"
+  ],
+  "protected_paths": [
+    ".env",
+    ".env.development",
+    ".env.staging",
+    ".env.production",
+    ".git/"
+  ]
+}

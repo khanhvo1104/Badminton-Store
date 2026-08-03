@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Audit current application readiness",
+      "task_file": ".automation/tasks/TASK-001-audit.md",
+      "risk": "low",
+      "status": "ready"
+    }
+  ]
+}
+
