@@ -4,49 +4,59 @@ import 'package:meta/meta.dart';
 class OrderItem {
   const OrderItem({
     required this.id,
-    required this.productId,
-    required this.variantId,
+    required this.orderId,
     required this.productName,
+    required this.sku,
+    required this.unitPrice,
     required this.quantity,
-    required this.unitPriceAmount,
-    required this.currencyCode,
-    this.variantLabel,
-    this.imageUrl,
+    required this.lineTotal,
+    this.productId,
+    this.variantId,
+    this.variantName,
+    this.imagePath,
+    this.productSnapshot = const {},
   });
 
   final String id;
-  final String productId;
-  final String variantId;
+  final String orderId;
+  final String? productId;
+  final String? variantId;
   final String productName;
-  final String? variantLabel;
+  final String? variantName;
+  final String sku;
+  final String? imagePath;
+  final double unitPrice;
   final int quantity;
-  final int unitPriceAmount;
-  final String currencyCode;
-  final String? imageUrl;
-
-  int get lineTotalAmount => unitPriceAmount * quantity;
+  final double lineTotal;
+  final Map<String, Object?> productSnapshot;
 
   OrderItem copyWith({
     String? id,
+    String? orderId,
     String? productId,
     String? variantId,
     String? productName,
-    String? variantLabel,
+    String? variantName,
+    String? sku,
+    String? imagePath,
+    double? unitPrice,
     int? quantity,
-    int? unitPriceAmount,
-    String? currencyCode,
-    String? imageUrl,
+    double? lineTotal,
+    Map<String, Object?>? productSnapshot,
   }) {
     return OrderItem(
       id: id ?? this.id,
+      orderId: orderId ?? this.orderId,
       productId: productId ?? this.productId,
       variantId: variantId ?? this.variantId,
       productName: productName ?? this.productName,
-      variantLabel: variantLabel ?? this.variantLabel,
+      variantName: variantName ?? this.variantName,
+      sku: sku ?? this.sku,
+      imagePath: imagePath ?? this.imagePath,
+      unitPrice: unitPrice ?? this.unitPrice,
       quantity: quantity ?? this.quantity,
-      unitPriceAmount: unitPriceAmount ?? this.unitPriceAmount,
-      currencyCode: currencyCode ?? this.currencyCode,
-      imageUrl: imageUrl ?? this.imageUrl,
+      lineTotal: lineTotal ?? this.lineTotal,
+      productSnapshot: productSnapshot ?? this.productSnapshot,
     );
   }
 
@@ -56,26 +66,12 @@ class OrderItem {
         other is OrderItem &&
             runtimeType == other.runtimeType &&
             id == other.id &&
-            productId == other.productId &&
-            variantId == other.variantId &&
-            productName == other.productName &&
-            variantLabel == other.variantLabel &&
+            orderId == other.orderId &&
+            sku == other.sku &&
             quantity == other.quantity &&
-            unitPriceAmount == other.unitPriceAmount &&
-            currencyCode == other.currencyCode &&
-            imageUrl == other.imageUrl;
+            lineTotal == other.lineTotal;
   }
 
   @override
-  int get hashCode => Object.hash(
-    id,
-    productId,
-    variantId,
-    productName,
-    variantLabel,
-    quantity,
-    unitPriceAmount,
-    currencyCode,
-    imageUrl,
-  );
+  int get hashCode => Object.hash(id, orderId, sku, quantity, lineTotal);
 }

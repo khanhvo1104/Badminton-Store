@@ -4,49 +4,51 @@ import 'package:meta/meta.dart';
 class CartItem {
   const CartItem({
     required this.id,
-    required this.productId,
+    required this.cartId,
     required this.variantId,
     required this.quantity,
-    required this.unitPriceAmount,
-    required this.currencyCode,
+    this.unitPriceSnapshot,
+    this.productId,
     this.productName,
     this.variantLabel,
-    this.imageUrl,
+    this.imagePath,
   });
 
   final String id;
-  final String productId;
+  final String cartId;
   final String variantId;
   final int quantity;
-  final int unitPriceAmount;
-  final String currencyCode;
+
+  /// Display-only snapshot; checkout re-fetches authoritative price.
+  final double? unitPriceSnapshot;
+  final String? productId;
   final String? productName;
   final String? variantLabel;
-  final String? imageUrl;
+  final String? imagePath;
 
-  int get lineTotalAmount => unitPriceAmount * quantity;
+  double get lineTotal => (unitPriceSnapshot ?? 0) * quantity;
 
   CartItem copyWith({
     String? id,
-    String? productId,
+    String? cartId,
     String? variantId,
     int? quantity,
-    int? unitPriceAmount,
-    String? currencyCode,
+    double? unitPriceSnapshot,
+    String? productId,
     String? productName,
     String? variantLabel,
-    String? imageUrl,
+    String? imagePath,
   }) {
     return CartItem(
       id: id ?? this.id,
-      productId: productId ?? this.productId,
+      cartId: cartId ?? this.cartId,
       variantId: variantId ?? this.variantId,
       quantity: quantity ?? this.quantity,
-      unitPriceAmount: unitPriceAmount ?? this.unitPriceAmount,
-      currencyCode: currencyCode ?? this.currencyCode,
+      unitPriceSnapshot: unitPriceSnapshot ?? this.unitPriceSnapshot,
+      productId: productId ?? this.productId,
       productName: productName ?? this.productName,
       variantLabel: variantLabel ?? this.variantLabel,
-      imageUrl: imageUrl ?? this.imageUrl,
+      imagePath: imagePath ?? this.imagePath,
     );
   }
 
@@ -56,26 +58,11 @@ class CartItem {
         other is CartItem &&
             runtimeType == other.runtimeType &&
             id == other.id &&
-            productId == other.productId &&
+            cartId == other.cartId &&
             variantId == other.variantId &&
-            quantity == other.quantity &&
-            unitPriceAmount == other.unitPriceAmount &&
-            currencyCode == other.currencyCode &&
-            productName == other.productName &&
-            variantLabel == other.variantLabel &&
-            imageUrl == other.imageUrl;
+            quantity == other.quantity;
   }
 
   @override
-  int get hashCode => Object.hash(
-    id,
-    productId,
-    variantId,
-    quantity,
-    unitPriceAmount,
-    currencyCode,
-    productName,
-    variantLabel,
-    imageUrl,
-  );
+  int get hashCode => Object.hash(id, cartId, variantId, quantity);
 }

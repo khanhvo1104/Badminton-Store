@@ -6,36 +6,50 @@ class Cart {
   const Cart({
     required this.id,
     required this.currencyCode,
+    required this.status,
     this.userId,
+    this.guestToken,
     this.items = const [],
+    this.expiresAt,
     this.updatedAt,
   });
 
   final String id;
   final String? userId;
+  final String? guestToken;
+
+  /// `active` | `converted` | `abandoned` | `expired`
+  final String status;
   final String currencyCode;
   final List<CartItem> items;
+  final DateTime? expiresAt;
   final DateTime? updatedAt;
 
   int get itemCount => items.fold(0, (sum, item) => sum + item.quantity);
 
-  int get subtotalAmount =>
-      items.fold(0, (sum, item) => sum + item.lineTotalAmount);
+  double get subtotal =>
+      items.fold<double>(0, (sum, item) => sum + item.lineTotal);
 
   bool get isEmpty => items.isEmpty;
 
   Cart copyWith({
     String? id,
     String? userId,
+    String? guestToken,
+    String? status,
     String? currencyCode,
     List<CartItem>? items,
+    DateTime? expiresAt,
     DateTime? updatedAt,
   }) {
     return Cart(
       id: id ?? this.id,
       userId: userId ?? this.userId,
+      guestToken: guestToken ?? this.guestToken,
+      status: status ?? this.status,
       currencyCode: currencyCode ?? this.currencyCode,
       items: items ?? this.items,
+      expiresAt: expiresAt ?? this.expiresAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -47,27 +61,10 @@ class Cart {
             runtimeType == other.runtimeType &&
             id == other.id &&
             userId == other.userId &&
-            currencyCode == other.currencyCode &&
-            _listEquals(items, other.items) &&
-            updatedAt == other.updatedAt;
+            status == other.status &&
+            currencyCode == other.currencyCode;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, userId, currencyCode, Object.hashAll(items), updatedAt);
-}
-
-bool _listEquals<T>(List<T> a, List<T> b) {
-  if (identical(a, b)) {
-    return true;
-  }
-  if (a.length != b.length) {
-    return false;
-  }
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) {
-      return false;
-    }
-  }
-  return true;
+  int get hashCode => Object.hash(id, userId, status, currencyCode);
 }

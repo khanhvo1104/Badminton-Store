@@ -2,6 +2,7 @@ import 'package:base_project/features/product/domain/entities/product_image.dart
 import 'package:base_project/features/product/domain/entities/product_variant.dart';
 import 'package:meta/meta.dart';
 
+/// Catalog product (`public.products`). Price/stock live on variants/inventory.
 @immutable
 class Product {
   const Product({
@@ -9,38 +10,54 @@ class Product {
     required this.name,
     required this.slug,
     required this.categoryId,
-    required this.brandId,
+    required this.status,
+    this.brandId,
+    this.shortDescription,
     this.description,
+    this.specifications = const {},
+    this.searchKeywords,
     this.images = const [],
     this.variants = const [],
-    this.tags = const [],
-    this.isActive = true,
     this.isFeatured = false,
+    this.publishedAt,
   });
 
   final String id;
   final String name;
   final String slug;
   final String categoryId;
-  final String brandId;
+  final String? brandId;
+  final String? shortDescription;
   final String? description;
+  final Map<String, Object?> specifications;
+  final String? searchKeywords;
+
+  /// `draft` | `active` | `inactive` | `archived`
+  final String status;
+  final bool isFeatured;
+  final DateTime? publishedAt;
   final List<ProductImage> images;
   final List<ProductVariant> variants;
-  final List<String> tags;
-  final bool isActive;
-  final bool isFeatured;
+
+  bool get isActive => status == 'active';
 
   ProductImage? get primaryImage {
     for (final image in images) {
-      if (image.isPrimary) {
+      if (image.isPrimary && image.variantId == null) {
         return image;
       }
     }
     return images.isEmpty ? null : images.first;
   }
 
-  ProductVariant? get defaultVariant =>
-      variants.isEmpty ? null : variants.first;
+  ProductVariant? get defaultVariant {
+    for (final variant in variants) {
+      if (variant.isDefault) {
+        return variant;
+      }
+    }
+    return variants.isEmpty ? null : variants.first;
+  }
 
   Product copyWith({
     String? id,
@@ -48,12 +65,15 @@ class Product {
     String? slug,
     String? categoryId,
     String? brandId,
+    String? shortDescription,
     String? description,
+    Map<String, Object?>? specifications,
+    String? searchKeywords,
+    String? status,
+    bool? isFeatured,
+    DateTime? publishedAt,
     List<ProductImage>? images,
     List<ProductVariant>? variants,
-    List<String>? tags,
-    bool? isActive,
-    bool? isFeatured,
   }) {
     return Product(
       id: id ?? this.id,
@@ -61,12 +81,15 @@ class Product {
       slug: slug ?? this.slug,
       categoryId: categoryId ?? this.categoryId,
       brandId: brandId ?? this.brandId,
+      shortDescription: shortDescription ?? this.shortDescription,
       description: description ?? this.description,
+      specifications: specifications ?? this.specifications,
+      searchKeywords: searchKeywords ?? this.searchKeywords,
+      status: status ?? this.status,
+      isFeatured: isFeatured ?? this.isFeatured,
+      publishedAt: publishedAt ?? this.publishedAt,
       images: images ?? this.images,
       variants: variants ?? this.variants,
-      tags: tags ?? this.tags,
-      isActive: isActive ?? this.isActive,
-      isFeatured: isFeatured ?? this.isFeatured,
     );
   }
 
@@ -80,12 +103,11 @@ class Product {
             slug == other.slug &&
             categoryId == other.categoryId &&
             brandId == other.brandId &&
+            shortDescription == other.shortDescription &&
             description == other.description &&
-            _listEquals(images, other.images) &&
-            _listEquals(variants, other.variants) &&
-            _listEquals(tags, other.tags) &&
-            isActive == other.isActive &&
-            isFeatured == other.isFeatured;
+            status == other.status &&
+            isFeatured == other.isFeatured &&
+            publishedAt == other.publishedAt;
   }
 
   @override
@@ -95,26 +117,10 @@ class Product {
     slug,
     categoryId,
     brandId,
+    shortDescription,
     description,
-    Object.hashAll(images),
-    Object.hashAll(variants),
-    Object.hashAll(tags),
-    isActive,
+    status,
     isFeatured,
+    publishedAt,
   );
-}
-
-bool _listEquals<T>(List<T> a, List<T> b) {
-  if (identical(a, b)) {
-    return true;
-  }
-  if (a.length != b.length) {
-    return false;
-  }
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) {
-      return false;
-    }
-  }
-  return true;
 }

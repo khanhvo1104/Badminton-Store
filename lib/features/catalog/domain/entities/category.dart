@@ -7,7 +7,8 @@ class Category {
     required this.name,
     required this.slug,
     this.parentId,
-    this.imageUrl,
+    this.description,
+    this.imagePath,
     this.sortOrder = 0,
     this.isActive = true,
   });
@@ -16,7 +17,8 @@ class Category {
   final String name;
   final String slug;
   final String? parentId;
-  final String? imageUrl;
+  final String? description;
+  final String? imagePath;
   final int sortOrder;
   final bool isActive;
 
@@ -25,7 +27,8 @@ class Category {
     String? name,
     String? slug,
     String? parentId,
-    String? imageUrl,
+    String? description,
+    String? imagePath,
     int? sortOrder,
     bool? isActive,
   }) {
@@ -34,7 +37,8 @@ class Category {
       name: name ?? this.name,
       slug: slug ?? this.slug,
       parentId: parentId ?? this.parentId,
-      imageUrl: imageUrl ?? this.imageUrl,
+      description: description ?? this.description,
+      imagePath: imagePath ?? this.imagePath,
       sortOrder: sortOrder ?? this.sortOrder,
       isActive: isActive ?? this.isActive,
     );
@@ -49,12 +53,21 @@ class Category {
             name == other.name &&
             slug == other.slug &&
             parentId == other.parentId &&
-            imageUrl == other.imageUrl &&
+            description == other.description &&
+            imagePath == other.imagePath &&
             sortOrder == other.sortOrder &&
             isActive == other.isActive;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, slug, parentId, imageUrl, sortOrder, isActive);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    slug,
+    parentId,
+    description,
+    imagePath,
+    sortOrder,
+    isActive,
+  );
 }

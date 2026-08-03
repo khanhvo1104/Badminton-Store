@@ -1,62 +1,75 @@
 import 'package:meta/meta.dart';
 
+/// Vietnam-oriented shipping address (`public.addresses`).
 @immutable
 class Address {
   const Address({
     required this.id,
     required this.userId,
-    required this.fullName,
-    required this.phone,
-    required this.line1,
-    required this.city,
-    required this.countryCode,
-    this.line2,
-    this.district,
-    this.postalCode,
+    required this.recipientName,
+    required this.phoneNumber,
+    required this.provinceName,
+    required this.districtName,
+    required this.wardName,
+    required this.streetAddress,
+    this.provinceCode,
+    this.districtCode,
+    this.wardCode,
+    this.addressNote,
     this.isDefault = false,
-    this.label,
+    this.createdAt,
+    this.updatedAt,
   });
 
   final String id;
   final String userId;
-  final String fullName;
-  final String phone;
-  final String line1;
-  final String? line2;
-  final String? district;
-  final String city;
-  final String? postalCode;
-  final String countryCode;
+  final String recipientName;
+  final String phoneNumber;
+  final String? provinceCode;
+  final String provinceName;
+  final String? districtCode;
+  final String districtName;
+  final String? wardCode;
+  final String wardName;
+  final String streetAddress;
+  final String? addressNote;
   final bool isDefault;
-  final String? label;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   Address copyWith({
     String? id,
     String? userId,
-    String? fullName,
-    String? phone,
-    String? line1,
-    String? line2,
-    String? district,
-    String? city,
-    String? postalCode,
-    String? countryCode,
+    String? recipientName,
+    String? phoneNumber,
+    String? provinceCode,
+    String? provinceName,
+    String? districtCode,
+    String? districtName,
+    String? wardCode,
+    String? wardName,
+    String? streetAddress,
+    String? addressNote,
     bool? isDefault,
-    String? label,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return Address(
       id: id ?? this.id,
       userId: userId ?? this.userId,
-      fullName: fullName ?? this.fullName,
-      phone: phone ?? this.phone,
-      line1: line1 ?? this.line1,
-      line2: line2 ?? this.line2,
-      district: district ?? this.district,
-      city: city ?? this.city,
-      postalCode: postalCode ?? this.postalCode,
-      countryCode: countryCode ?? this.countryCode,
+      recipientName: recipientName ?? this.recipientName,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      provinceCode: provinceCode ?? this.provinceCode,
+      provinceName: provinceName ?? this.provinceName,
+      districtCode: districtCode ?? this.districtCode,
+      districtName: districtName ?? this.districtName,
+      wardCode: wardCode ?? this.wardCode,
+      wardName: wardName ?? this.wardName,
+      streetAddress: streetAddress ?? this.streetAddress,
+      addressNote: addressNote ?? this.addressNote,
       isDefault: isDefault ?? this.isDefault,
-      label: label ?? this.label,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -67,31 +80,37 @@ class Address {
             runtimeType == other.runtimeType &&
             id == other.id &&
             userId == other.userId &&
-            fullName == other.fullName &&
-            phone == other.phone &&
-            line1 == other.line1 &&
-            line2 == other.line2 &&
-            district == other.district &&
-            city == other.city &&
-            postalCode == other.postalCode &&
-            countryCode == other.countryCode &&
+            recipientName == other.recipientName &&
+            phoneNumber == other.phoneNumber &&
+            provinceCode == other.provinceCode &&
+            provinceName == other.provinceName &&
+            districtCode == other.districtCode &&
+            districtName == other.districtName &&
+            wardCode == other.wardCode &&
+            wardName == other.wardName &&
+            streetAddress == other.streetAddress &&
+            addressNote == other.addressNote &&
             isDefault == other.isDefault &&
-            label == other.label;
+            createdAt == other.createdAt &&
+            updatedAt == other.updatedAt;
   }
 
   @override
   int get hashCode => Object.hash(
     id,
     userId,
-    fullName,
-    phone,
-    line1,
-    line2,
-    district,
-    city,
-    postalCode,
-    countryCode,
+    recipientName,
+    phoneNumber,
+    provinceCode,
+    provinceName,
+    districtCode,
+    districtName,
+    wardCode,
+    wardName,
+    streetAddress,
+    addressNote,
     isDefault,
-    label,
+    createdAt,
+    updatedAt,
   );
 }

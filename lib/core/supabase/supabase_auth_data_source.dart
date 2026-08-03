@@ -1,8 +1,15 @@
+import 'package:base_project/shared/data/models/user_model.dart';
+
 /// Contract for Supabase Auth operations.
-///
-/// Implementations will wrap `supabase.auth` in a later milestone.
-/// No methods are implemented in Shop Foundation.
 abstract interface class SupabaseAuthDataSource {
-  // Session restore, sign-in, sign-up, sign-out, and token refresh
-  // will be declared when the auth backend is connected.
+  Future<UserModel> signInWithPassword({
+    required String email,
+    required String password,
+  });
+
+  Future<UserModel?> getCurrentUser();
+
+  String? get currentAccessToken;
+
+  Future<void> signOut();
 }

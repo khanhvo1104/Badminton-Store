@@ -1,5 +1,4 @@
 import 'package:base_project/app/theme/app_spacing.dart';
-import 'package:base_project/core/config/demo_credentials.dart';
 import 'package:base_project/core/config/environment_provider.dart';
 import 'package:base_project/core/ui/glass/glass_background.dart';
 import 'package:base_project/core/ui/glass/glass_card.dart';
@@ -59,16 +58,12 @@ class LoginPage extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Demo account',
+                                'Supabase account',
                                 style: theme.textTheme.titleMedium,
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Email: ${DemoCredentials.email}',
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                              Text(
-                                'Password: ${DemoCredentials.password}',
+                                'Use a valid email/password from your Supabase project.',
                                 style: theme.textTheme.bodyMedium,
                               ),
                             ],

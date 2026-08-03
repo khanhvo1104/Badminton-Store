@@ -1,60 +1,98 @@
 import 'package:meta/meta.dart';
 
-/// Sellable SKU under a product. Carries price and inventory hooks.
+/// Sellable SKU (`public.product_variants`).
+///
+/// [price] maps from `numeric(14,2)` VND (whole units in practice).
+/// Stock comes from inventory / `get_variant_availability`, not this row.
 @immutable
 class ProductVariant {
   const ProductVariant({
     required this.id,
     required this.productId,
     required this.sku,
-    required this.priceAmount,
-    required this.currencyCode,
-    this.compareAtAmount,
+    required this.price,
+    this.name,
+    this.colorName,
+    this.colorHex,
+    this.racketWeightClass,
+    this.gripSize,
+    this.shoeSize,
+    this.clothingSize,
+    this.unit = 'item',
+    this.compareAtPrice,
     this.attributes = const {},
-    this.stockQuantity = 0,
+    this.isDefault = false,
     this.isActive = true,
+    this.availableQuantity,
+    this.sortOrder = 0,
   });
 
   final String id;
   final String productId;
   final String sku;
+  final String? name;
+  final String? colorName;
+  final String? colorHex;
+  final String? racketWeightClass;
+  final String? gripSize;
+  final String? shoeSize;
+  final String? clothingSize;
+  final String unit;
 
-  /// Price in minor units for [currencyCode] (e.g. VND whole units).
-  final int priceAmount;
-  final String currencyCode;
-  final int? compareAtAmount;
-
-  /// Variant options such as `{'size': '42', 'color': 'White'}`.
-  final Map<String, String> attributes;
-  final int stockQuantity;
+  /// VND amount from `product_variants.price` (no float).
+  final double price;
+  final double? compareAtPrice;
+  final Map<String, Object?> attributes;
+  final bool isDefault;
   final bool isActive;
+  final int sortOrder;
 
-  bool get isInStock => stockQuantity > 0;
+  /// Populated from public availability RPC/view — not stored on the variant.
+  final int? availableQuantity;
 
-  bool get hasDiscount =>
-      compareAtAmount != null && compareAtAmount! > priceAmount;
+  bool get isInStock => (availableQuantity ?? 0) > 0;
+
+  bool get hasDiscount => compareAtPrice != null && compareAtPrice! > price;
 
   ProductVariant copyWith({
     String? id,
     String? productId,
     String? sku,
-    int? priceAmount,
-    String? currencyCode,
-    int? compareAtAmount,
-    Map<String, String>? attributes,
-    int? stockQuantity,
+    String? name,
+    String? colorName,
+    String? colorHex,
+    String? racketWeightClass,
+    String? gripSize,
+    String? shoeSize,
+    String? clothingSize,
+    String? unit,
+    double? price,
+    double? compareAtPrice,
+    Map<String, Object?>? attributes,
+    bool? isDefault,
     bool? isActive,
+    int? availableQuantity,
+    int? sortOrder,
   }) {
     return ProductVariant(
       id: id ?? this.id,
       productId: productId ?? this.productId,
       sku: sku ?? this.sku,
-      priceAmount: priceAmount ?? this.priceAmount,
-      currencyCode: currencyCode ?? this.currencyCode,
-      compareAtAmount: compareAtAmount ?? this.compareAtAmount,
+      name: name ?? this.name,
+      colorName: colorName ?? this.colorName,
+      colorHex: colorHex ?? this.colorHex,
+      racketWeightClass: racketWeightClass ?? this.racketWeightClass,
+      gripSize: gripSize ?? this.gripSize,
+      shoeSize: shoeSize ?? this.shoeSize,
+      clothingSize: clothingSize ?? this.clothingSize,
+      unit: unit ?? this.unit,
+      price: price ?? this.price,
+      compareAtPrice: compareAtPrice ?? this.compareAtPrice,
       attributes: attributes ?? this.attributes,
-      stockQuantity: stockQuantity ?? this.stockQuantity,
+      isDefault: isDefault ?? this.isDefault,
       isActive: isActive ?? this.isActive,
+      availableQuantity: availableQuantity ?? this.availableQuantity,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 
@@ -66,11 +104,9 @@ class ProductVariant {
             id == other.id &&
             productId == other.productId &&
             sku == other.sku &&
-            priceAmount == other.priceAmount &&
-            currencyCode == other.currencyCode &&
-            compareAtAmount == other.compareAtAmount &&
-            _mapEquals(attributes, other.attributes) &&
-            stockQuantity == other.stockQuantity &&
+            price == other.price &&
+            compareAtPrice == other.compareAtPrice &&
+            isDefault == other.isDefault &&
             isActive == other.isActive;
   }
 
@@ -79,26 +115,9 @@ class ProductVariant {
     id,
     productId,
     sku,
-    priceAmount,
-    currencyCode,
-    compareAtAmount,
-    Object.hashAll(attributes.entries.map((e) => Object.hash(e.key, e.value))),
-    stockQuantity,
+    price,
+    compareAtPrice,
+    isDefault,
     isActive,
   );
-}
-
-bool _mapEquals(Map<String, String> a, Map<String, String> b) {
-  if (identical(a, b)) {
-    return true;
-  }
-  if (a.length != b.length) {
-    return false;
-  }
-  for (final entry in a.entries) {
-    if (b[entry.key] != entry.value) {
-      return false;
-    }
-  }
-  return true;
 }

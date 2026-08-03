@@ -37,6 +37,9 @@ class ProductCard extends StatelessWidget {
     final theme = Theme.of(context);
     final hasDiscount =
         compareAtAmount != null && compareAtAmount! > priceAmount;
+    final hasRenderableImage =
+        imageUrl != null &&
+        (imageUrl!.startsWith('http://') || imageUrl!.startsWith('https://'));
 
     return GlassCard(
       variant: GlassCardVariant.interactive,
@@ -56,7 +59,7 @@ class ProductCard extends StatelessWidget {
                           .withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: imageUrl == null
+                    child: !hasRenderableImage
                         ? Icon(
                             Icons.sports_tennis,
                             size: ImageSizes.thumbnail,

@@ -1,23 +1,23 @@
+import 'dart:async';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 /// Observes and exposes the current Supabase auth session state.
-///
-/// Shop Foundation only defines the contract. No Auth listeners are attached.
 abstract interface class SupabaseSessionManager {
   /// Whether a persisted session is considered active.
   bool get hasSession;
 
-  /// Current access token, if any. Null until Auth is wired.
+  /// Current access token, if any.
   String? get accessToken;
 
   /// Starts listening for auth state changes.
-  ///
-  /// Must be a no-op until the Supabase client is initialized.
   Future<void> start();
 
   /// Stops listeners and clears in-memory session mirrors.
   Future<void> stop();
 }
 
-/// Placeholder session manager used before Supabase Auth is connected.
+/// Placeholder when Supabase has not been initialized.
 final class PendingSupabaseSessionManager implements SupabaseSessionManager {
   @override
   bool get hasSession => false;
@@ -30,4 +30,30 @@ final class PendingSupabaseSessionManager implements SupabaseSessionManager {
 
   @override
   Future<void> stop() async {}
+}
+
+/// Session mirror backed by [SupabaseClient.auth].
+final class SupabaseAuthSessionManager implements SupabaseSessionManager {
+  SupabaseAuthSessionManager(this._client);
+
+  final SupabaseClient _client;
+  StreamSubscription<AuthState>? _subscription;
+
+  @override
+  bool get hasSession => _client.auth.currentSession != null;
+
+  @override
+  String? get accessToken => _client.auth.currentSession?.accessToken;
+
+  @override
+  Future<void> start() async {
+    await _subscription?.cancel();
+    _subscription = _client.auth.onAuthStateChange.listen((_) {});
+  }
+
+  @override
+  Future<void> stop() async {
+    await _subscription?.cancel();
+    _subscription = null;
+  }
 }

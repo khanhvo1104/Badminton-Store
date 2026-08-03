@@ -1,4 +1,3 @@
-import 'package:base_project/shared/widgets/shop_placeholder_page.dart';
 import 'package:flutter/material.dart';
 
 class CheckoutPage extends StatelessWidget {
@@ -6,10 +5,19 @@ class CheckoutPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ShopPlaceholderPage(
-      title: 'Checkout',
-      subtitle: 'Address, shipping, and payment will live here.',
-      showBackButton: true,
+    return Scaffold(
+      appBar: AppBar(title: const Text('Checkout')),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Checkout vẫn đang bị khóa trong app vì schema hiện tại chỉ cho phép '
+            'tạo order qua trusted RPC/backend flow. Chưa thể ghi trực tiếp vào '
+            'orders từ client mà vẫn đảm bảo an toàn giá, tồn kho và lịch sử trạng thái.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
     );
   }
 }

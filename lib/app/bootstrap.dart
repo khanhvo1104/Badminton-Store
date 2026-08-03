@@ -3,6 +3,8 @@ import 'package:base_project/core/config/app_environment.dart';
 import 'package:base_project/core/config/environment_provider.dart';
 import 'package:base_project/core/logging/app_logger.dart';
 import 'package:base_project/core/storage/storage_providers.dart';
+import 'package:base_project/core/supabase/supabase_initializer.dart';
+import 'package:base_project/core/supabase/supabase_providers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -35,11 +37,16 @@ Future<void> bootstrap(AppEnvironment environment) async {
     return true;
   };
 
+  final supabaseConfig = loadSupabaseConfig(environment);
+  final supabaseInitializer = FlutterSupabaseInitializer(startupLogger);
+  await supabaseInitializer.initialize(supabaseConfig);
+
   runApp(
     ProviderScope(
       overrides: [
         appEnvironmentProvider.overrideWithValue(environment),
         sharedPreferencesProvider.overrideWithValue(preferences),
+        supabaseInitializerProvider.overrideWithValue(supabaseInitializer),
       ],
       child: const App(),
     ),

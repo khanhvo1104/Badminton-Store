@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local secrets (publishable key may live in env assets; never commit service_role)
+.env.development
+.env.staging
+.env.production
+.env.local
+
+# Local Supabase CLI binary / temp
+.tools/
+supabase/.temp/
+.tools

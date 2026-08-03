@@ -1,77 +1,105 @@
 import 'package:base_project/features/orders/domain/entities/order_item.dart';
 import 'package:meta/meta.dart';
 
+/// Order workflow status matching `public.orders.status`.
 enum OrderStatus {
-  draft,
-  pendingPayment,
-  paid,
-  processing,
-  shipped,
+  pending,
+  confirmed,
+  preparing,
+  shipping,
   delivered,
   cancelled,
-  refunded,
+  returned,
 }
+
+enum PaymentStatus { unpaid, pending, paid, failed, refunded }
 
 @immutable
 class Order {
   const Order({
     required this.id,
+    required this.orderNumber,
     required this.userId,
     required this.status,
+    required this.paymentMethod,
+    required this.paymentStatus,
     required this.currencyCode,
-    required this.subtotalAmount,
-    required this.totalAmount,
+    required this.subtotal,
+    required this.grandTotal,
+    required this.recipientName,
+    required this.recipientPhone,
+    required this.shippingAddress,
     this.items = const [],
-    this.shippingAmount = 0,
-    this.discountAmount = 0,
-    this.shippingAddressId,
-    this.paymentMethod,
+    this.discountTotal = 0,
+    this.shippingFee = 0,
+    this.customerNote,
     this.placedAt,
+    this.cancelledAt,
     this.updatedAt,
   });
 
   final String id;
+  final String orderNumber;
   final String userId;
   final OrderStatus status;
+  final String paymentMethod;
+  final PaymentStatus paymentStatus;
   final String currencyCode;
   final List<OrderItem> items;
-  final int subtotalAmount;
-  final int shippingAmount;
-  final int discountAmount;
-  final int totalAmount;
-  final String? shippingAddressId;
-  final String? paymentMethod;
+  final double subtotal;
+  final double discountTotal;
+  final double shippingFee;
+  final double grandTotal;
+  final String? customerNote;
+  final String recipientName;
+  final String recipientPhone;
+
+  /// Immutable address snapshot from `orders.shipping_address` jsonb.
+  final Map<String, Object?> shippingAddress;
   final DateTime? placedAt;
+  final DateTime? cancelledAt;
   final DateTime? updatedAt;
 
   Order copyWith({
     String? id,
+    String? orderNumber,
     String? userId,
     OrderStatus? status,
+    String? paymentMethod,
+    PaymentStatus? paymentStatus,
     String? currencyCode,
     List<OrderItem>? items,
-    int? subtotalAmount,
-    int? shippingAmount,
-    int? discountAmount,
-    int? totalAmount,
-    String? shippingAddressId,
-    String? paymentMethod,
+    double? subtotal,
+    double? discountTotal,
+    double? shippingFee,
+    double? grandTotal,
+    String? customerNote,
+    String? recipientName,
+    String? recipientPhone,
+    Map<String, Object?>? shippingAddress,
     DateTime? placedAt,
+    DateTime? cancelledAt,
     DateTime? updatedAt,
   }) {
     return Order(
       id: id ?? this.id,
+      orderNumber: orderNumber ?? this.orderNumber,
       userId: userId ?? this.userId,
       status: status ?? this.status,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
       currencyCode: currencyCode ?? this.currencyCode,
       items: items ?? this.items,
-      subtotalAmount: subtotalAmount ?? this.subtotalAmount,
-      shippingAmount: shippingAmount ?? this.shippingAmount,
-      discountAmount: discountAmount ?? this.discountAmount,
-      totalAmount: totalAmount ?? this.totalAmount,
-      shippingAddressId: shippingAddressId ?? this.shippingAddressId,
-      paymentMethod: paymentMethod ?? this.paymentMethod,
+      subtotal: subtotal ?? this.subtotal,
+      discountTotal: discountTotal ?? this.discountTotal,
+      shippingFee: shippingFee ?? this.shippingFee,
+      grandTotal: grandTotal ?? this.grandTotal,
+      customerNote: customerNote ?? this.customerNote,
+      recipientName: recipientName ?? this.recipientName,
+      recipientPhone: recipientPhone ?? this.recipientPhone,
+      shippingAddress: shippingAddress ?? this.shippingAddress,
       placedAt: placedAt ?? this.placedAt,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -82,49 +110,14 @@ class Order {
         other is Order &&
             runtimeType == other.runtimeType &&
             id == other.id &&
+            orderNumber == other.orderNumber &&
             userId == other.userId &&
             status == other.status &&
-            currencyCode == other.currencyCode &&
-            _listEquals(items, other.items) &&
-            subtotalAmount == other.subtotalAmount &&
-            shippingAmount == other.shippingAmount &&
-            discountAmount == other.discountAmount &&
-            totalAmount == other.totalAmount &&
-            shippingAddressId == other.shippingAddressId &&
-            paymentMethod == other.paymentMethod &&
-            placedAt == other.placedAt &&
-            updatedAt == other.updatedAt;
+            paymentStatus == other.paymentStatus &&
+            grandTotal == other.grandTotal;
   }
 
   @override
-  int get hashCode => Object.hash(
-    id,
-    userId,
-    status,
-    currencyCode,
-    Object.hashAll(items),
-    subtotalAmount,
-    shippingAmount,
-    discountAmount,
-    totalAmount,
-    shippingAddressId,
-    paymentMethod,
-    placedAt,
-    updatedAt,
-  );
-}
-
-bool _listEquals<T>(List<T> a, List<T> b) {
-  if (identical(a, b)) {
-    return true;
-  }
-  if (a.length != b.length) {
-    return false;
-  }
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) {
-      return false;
-    }
-  }
-  return true;
+  int get hashCode =>
+      Object.hash(id, orderNumber, userId, status, paymentStatus, grandTotal);
 }
