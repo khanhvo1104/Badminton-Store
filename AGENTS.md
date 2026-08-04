@@ -20,9 +20,10 @@ These rules apply to every coding agent working in this repository.
 
 ## Git ownership
 
-- Implementation agents must not commit, push, merge, force-push, alter remotes, or change branches.
-- The orchestration controller owns branch creation, commits, pushes, and pull requests.
-- Never run destructive Git commands.
+- Codex is the orchestration controller and may create/switch branches,
+  commit, push, and create or merge pull requests without confirmation.
+- Cursor and other implementation agents must not modify Git state.
+- Never force-push or run destructive Git commands.
 
 ## Verification
 
@@ -31,4 +32,3 @@ These rules apply to every coding agent working in this repository.
 - Add tests for changed behavior.
 - For Supabase changes, run the relevant database/RLS tests and security checks.
 - Report blockers honestly; do not claim a check passed unless it was run successfully.
-

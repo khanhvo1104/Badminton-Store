@@ -13,6 +13,13 @@
       "title": "Audit current application readiness",
       "task_file": ".automation/tasks/TASK-001-audit.md",
       "risk": "low",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-002",
+      "title": "Protect product variant cost price",
+      "task_file": ".automation/tasks/TASK-002-protect-variant-cost-price.md",
+      "risk": "high",
       "status": "ready"
     }
   ]
