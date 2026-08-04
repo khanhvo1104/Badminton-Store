@@ -73,7 +73,7 @@
 ### P1-1. Checkout UI intentionally locked (trusted backend complete)
 
 - **Backend (TASK-004 — complete):**
-  - Migration: `supabase/migrations/20260804150415_trusted_cod_checkout.sql` — `public.checkout_cod(uuid, text) returns uuid` (`SECURITY DEFINER`, `search_path = ''`) plus `cart_items_enforce_active_cart` trigger to reject post-conversion phantom `cart_items` inserts. Reprices from `product_variants.price`, reserves inventory, snapshots order/items/address, converts active cart; COD-only constants (`unpaid`, zero discount/shipping).
+  - Migration: `supabase/migrations/20260804153740_trusted_cod_checkout.sql` — `public.checkout_cod(uuid, text) returns uuid` (`SECURITY DEFINER`, `search_path = ''`) plus `cart_items_enforce_active_cart` trigger to reject post-conversion phantom `cart_items` inserts. Reprices from `product_variants.price`, reserves inventory, snapshots order/items/address, converts active cart; COD-only constants (`unpaid`, zero discount/shipping).
   - Grants: `EXECUTE` for `authenticated` + `service_role` only; revoked from `PUBLIC`/`anon`. Still rejects null `auth.uid()`.
   - Regression: `supabase/tests/database/03_trusted_cod_checkout.sql` — authz, ownership, validation rollback, totals/snapshots, reservation, backorder, idempotent retry, converted-cart insert denial; `03_trusted_cod_checkout_concurrency.sh` — two-session phantom insert vs checkout.
   - Docs: `docs/backend/checkout_security.md` describes the RPC contract (not an Edge Function / not a Flutter service-role key).
@@ -190,7 +190,7 @@ Small, dependency-ordered backlog (each should be its own implementation task):
 
 1. ~~**Hide `cost_price` from public API**~~ — **done in TASK-002** (`20260804145709_protect_product_variant_cost_price.sql`, `02_product_variant_cost_price.sql`, explicit Flutter variant select).
 2. **Executable RLS/storage/RPC/privilege test suite** — replace/extend `01_rls_checklist.sql` with runnable tests (`P1-2`); do this before further policy edits.
-3. ~~**Trusted checkout backend**~~ — **done in TASK-004** (`20260804150415_trusted_cod_checkout.sql`, `03_trusted_cod_checkout.sql`, `docs/backend/checkout_security.md`). Flutter UI remains locked.
+3. ~~**Trusted checkout backend**~~ — **done in TASK-004** (`20260804153740_trusted_cod_checkout.sql`, `03_trusted_cod_checkout.sql`, `docs/backend/checkout_security.md`). Flutter UI remains locked.
 4. **Wire checkout UI to trusted API** — flip `checkoutReadyProvider`, call `checkout_cod`, address selection, error/loading states; keep client totals display-only.
 5. **Profile navigation hub** — links to settings (logout), orders, addresses; optional notifications placeholder (`P1-4`).
 6. **Bootstrap configuration failure UX** — clear error when Supabase env missing instead of composition-root `StateError` (`P1-5`).
@@ -208,7 +208,7 @@ Any future schema change must use a **new** Supabase CLI migration and include d
 | Check | Result |
 |-------|--------|
 | TASK-001 baseline | Historical: `flutter analyze` / `flutter test` passed during audit authoring |
-| `supabase db reset` (local disposable) | Passed — applied through `20260804150415_trusted_cod_checkout.sql` + seed |
+| `supabase db reset` (local disposable) | Passed — applied through `20260804153740_trusted_cod_checkout.sql` + seed |
 | `00_constraints.sql` | Passed (duplicate-slug probe uses seeded `vot-cau-long`; non-seeded `rackets` does not collide) |
 | `01_rls_checklist.sql` | Passed (comment checklist smoke) |
 | `02_product_variant_cost_price.sql` | Passed |
