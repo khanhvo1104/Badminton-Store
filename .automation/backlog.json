@@ -20,6 +20,13 @@
       "title": "Protect product variant cost price",
       "task_file": ".automation/tasks/TASK-002-protect-variant-cost-price.md",
       "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-004",
+      "title": "Build trusted COD checkout backend",
+      "task_file": ".automation/tasks/TASK-004-trusted-checkout-backend.md",
+      "risk": "high",
       "status": "ready"
     }
   ]
