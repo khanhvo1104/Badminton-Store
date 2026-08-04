@@ -4,12 +4,15 @@
 
 \echo '== constraint smoke tests =='
 
--- Duplicate category slug must fail
+-- Duplicate category slug must fail.
+-- Canonical seed slug is `vot-cau-long` (see seed_initial_catalog / seed.sql).
+-- Using a non-seeded slug such as `rackets` would INSERT successfully and fail
+-- this smoke test after `supabase db reset`.
 do $$
 begin
   begin
     insert into public.categories (name, slug)
-    values ('Dup', 'rackets');
+    values ('Dup', 'vot-cau-long');
     raise exception 'EXPECTED FAIL: duplicate category slug';
   exception
     when unique_violation then
