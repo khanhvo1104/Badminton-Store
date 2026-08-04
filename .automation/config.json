@@ -7,6 +7,7 @@
   "flutter_sdk": "/Users/khanhvo/.local/share/flutter",
   "cursor_model": null,
   "max_fix_attempts": 2,
+  "review_diff_context_lines": 5,
   "auto_push": true,
   "auto_create_pr": true,
   "auto_merge": false,

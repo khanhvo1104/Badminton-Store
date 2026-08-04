@@ -52,6 +52,18 @@ The controller will:
 
 Run artifacts are written under `.automation/runs/` and ignored by Git.
 
+## Token-efficient reviews
+
+The first Codex review receives the complete task diff with a small amount of
+surrounding context. If changes are requested, later reviews receive only the
+commits added since the previous review plus the prior blocking findings.
+Unchanged files are not re-audited; repository-wide path and secret checks
+still run on every attempt.
+
+Cursor's complete stream-json transcript is retained under `.automation/runs/`
+for diagnostics. The controller prints only short assistant updates so file
+contents, tool traces, and test logs do not inflate the parent Codex context.
+
 ## Backlog
 
 `.automation/backlog.json` is the durable queue. A scheduler may select the first `ready` task and invoke the controller. Initially, run one task manually to validate authentication and tool paths before enabling a scheduler.

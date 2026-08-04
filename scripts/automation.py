@@ -223,8 +223,28 @@ def invoke_cursor(config: dict, prompt: str, log_path: Path) -> None:
         )
         assert process.stdout is not None
         for line in process.stdout:
-            print(line, end="")
             log.write(line)
+            # Cursor's stream-json output contains thoughts, full file contents,
+            # diffs, and command output. Persist that detail for diagnostics but
+            # keep the controller console small so it does not become Codex
+            # conversation context. Only surface short developer-facing updates.
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") != "assistant":
+                continue
+            content = event.get("message", {}).get("content", [])
+            messages = [
+                item.get("text", "").strip()
+                for item in content
+                if item.get("type") == "text" and item.get("text", "").strip()
+            ]
+            if messages:
+                update = " ".join(messages)
+                if len(update) > 800:
+                    update = update[:797] + "..."
+                print(f"Cursor: {update}", flush=True)
         if process.wait() != 0:
             raise AutomationError("Cursor Agent failed; see run log")
 
@@ -335,6 +355,8 @@ def run_task(task_path: Path) -> None:
         + json.dumps(plan, indent=2)
     )
     feedback = ""
+    previous_review: dict | None = None
+    reviewed_head = protected_head
     approved = False
     for attempt in range(config["max_fix_attempts"] + 1):
         cursor_prompt = base_cursor_prompt
@@ -371,14 +393,43 @@ def run_task(task_path: Path) -> None:
             ["gh", "pr", "view", pr_url, "--json", "body", "--jq", ".body"],
             capture=True,
         ).stdout
-        diff = git("diff", "--no-ext-diff", "--unified=80", protected_head, "HEAD")
-        review_prompt = (
-            (AUTOMATION / "prompts/codex_reviewer.md").read_text(encoding="utf-8")
-            + "\n\nACTIVE TASK:\n" + task_text
-            + "\n\nPLAN:\n" + json.dumps(plan, indent=2)
-            + "\n\nQUALITY GATES:\n" + quality
-            + "\n\nDIFF:\n" + diff
+        current_head = git("rev-parse", "HEAD")
+        context_lines = int(config.get("review_diff_context_lines", 5))
+        diff = git(
+            "diff",
+            "--no-ext-diff",
+            f"--unified={context_lines}",
+            reviewed_head,
+            current_head,
         )
+        reviewer_rules = (AUTOMATION / "prompts/codex_reviewer.md").read_text(
+            encoding="utf-8"
+        )
+        if attempt == 0:
+            review_prompt = (
+                reviewer_rules
+                + "\n\nACTIVE TASK:\n" + task_text
+                + "\n\nPLAN:\n" + json.dumps(plan, separators=(",", ":"))
+                + "\n\nQUALITY GATES:\n" + quality
+                + "\n\nTASK DIFF:\n" + diff
+            )
+        else:
+            if not diff.strip():
+                raise AutomationError(
+                    "Cursor did not commit a change after Codex requested fixes"
+                )
+            review_prompt = (
+                reviewer_rules
+                + "\n\nFOLLOW-UP REVIEW MODE:\n"
+                "Review only the incremental diff below and verify that every "
+                "previous blocking finding was resolved. Do not re-review "
+                "unchanged files or rediscover unrelated findings. Repository-wide "
+                "scope and secret checks are enforced separately by the controller."
+                + "\n\nPREVIOUS REVIEW:\n"
+                + json.dumps(previous_review, separators=(",", ":"))
+                + "\n\nQUALITY GATES:\n" + quality
+                + "\n\nINCREMENTAL DIFF:\n" + diff
+            )
         review_path = run_dir / f"review-attempt-{attempt + 1}.json"
         review = invoke_codex(
             config, review_prompt, AUTOMATION / "schemas/review.schema.json", review_path
@@ -387,6 +438,8 @@ def run_task(task_path: Path) -> None:
             approved = True
             break
         post_review_feedback(pr_url, review["blocking_findings"])
+        previous_review = review
+        reviewed_head = current_head
         feedback = "Codex review requested changes:\n- " + "\n- ".join(
             review["blocking_findings"]
         )
