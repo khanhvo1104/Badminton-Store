@@ -9,11 +9,16 @@ import 'package:base_project/features/cart/di/cart_providers.dart';
 import 'package:base_project/features/cart/domain/entities/cart.dart';
 import 'package:base_project/features/cart/domain/entities/cart_item.dart';
 import 'package:base_project/features/cart/domain/repositories/cart_repository.dart';
+import 'package:base_project/features/cart/presentation/views/cart_page.dart';
 import 'package:base_project/features/checkout/data/repositories/supabase_checkout_repository.dart';
 import 'package:base_project/features/checkout/di/checkout_providers.dart';
 import 'package:base_project/features/checkout/domain/repositories/checkout_repository.dart';
 import 'package:base_project/features/checkout/presentation/view_models/checkout_state.dart';
 import 'package:base_project/features/checkout/presentation/view_models/checkout_view_model.dart';
+import 'package:base_project/features/orders/di/orders_providers.dart';
+import 'package:base_project/features/orders/domain/entities/order.dart';
+import 'package:base_project/features/orders/domain/repositories/order_repository.dart';
+import 'package:base_project/features/orders/presentation/views/orders_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -25,6 +30,8 @@ class _MockCartRepository extends Mock implements CartRepository {}
 class _MockAddressRepository extends Mock implements AddressRepository {}
 
 class _MockCheckoutRepository extends Mock implements CheckoutRepository {}
+
+class _MockOrderRepository extends Mock implements OrderRepository {}
 
 const _orderId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
@@ -277,6 +284,80 @@ void main() {
           customerNote: '  note  ',
         ),
       ).called(1);
+    },
+  );
+
+  test(
+    'successful submit invalidates cartProvider and ordersProvider',
+    () async {
+      var cartReads = 0;
+      var orderReads = 0;
+      final orderRepository = _MockOrderRepository();
+
+      when(() => cartRepository.getCart()).thenAnswer((_) async {
+        cartReads++;
+        return Success(_cartWithItems());
+      });
+      when(() => addressRepository.list()).thenAnswer(
+        (_) async => Success([_address(id: 'addr-1', isDefault: true)]),
+      );
+      when(
+        () => checkoutRepository.checkoutCod(
+          shippingAddressId: any(named: 'shippingAddressId'),
+          customerNote: any(named: 'customerNote'),
+        ),
+      ).thenAnswer((_) async => const Success(_orderId));
+      when(() => orderRepository.list(pageSize: 50)).thenAnswer((_) async {
+        orderReads++;
+        return const Success(<Order>[]);
+      });
+
+      final container = await createTestContainer(
+        overrides: [
+          cartRepositoryProvider.overrideWithValue(cartRepository),
+          addressRepositoryProvider.overrideWithValue(addressRepository),
+          checkoutRepositoryProvider.overrideWithValue(checkoutRepository),
+          orderRepositoryProvider.overrideWithValue(orderRepository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Keep autoDispose FutureProviders alive so invalidation is observable.
+      final cartSub = container.listen(cartProvider, (_, __) {});
+      final ordersSub = container.listen(ordersProvider, (_, __) {});
+      addTearDown(cartSub.close);
+      addTearDown(ordersSub.close);
+
+      await container.read(cartProvider.future);
+      await container.read(ordersProvider.future);
+      final cartReadsAfterWarmup = cartReads;
+      final orderReadsAfterWarmup = orderReads;
+      expect(cartReadsAfterWarmup, greaterThanOrEqualTo(1));
+      expect(orderReadsAfterWarmup, greaterThanOrEqualTo(1));
+
+      final checkoutSub = container.listen(
+        checkoutViewModelProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(checkoutSub.close);
+
+      await container.read(checkoutViewModelProvider.notifier).load();
+      expect(container.read(checkoutViewModelProvider), isA<CheckoutReady>());
+
+      final cartReadsBeforeSubmit = cartReads;
+      final orderReadsBeforeSubmit = orderReads;
+
+      await container.read(checkoutViewModelProvider.notifier).submit();
+      expect(container.read(checkoutViewModelProvider), isA<CheckoutSuccess>());
+
+      // Invalidation rebuilds listened providers; await reloads to observe.
+      await container.read(cartProvider.future);
+      await container.read(ordersProvider.future);
+
+      expect(cartReads, greaterThan(cartReadsBeforeSubmit));
+      expect(orderReads, greaterThan(orderReadsBeforeSubmit));
+      verify(() => orderRepository.list(pageSize: 50)).called(greaterThan(1));
     },
   );
 

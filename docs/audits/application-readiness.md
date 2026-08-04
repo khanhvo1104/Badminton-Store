@@ -202,11 +202,23 @@ Any future schema change must use a **new** Supabase CLI migration and include d
 
 ---
 
-## Checks run (this task)
+## Checks run
+
+### TASK-005 (this task)
 
 | Check | Result |
 |-------|--------|
-| TASK-001 baseline | Historical: `flutter analyze` / `flutter test` passed during audit authoring |
+| `dart format --output=none --set-exit-if-changed .` | Passed |
+| `flutter analyze` | Passed — no issues |
+| `flutter test` | Passed — all tests |
+| `python3 scripts/automation.py policy-check` | Passed |
+
+No remote Supabase migration or link commands were run for TASK-005. Database reset, RLS/SQL regression, concurrency, and `supabase db lint` were **not** re-run (no schema/migration changes in this task).
+
+### Historical — TASK-004 (trusted checkout backend; not re-run in TASK-005)
+
+| Check | Result |
+|-------|--------|
 | `supabase db reset` (local disposable) | Passed — applied through `20260804153740_trusted_cod_checkout.sql` + seed |
 | `00_constraints.sql` | Passed (duplicate-slug probe uses seeded `vot-cau-long`; non-seeded `rackets` does not collide) |
 | `01_rls_checklist.sql` | Passed (comment checklist smoke) |
@@ -214,12 +226,12 @@ Any future schema change must use a **new** Supabase CLI migration and include d
 | `03_trusted_cod_checkout.sql` | Passed |
 | `03_trusted_cod_checkout_concurrency.sh` | Passed — concurrent `cart_items` INSERT rejected after checkout; no phantom line |
 | `supabase db lint` (local) | Passed — no schema errors |
-| `dart format --output=none --set-exit-if-changed .` | Passed |
-| `flutter analyze` | Passed — no issues |
-| `flutter test` | Passed — all tests |
-| `python3 scripts/automation.py policy-check` | Passed |
 
-No remote Supabase migration or link commands were run for this task.
+### Historical — TASK-001 baseline
+
+| Check | Result |
+|-------|--------|
+| `flutter analyze` / `flutter test` | Passed during audit authoring |
 
 ---
 
