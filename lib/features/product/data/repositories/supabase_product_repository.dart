@@ -4,7 +4,19 @@ import 'package:base_project/features/product/data/supabase_product_mapper.dart'
 import 'package:base_project/features/product/domain/entities/product.dart';
 import 'package:base_project/features/product/domain/entities/product_variant.dart';
 import 'package:base_project/features/product/domain/repositories/product_repository.dart';
+import 'package:meta/meta.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// Safe `product_variants` projection for public/Flutter clients.
+///
+/// Must stay aligned with [productVariantFromRow] and
+/// `protect_product_variant_cost_price` (excludes `cost_price`).
+@visibleForTesting
+const supabaseProductVariantSelect =
+    'id, product_id, sku, name, color_name, color_hex, '
+    'racket_weight_class, grip_size, shoe_size, clothing_size, '
+    'unit, price, compare_at_price, attributes, is_default, '
+    'is_active, sort_order';
 
 final class SupabaseProductRepository implements ProductRepository {
   SupabaseProductRepository(this._client);
@@ -26,7 +38,7 @@ final class SupabaseProductRepository implements ProductRepository {
           .order('sort_order');
       final variantRows = await _client
           .from('product_variants')
-          .select()
+          .select(supabaseProductVariantSelect)
           .eq('product_id', id)
           .order('sort_order');
 
