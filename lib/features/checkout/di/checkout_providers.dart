@@ -1,5 +1,11 @@
+import 'package:base_project/core/supabase/supabase_providers.dart';
+import 'package:base_project/features/checkout/data/repositories/supabase_checkout_repository.dart';
+import 'package:base_project/features/checkout/domain/repositories/checkout_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Checkout DI composition root.
-/// Payment gateway adapters will be registered here in a later milestone.
-final checkoutReadyProvider = Provider<bool>((ref) => false);
+final checkoutRepositoryProvider = Provider<CheckoutRepository>((ref) {
+  return SupabaseCheckoutRepository.fromClient(
+    ref.watch(supabaseClientProvider),
+  );
+});

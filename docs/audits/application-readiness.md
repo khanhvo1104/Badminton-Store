@@ -3,14 +3,14 @@
 | Field | Value |
 |-------|--------|
 | Audit date | 2026-08-04 |
-| Task | TASK-004 (checkout backend milestone; prior baseline TASK-001) |
-| Scope | Read-only inspection of Flutter app, Supabase migrations/tests, and docs; checkout backend milestone notes below |
-| Method | Static repository review plus local disposable Supabase verification for TASK-004 |
-| Allowed change (TASK-004) | Checkout backend migration/tests + this audit's checkout sections + `docs/backend/checkout_security.md` |
+| Task | TASK-005 (Flutter checkout wiring; prior TASK-004 checkout backend) |
+| Scope | Flutter checkout UI/repository wired to `checkout_cod`; prior baseline includes TASK-004 backend |
+| Method | Implementation + Flutter analyze/test; no remote Supabase mutations |
+| Allowed change (TASK-005) | Flutter checkout feature paths, related cart/address/order/router touchpoints, checkout docs/audit notes |
 
 ## Verdict
 
-**Not release-ready for end-to-end commerce.** Auth, catalog browse, product detail, search, favorites, cart, addresses, and order *history* are wired to Supabase adapters, and table RLS is enabled in migrations. The trusted COD checkout **backend** milestone is complete (`public.checkout_cod`); Flutter checkout UI remains intentionally locked until a later client-wiring task. P0-1 (`product_variants.cost_price` public readability) is resolved via column privileges + an explicit Flutter variant select; remaining blockers are P1/P2 (Flutter checkout lock, executable RLS breadth beyond cost_price/checkout, stale ops docs, missing nav). Operational docs are materially stale relative to the implemented adapters. Database RLS verification is mostly a comment checklist, not executable tests (except the P0-1 cost_price regression and TASK-004 checkout suite).
+**Commerce MVP path is implementable end-to-end for authenticated COD.** Auth, catalog browse, product detail, search, favorites, cart, addresses, order history, and Flutter checkout UI are wired to Supabase adapters / the trusted `checkout_cod` RPC. Table RLS is enabled in migrations. Remaining blockers are mostly P1/P2 (executable RLS breadth beyond cost_price/checkout, stale ops docs outside checkout notes, missing shell nav to account routes). Database RLS verification is mostly a comment checklist, not executable tests (except the P0-1 cost_price regression and TASK-004 checkout suite).
 
 **Legend:** *Verified* = confirmed in source/migrations. *Inferred* = likely impact from wiring/docs without runtime proof.
 
@@ -27,10 +27,10 @@
 | Product detail | Push `/product/:id` | `SupabaseProductRepository` | Variants/images + availability RPC | Repository select projection | Explicit safe variant columns (P0-1 resolved) |
 | Search | Push `/search` | `SupabaseSearchRepository` | `search_products` RPC | None | Reachable from catalog app bar |
 | Favorites | Shell tab | `SupabaseFavoriteRepository` | Own-row RLS | None | |
-| Cart | Shell tab | `SupabaseCartRepository` | Own cart RLS | None | Checkout CTA navigates to locked page |
-| Checkout | Push `/checkout` | `checkoutReadyProvider` → `false` | `checkout_cod` SECURITY DEFINER RPC (TASK-004); no customer order INSERT | DB: `03_trusted_cod_checkout.sql` | **UI still locked**; backend ready |
-| Orders | Push `/orders` | `SupabaseOrderRepository` (read) | Own SELECT; staff write | None | No in-app nav link found |
-| Addresses | Push `/addresses` | `SupabaseAddressRepository` | Own CRUD RLS | None | Demo FAB create; no in-app nav link |
+| Cart | Shell tab | `SupabaseCartRepository` | Own cart RLS | None | Checkout CTA navigates to wired COD checkout |
+| Checkout | Push `/checkout` | `checkoutRepositoryProvider` → `checkout_cod` | `checkout_cod` SECURITY DEFINER RPC (TASK-004); no customer order INSERT | Repo/VM/widget tests | **Wired in TASK-005**; display totals informational only |
+| Orders | Push `/orders` | `SupabaseOrderRepository` (read) | Own SELECT; staff write | None | Reachable from checkout success; no shell nav link |
+| Addresses | Push `/addresses` | `SupabaseAddressRepository` | Own CRUD RLS | None | Reachable from checkout; demo FAB create remains |
 | Profile | Shell tab | Supabase profile DS + use case | Profile RLS + privilege trigger | Use case / VM tests | Display-name edit path |
 | Settings / logout | Push `/settings` | Appearance prefs | N/A | Appearance widget test | **No in-app nav to settings** |
 | Notifications | Push `/notifications` | `UnimplementedError` if provider read | **No notifications table** | None | UI is placeholder only (safe) |
@@ -45,7 +45,6 @@
 
 | Site | Behavior | Reachable from UI? | User impact |
 |------|----------|-------------------|-------------|
-| `lib/features/checkout/presentation/views/checkout_page.dart` + `checkout_providers.dart` | Locked message; `checkoutReadyProvider == false` | Yes (Cart → Checkout) | Cannot place orders; **by design** until trusted RPC |
 | `lib/features/notifications/presentation/views/notifications_page.dart` | `ShopPlaceholderPage` | Only via deep link (no nav entry found) | Empty placeholder |
 | `lib/features/notifications/di/notifications_providers.dart` | `UnimplementedError` | **No** — page does not watch the provider | Crash only if a future caller reads the provider |
 | `lib/core/supabase/supabase_providers.dart` (`supabaseDatabaseProvider`, `supabaseStorageProvider`) | `UnimplementedError` | **No** — no feature watches them | Interim repos use `SupabaseClient` directly |
@@ -70,16 +69,16 @@
 
 ## P1 — core gaps / verification / ops
 
-### P1-1. Checkout UI intentionally locked (trusted backend complete)
+### P1-1. Checkout UI wired to trusted COD RPC — **RESOLVED (TASK-005)**
 
 - **Backend (TASK-004 — complete):**
   - Migration: `supabase/migrations/20260804153740_trusted_cod_checkout.sql` — `public.checkout_cod(uuid, text) returns uuid` (`SECURITY DEFINER`, `search_path = ''`) plus `cart_items_enforce_active_cart` trigger to reject post-conversion phantom `cart_items` inserts. Reprices from `product_variants.price`, reserves inventory, snapshots order/items/address, converts active cart; COD-only constants (`unpaid`, zero discount/shipping).
   - Grants: `EXECUTE` for `authenticated` + `service_role` only; revoked from `PUBLIC`/`anon`. Still rejects null `auth.uid()`.
   - Regression: `supabase/tests/database/03_trusted_cod_checkout.sql` — authz, ownership, validation rollback, totals/snapshots, reservation, backorder, idempotent retry, converted-cart insert denial; `03_trusted_cod_checkout_concurrency.sh` — two-session phantom insert vs checkout.
   - Docs: `docs/backend/checkout_security.md` describes the RPC contract (not an Edge Function / not a Flutter service-role key).
-- **Flutter (still locked by design):** `lib/features/checkout/presentation/views/checkout_page.dart`, `lib/features/checkout/di/checkout_providers.dart` (`checkoutReadyProvider == false`), cart navigates to the lock screen.
-- **Impact:** Purchase still cannot complete in-app until a later task wires the client to `checkout_cod`. Customer RLS still blocks direct order/inventory writes.
-- **Recommendation:** Wire checkout UI to `checkout_cod` next; keep client totals display-only; do not broaden table RLS.
+- **Flutter (TASK-005 — complete):** `SupabaseCheckoutRepository` calls only `checkout_cod` with `p_shipping_address_id` + normalized `p_customer_note`; checkout ViewModel/UI loads cart + owned addresses, blocks double submit, shows estimate-only totals, maps sanitized failures to Vietnamese copy, invalidates cart/orders providers, and keeps a durable success state with navigation to `/orders` or `/catalog`.
+- **Impact:** Authenticated customers with a non-empty cart and owned address can place COD orders in-app. Customer RLS still blocks direct order/inventory writes.
+- **Recommendation:** Keep client totals display-only; do not broaden table RLS; replace address demo FAB with a real form in a later task.
 
 ### P1-2. RLS / storage / privilege scenarios lack executable tests
 
@@ -90,17 +89,17 @@
 - **Impact:** Policies may be correct in SQL but regressions can ship undetected.
 - **Recommendation:** Convert the checklist into role-switched executable tests (pgTAP or scripted `set local role` / JWT claims) before further policy edits.
 
-### P1-3. Primary docs claim shop Supabase adapters are still unimplemented
+### P1-3. Primary docs still claim most shop adapters are unimplemented (checkout notes updated)
 
-- **Verified stale claims vs code:**
+- **Verified stale claims vs code (remaining):**
   - `docs/architecture.md` — “Shop providers currently throw `UnimplementedError`”; “No `supabase_flutter` network calls are made yet”
-  - `docs/backend/flutter_integration_notes.md` — “Repository implementations and PostgREST data sources remain unimplemented”
   - `docs/coding_guidelines.md` — “Unwired shop repositories may throw `UnimplementedError` until adapters exist”
   - `README.md` — still framed as Dio/fake API starter; demo credentials narrative; incomplete feature list
   - `supabase/README.md` — “Wire Flutter repositories…” still listed as next step
-- **Verified current wiring:** feature `di/*_providers.dart` files register `Supabase*Repository` / Supabase data sources for auth, home, catalog, product, search, favorites, cart, addresses, orders, profile; `pubspec.yaml` depends on `supabase_flutter`.
-- **Impact:** Agents/humans following docs will mis-plan work and re-implement existing adapters.
-- **Recommendation:** Refresh those docs to match migrations + DI; keep ADRs for decisions, not outdated status.
+- **Updated in TASK-005:** `docs/backend/flutter_integration_notes.md` no longer claims repositories/PostgREST adapters are unimplemented; it documents the checkout `checkout_cod` RPC payload, note normalization, estimate-only totals, sanitized errors, and success navigation.
+- **Verified current wiring:** feature `di/*_providers.dart` files register `Supabase*Repository` / Supabase data sources for auth, home, catalog, product, search, favorites, cart, checkout, addresses, orders, profile; `pubspec.yaml` depends on `supabase_flutter`.
+- **Impact:** Agents/humans following remaining stale docs (architecture, coding guidelines, READMEs) may still mis-plan non-checkout work and re-implement existing adapters.
+- **Recommendation:** Refresh architecture/coding-guidelines/READMEs to match migrations + DI; keep ADRs for decisions, not outdated status. Checkout Flutter notes are current.
 
 ### P1-4. Account routes registered but not linked from shell UI (including logout)
 
@@ -130,11 +129,13 @@
 - **Impact:** Dead DI surface; repos bypass facades via `SupabaseClient`.
 - **Recommendation:** Implement facades and migrate repositories, or delete unused providers to reduce trap hazards.
 
-### P2-3. No Flutter tests for Supabase-backed shop repositories / route guards / locked checkout
+### P2-3. Limited Flutter tests for remaining Supabase-backed shop repositories / route guards
 
-- **Verified test tree:** `test/features/{authentication,home,profile,settings}/` + `test/core/`; **no** `test/features/{catalog,product,cart,checkout,orders,favorites,search,addresses,notifications}/`.
-- **Impact:** Regressions in mapping, error mapping, and incomplete-feature behavior go unnoticed in CI.
-- **Recommendation:** Add focused repository unit tests with mocked `SupabaseClient`, plus widget tests for checkout lock and missing nav targets once links exist.
+- **Verified test tree:** `test/features/{authentication,home,profile,settings,checkout,product}/` + `test/core/`.
+- **Checkout (TASK-005):** `test/features/checkout/` — `supabase_checkout_repository_test.dart`, `checkout_view_model_test.dart`, `checkout_page_test.dart` — covers RPC payload (exactly address ID + note), sanitized failures, load/address selection/duplicate-submit/success, provider invalidation after success, and widget UI states (empty cart/address, estimate/COD/backend-authority labels, submit progress, durable success + navigation).
+- **Still missing:** `test/features/{catalog,cart,orders,favorites,search,addresses,notifications}/` repository/widget suites; broader route-guard widget coverage beyond auth/checkout.
+- **Impact:** Checkout regressions are covered in CI; mapping/error-mapping gaps remain for other shop features and account nav entry points.
+- **Recommendation:** Add focused repository unit tests with mocked `SupabaseClient` for remaining shop features, plus widget tests for missing nav targets once shell links exist.
 
 ### P2-4. Money typing guidance vs entities disagree
 
@@ -166,7 +167,7 @@
 
 1. **Flutter may only use publishable/anon keys** — see `lib/core/supabase/supabase_config.dart`, `AGENTS.md`. Never embed service-role keys.
 2. **Authorization is server-side** via `public.profiles.role` helpers (`is_staff_or_admin` / `is_admin`) and `prevent_profile_privilege_escalation` in `supabase/migrations/20260728100002_profiles_and_addresses.sql` — not user-editable JWT metadata.
-3. **Checkout must not trust client totals** — `public.checkout_cod` recomputes totals server-side (`docs/backend/checkout_security.md`). RLS still blocks customer order/inventory writes; Flutter checkout stays locked until client wiring.
+3. **Checkout must not trust client totals** — `public.checkout_cod` recomputes totals server-side (`docs/backend/checkout_security.md`). RLS still blocks customer order/inventory writes; Flutter checkout calls the RPC with address ID + optional note only.
 4. **Inventory raw table is staff-only**; public stock via `get_variant_availability` (`...00010_catalog_views_and_rpc.sql`).
 5. **Storage:** public read on catalog buckets; staff write; `user-avatars` owner path policies (`...00009_storage_buckets_and_policies.sql`) — not executable-tested yet (P1-2).
 6. **P0-1** is resolved: public roles cannot SELECT `product_variants.cost_price`; trusted backend/`service_role` access remains.
@@ -177,7 +178,7 @@
 
 | Layer | What exists | Gap |
 |-------|-------------|-----|
-| Flutter unit/widget | Auth, home, profile, settings, core Result/validators/glass | Shop repositories, checkout lock UX, router entry points, Supabase failure modes |
+| Flutter unit/widget | Auth, home, profile, settings, product variant select, core Result/validators/glass, checkout repo/VM/widget | Broader shop repositories (catalog/cart/orders/…), router entry points outside checkout |
 | DB constraints | `00_constraints.sql` executable smoke | Broader invariant coverage optional |
 | DB RLS | Comment plan in `01_rls_checklist.sql` + `02_product_variant_cost_price.sql` + `03_trusted_cod_checkout.sql` | Executable anon/customer/staff/storage/escalation tests beyond cost_price/checkout |
 | Manual / remote | Not run in this audit | No `supabase` remote commands by task rule |
@@ -190,24 +191,36 @@ Small, dependency-ordered backlog (each should be its own implementation task):
 
 1. ~~**Hide `cost_price` from public API**~~ — **done in TASK-002** (`20260804145709_protect_product_variant_cost_price.sql`, `02_product_variant_cost_price.sql`, explicit Flutter variant select).
 2. **Executable RLS/storage/RPC/privilege test suite** — replace/extend `01_rls_checklist.sql` with runnable tests (`P1-2`); do this before further policy edits.
-3. ~~**Trusted checkout backend**~~ — **done in TASK-004** (`20260804153740_trusted_cod_checkout.sql`, `03_trusted_cod_checkout.sql`, `docs/backend/checkout_security.md`). Flutter UI remains locked.
-4. **Wire checkout UI to trusted API** — flip `checkoutReadyProvider`, call `checkout_cod`, address selection, error/loading states; keep client totals display-only.
+3. ~~**Trusted checkout backend**~~ — **done in TASK-004** (`20260804153740_trusted_cod_checkout.sql`, `03_trusted_cod_checkout.sql`, `docs/backend/checkout_security.md`).
+4. ~~**Wire checkout UI to trusted API**~~ — **done in TASK-005** (`checkout_cod` Flutter repository/ViewModel/UI; estimate-only totals; sanitized errors; success → `/orders` or catalog).
 5. **Profile navigation hub** — links to settings (logout), orders, addresses; optional notifications placeholder (`P1-4`).
 6. **Bootstrap configuration failure UX** — clear error when Supabase env missing instead of composition-root `StateError` (`P1-5`).
-7. **Flutter repository tests** for catalog/product/search/favorites/cart/addresses/orders (+ checkout lock) (`P2-3`).
+7. **Flutter repository tests** for catalog/search/favorites/cart/addresses/orders (`P2-3`; checkout covered in TASK-005; product variant select covered earlier).
 8. **Notifications** — only after schema/RLS designed; then repository + UI (`P2-1`).
-9. **Documentation cleanup** — `README.md`, `docs/architecture.md`, `docs/coding_guidelines.md`, `docs/backend/flutter_integration_notes.md`, `supabase/README.md` (`P1-3`, `P2-4`, `P2-6`).
+9. **Documentation cleanup** — `README.md`, `docs/architecture.md`, `docs/coding_guidelines.md`, remaining stale claims in ops docs (`P1-3`, `P2-4`, `P2-6`). Checkout Flutter notes (`docs/backend/flutter_integration_notes.md`) updated in TASK-005.
 10. **Optional facade cleanup** — implement or remove `SupabaseDatabase` / `SupabaseStorage` providers (`P2-2`).
 
 Any future schema change must use a **new** Supabase CLI migration and include database/RLS tests. Do not edit deployed migrations.
 
 ---
 
-## Checks run (this task)
+## Checks run
+
+### TASK-005 (this task)
 
 | Check | Result |
 |-------|--------|
-| TASK-001 baseline | Historical: `flutter analyze` / `flutter test` passed during audit authoring |
+| `dart format --output=none --set-exit-if-changed .` | Passed |
+| `flutter analyze` | Passed — no issues |
+| `flutter test` | Passed — all tests |
+| `python3 scripts/automation.py policy-check` | Passed |
+
+No remote Supabase migration or link commands were run for TASK-005. Database reset, RLS/SQL regression, concurrency, and `supabase db lint` were **not** re-run (no schema/migration changes in this task).
+
+### Historical — TASK-004 (trusted checkout backend; not re-run in TASK-005)
+
+| Check | Result |
+|-------|--------|
 | `supabase db reset` (local disposable) | Passed — applied through `20260804153740_trusted_cod_checkout.sql` + seed |
 | `00_constraints.sql` | Passed (duplicate-slug probe uses seeded `vot-cau-long`; non-seeded `rackets` does not collide) |
 | `01_rls_checklist.sql` | Passed (comment checklist smoke) |
@@ -215,18 +228,18 @@ Any future schema change must use a **new** Supabase CLI migration and include d
 | `03_trusted_cod_checkout.sql` | Passed |
 | `03_trusted_cod_checkout_concurrency.sh` | Passed — concurrent `cart_items` INSERT rejected after checkout; no phantom line |
 | `supabase db lint` (local) | Passed — no schema errors |
-| `dart format --output=none --set-exit-if-changed .` | Passed |
-| `flutter analyze` | Passed — no issues |
-| `flutter test` | Passed — all tests |
-| `python3 scripts/automation.py policy-check` | Passed |
 
-No remote Supabase migration or link commands were run for this task.
+### Historical — TASK-001 baseline
+
+| Check | Result |
+|-------|--------|
+| `flutter analyze` / `flutter test` | Passed during audit authoring |
 
 ---
 
-## Remaining work (out of scope for TASK-004)
+## Remaining work (out of scope for TASK-005)
 
-- Wiring Flutter checkout to `checkout_cod` (keep UI locked until then)
 - Broader executable RLS/storage suite (`P1-2`)
-- Refreshing general documentation beyond checkout security + this audit's checkout notes
+- Shell navigation hub for settings/orders/addresses (`P1-4`)
+- Refreshing general documentation beyond checkout Flutter notes + this audit's checkout sections
 - Contacting remote Supabase

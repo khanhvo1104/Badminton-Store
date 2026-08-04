@@ -28,6 +28,31 @@ Prefer a dedicated money type later; never use binary float for intermediate acc
 Prefer `product_catalog` view and `search_products` / `get_variant_availability` RPCs.
 Do not select `cost_price` in client queries.
 
-## Not in this milestone
+## Checkout (COD MVP)
 
-Repository implementations and PostgREST data sources remain unimplemented.
+Flutter calls only the trusted RPC:
+
+```text
+rpc('checkout_cod', params: {
+  'p_shipping_address_id': <owned address uuid>,
+  'p_customer_note': <trimmed note or null>,
+})
+```
+
+Rules:
+
+- Authenticated publishable/anon session only. Never embed a service-role key.
+- Payload keys are exactly `p_shipping_address_id` and `p_customer_note`.
+- Blank / whitespace notes normalize to `null` before the call.
+- Do not send user ID, cart ID, prices, totals, currency, inventory, payment
+  status, order status, or role.
+- Displayed cart line prices and subtotals are **estimates only**. The RPC
+  re-reads active variant prices, validates stock, and computes authoritative
+  totals server-side.
+- Repository failures are mapped to sanitized `AppException` codes; UI shows
+  Vietnamese actionable copy and must not interpolate raw PostgREST/SQL text.
+- On success, invalidate cart/order providers and navigate to order history
+  (`/orders`) or catalog; keep a durable success state that shows the returned
+  order UUID if navigation is interrupted.
+
+See also `docs/backend/checkout_security.md`.
