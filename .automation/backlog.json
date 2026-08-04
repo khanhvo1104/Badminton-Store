@@ -27,6 +27,13 @@
       "title": "Build trusted COD checkout backend",
       "task_file": ".automation/tasks/TASK-004-trusted-checkout-backend.md",
       "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-005",
+      "title": "Wire Flutter checkout to trusted COD RPC",
+      "task_file": ".automation/tasks/TASK-005-wire-checkout-ui.md",
+      "risk": "high",
       "status": "ready"
     }
   ]
