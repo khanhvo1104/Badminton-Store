@@ -46,6 +46,8 @@ def run(
     check: bool = True,
     capture: bool = False,
     input_text: str | None = None,
+    env_override: dict[str, str] | None = None,
+    print_output: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     shell = isinstance(command, str)
     printable = command if shell else " ".join(shlex.quote(part) for part in command)
@@ -57,9 +59,9 @@ def run(
         text=True,
         input=input_text,
         capture_output=capture,
-        env={**os.environ, "NO_COLOR": "1"},
+        env={**os.environ, "NO_COLOR": "1", **(env_override or {})},
     )
-    if capture and result.stdout:
+    if capture and print_output and result.stdout:
         print(result.stdout, end="")
     if check and result.returncode != 0:
         if capture and result.stderr:
@@ -324,11 +326,146 @@ def current_pull_request(branch: str) -> str:
     return result.stdout.strip().splitlines()[-1]
 
 
-def post_review_feedback(pr_url: str, findings: list[str]) -> None:
-    body = "Codex review requested changes:\n\n" + "\n".join(
-        f"- {finding}" for finding in findings
+def pull_request_context(pr_url: str) -> tuple[str, int, str]:
+    repo = run(
+        ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
+        capture=True,
+        print_output=False,
+    ).stdout.strip()
+    details = load_json_from_output(
+        run(
+            ["gh", "pr", "view", pr_url, "--json", "number,headRefOid"],
+            capture=True,
+            print_output=False,
+        ).stdout
     )
-    run(["gh", "pr", "comment", pr_url, "--body", body])
+    return repo, int(details["number"]), details["headRefOid"]
+
+
+def load_json_from_output(output: str) -> dict:
+    lines = [line for line in output.splitlines() if line.strip()]
+    if not lines:
+        raise AutomationError("Expected JSON command output")
+    return json.loads(lines[-1])
+
+
+def post_review_feedback(pr_url: str, findings: list[dict]) -> list[int]:
+    repo, number, head_oid = pull_request_context(pr_url)
+    comment_ids: list[int] = []
+    for finding in findings:
+        body = (
+            f"**Codex review — {finding['title']}**\n\n"
+            f"{finding['body']}"
+        )
+        response = load_json_from_output(
+            run(
+                [
+                    "gh", "api", "--method", "POST",
+                    f"repos/{repo}/pulls/{number}/comments",
+                    "-f", f"body={body}",
+                    "-f", f"commit_id={head_oid}",
+                    "-f", f"path={finding['path']}",
+                    "-f", "subject_type=file",
+                ],
+                capture=True,
+                print_output=False,
+            ).stdout
+        )
+        comment_ids.append(int(response["id"]))
+    return comment_ids
+
+
+def cursor_github_env(config: dict) -> dict[str, str]:
+    return {
+        "GH_CONFIG_DIR": str(Path(config["cursor_gh_config_dir"]).expanduser()),
+        "GIT_SSH_COMMAND": (
+            "ssh -F /dev/null -o IdentitiesOnly=yes -i "
+            + str(Path(config["cursor_ssh_key"]).expanduser())
+        ),
+    }
+
+
+def reply_to_review_threads(
+    config: dict,
+    pr_url: str,
+    comment_ids: list[int],
+    commit_sha: str,
+) -> None:
+    if not comment_ids:
+        return
+    repo, number, _ = pull_request_context(pr_url)
+    short_sha = commit_sha[:7]
+    for comment_id in comment_ids:
+        body = (
+            "**Cursor Agent update**\n\n"
+            f"Đã cập nhật theo review trong commit `{short_sha}`, push lên cùng "
+            "task branch và cập nhật kết quả kiểm tra trong PR. Sẵn sàng để "
+            "Codex review lại."
+        )
+        run(
+            [
+                "gh", "api", "--method", "POST",
+                f"repos/{repo}/pulls/{number}/comments/{comment_id}/replies",
+                "-f", f"body={body}",
+            ],
+            capture=True,
+            env_override=cursor_github_env(config),
+            print_output=False,
+        )
+
+
+def resolve_review_threads(pr_url: str, comment_ids: list[int]) -> None:
+    if not comment_ids:
+        return
+    repo, number, _ = pull_request_context(pr_url)
+    owner, name = repo.split("/", 1)
+    query = """
+query($owner:String!,$name:String!,$number:Int!){
+  repository(owner:$owner,name:$name){
+    pullRequest(number:$number){
+      reviewThreads(first:100){
+        nodes{id isResolved comments(first:100){nodes{databaseId}}}
+      }
+    }
+  }
+}
+"""
+    response = load_json_from_output(
+        run(
+            [
+                "gh", "api", "graphql",
+                "-f", f"query={query}",
+                "-f", f"owner={owner}",
+                "-f", f"name={name}",
+                "-F", f"number={number}",
+            ],
+            capture=True,
+            print_output=False,
+        ).stdout
+    )
+    wanted = set(comment_ids)
+    nodes = response["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
+    thread_ids = [
+        node["id"]
+        for node in nodes
+        if not node["isResolved"]
+        and any(comment["databaseId"] in wanted for comment in node["comments"]["nodes"])
+    ]
+    mutation = """
+mutation($threadId:ID!){
+  resolveReviewThread(input:{threadId:$threadId}){thread{isResolved}}
+}
+"""
+    for thread_id in thread_ids:
+        run(
+            [
+                "gh", "api", "graphql",
+                "-f", f"query={mutation}",
+                "-f", f"threadId={thread_id}",
+            ],
+            capture=True,
+            print_output=False,
+        )
 
 
 def run_task(task_path: Path) -> None:
@@ -371,6 +508,8 @@ def run_task(task_path: Path) -> None:
     feedback = ""
     previous_review: dict | None = None
     reviewed_head = protected_head
+    pending_thread_comments: list[int] = []
+    all_thread_comments: list[int] = []
     approved = False
     for attempt in range(config["max_fix_attempts"] + 1):
         cursor_prompt = base_cursor_prompt
@@ -408,6 +547,14 @@ def run_task(task_path: Path) -> None:
             capture=True,
         ).stdout
         current_head = git("rev-parse", "HEAD")
+        if attempt > 0 and pending_thread_comments:
+            reply_to_review_threads(
+                config,
+                pr_url,
+                pending_thread_comments,
+                current_head,
+            )
+            pending_thread_comments = []
         context_lines = int(config.get("review_diff_context_lines", 5))
         diff = git(
             "diff",
@@ -451,11 +598,14 @@ def run_task(task_path: Path) -> None:
         if review["verdict"] == "approve":
             approved = True
             break
-        post_review_feedback(pr_url, review["blocking_findings"])
+        new_comments = post_review_feedback(pr_url, review["blocking_findings"])
+        pending_thread_comments.extend(new_comments)
+        all_thread_comments.extend(new_comments)
         previous_review = review
         reviewed_head = current_head
-        feedback = "Codex review requested changes:\n- " + "\n- ".join(
-            review["blocking_findings"]
+        feedback = "Codex review requested changes:\n" + "\n".join(
+            f"- {finding['path']}: {finding['title']} — {finding['body']}"
+            for finding in review["blocking_findings"]
         )
 
     if not approved:
@@ -465,6 +615,7 @@ def run_task(task_path: Path) -> None:
 
     policy_check(config, allowed, protected_head)
     pr_url = current_pull_request(branch)
+    resolve_review_threads(pr_url, all_thread_comments)
     run(["gh", "pr", "ready", pr_url], check=False)
     run(["gh", "pr", "checks", pr_url, "--watch", "--interval", "10"])
     if config.get("merge_after_codex_approval"):

@@ -50,8 +50,12 @@ The controller will:
 5. Ask Cursor to commit, push the task branch, and open a PR into `develop`.
 6. Enforce allowed paths, protected-branch rules, and secret policies.
 7. Ask Codex for a structured read-only PR review.
-8. Post blocking findings to the PR and ask Cursor to update the same branch.
-9. When Codex approves and GitHub checks pass, Codex merges into `develop`.
+8. Post blocking findings as file-level GitHub review threads.
+9. Ask Cursor to update the same branch; after it commits and pushes, the
+   controller replies in each thread using the Cursor developer account.
+10. Codex reviews only the incremental fix. When it approves, the controller
+    resolves the addressed threads, waits for GitHub checks, and merges into
+    `develop`.
 
 Run artifacts are written under `.automation/runs/` and ignored by Git.
 

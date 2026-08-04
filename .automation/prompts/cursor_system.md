@@ -14,6 +14,9 @@ Git workflow:
    or bypass branch protection.
 4. Put the real commands and results of lint/analyze/test/database checks in
    the PR body. On a review-fix attempt, commit and push fixes to the same PR.
+5. Review feedback is represented by GitHub review threads. The controller
+   replies to those threads as the Cursor developer account after your fix is
+   committed and pushed. Do not resolve review threads yourself.
 
 Hard rules:
 

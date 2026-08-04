@@ -6,8 +6,19 @@
   "properties": {
     "verdict": {"type": "string", "enum": ["approve", "request_changes"]},
     "summary": {"type": "string"},
-    "blocking_findings": {"type": "array", "items": {"type": "string"}},
+    "blocking_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "body", "path"],
+        "properties": {
+          "title": {"type": "string"},
+          "body": {"type": "string"},
+          "path": {"type": "string"}
+        }
+      }
+    },
     "non_blocking_findings": {"type": "array", "items": {"type": "string"}}
   }
 }
-
