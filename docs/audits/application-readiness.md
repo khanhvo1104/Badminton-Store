@@ -60,7 +60,7 @@
 ### P0-1. `cost_price` readable by public API roles on `product_variants` — **RESOLVED**
 
 - **Resolution (TASK-002):**
-  - Migration: `supabase/migrations/20260804143110_protect_product_variant_cost_price.sql` — revokes table-wide SELECT from `anon`/`authenticated` and grants only the safe public variant columns (no `cost_price`). Flutter staff/admin JWTs intentionally remain under the same column restriction; `service_role`/direct DB credentials are unchanged.
+  - Migration: `supabase/migrations/20260804145709_protect_product_variant_cost_price.sql` — revokes table-wide SELECT from `anon`/`authenticated` and grants only the safe public variant columns (no `cost_price`). Flutter staff/admin JWTs intentionally remain under the same column restriction; `service_role`/direct DB credentials are unchanged.
   - Flutter: `lib/features/product/data/repositories/supabase_product_repository.dart` — `getById` uses an explicit `product_variants` select projection matching the mapper (excludes `cost_price` and `*`).
   - Regression: `supabase/tests/database/02_product_variant_cost_price.sql` — asserts column privileges, role-switched safe reads, `cost_price` denial, and active-row RLS boundary.
   - Flutter coverage: `test/features/product/supabase_product_repository_test.dart` — asserts `supabaseProductVariantSelect` contains every mapper field and excludes `cost_price`/`*`.
@@ -183,7 +183,7 @@
 
 Small, dependency-ordered backlog (each should be its own implementation task):
 
-1. ~~**Hide `cost_price` from public API**~~ — **done in TASK-002** (`20260804143110_protect_product_variant_cost_price.sql`, `02_product_variant_cost_price.sql`, explicit Flutter variant select).
+1. ~~**Hide `cost_price` from public API**~~ — **done in TASK-002** (`20260804145709_protect_product_variant_cost_price.sql`, `02_product_variant_cost_price.sql`, explicit Flutter variant select).
 2. **Executable RLS/storage/RPC/privilege test suite** — replace/extend `01_rls_checklist.sql` with runnable tests (`P1-2`); do this before further policy changes.
 3. **Trusted checkout backend** — SECURITY DEFINER RPC or Edge Function: reprice, reserve stock, insert order+items, payment state; service role only on server (`P1-1`, `docs/backend/checkout_security.md`). Include DB tests. **Do not** enable checkout UI first.
 4. **Wire checkout UI to trusted API** — flip `checkoutReadyProvider`, address selection, error/loading states; keep client totals display-only.
