@@ -10,7 +10,7 @@
 
 ## Verdict
 
-**Not release-ready for end-to-end commerce.** Auth, catalog browse, product detail, search, favorites, cart, addresses, and order *history* are wired to Supabase adapters, and table RLS is enabled in migrations. Checkout is intentionally locked pending a trusted server-side transaction. One verified P0 confidentiality gap remains: `product_variants.cost_price` is selectable by `anon`/`authenticated` via row-level SELECT. Operational docs are materially stale relative to the implemented adapters. Database RLS verification is mostly a comment checklist, not executable tests.
+**Not release-ready for end-to-end commerce.** Auth, catalog browse, product detail, search, favorites, cart, addresses, and order *history* are wired to Supabase adapters, and table RLS is enabled in migrations. Checkout is intentionally locked pending a trusted server-side transaction. P0-1 (`product_variants.cost_price` public readability) is resolved via column privileges + an explicit Flutter variant select; remaining blockers are P1/P2 (checkout lock, executable RLS breadth, stale ops docs, missing nav). Operational docs are materially stale relative to the implemented adapters. Database RLS verification is mostly a comment checklist, not executable tests (except the P0-1 cost_price regression).
 
 **Legend:** *Verified* = confirmed in source/migrations. *Inferred* = likely impact from wiring/docs without runtime proof.
 
@@ -24,7 +24,7 @@
 | Authentication | Login, splash | Supabase remote DS + local secure storage | Auth users → profiles trigger | Strong (`test/features/authentication/`) | Fake DS used in tests only |
 | Home | Shell tab | `SupabaseHomeRemoteDataSource` → featured `product_catalog` | Catalog view | Unit/VM tests with fakes | Not a commerce dashboard |
 | Catalog | Shell tab | Supabase category/brand + product list | RLS + `product_catalog` | None for repos | Wired contrary to stale docs |
-| Product detail | Push `/product/:id` | `SupabaseProductRepository` | Variants/images + availability RPC | None | Detail uses table `.select()` (see P0) |
+| Product detail | Push `/product/:id` | `SupabaseProductRepository` | Variants/images + availability RPC | Repository select projection | Explicit safe variant columns (P0-1 resolved) |
 | Search | Push `/search` | `SupabaseSearchRepository` | `search_products` RPC | None | Reachable from catalog app bar |
 | Favorites | Shell tab | `SupabaseFavoriteRepository` | Own-row RLS | None | |
 | Cart | Shell tab | `SupabaseCartRepository` | Own cart RLS | None | Checkout CTA navigates to locked page |
@@ -57,16 +57,14 @@
 
 ## P0 — release-blocking
 
-### P0-1. `cost_price` readable by public API roles on `product_variants`
+### P0-1. `cost_price` readable by public API roles on `product_variants` — **RESOLVED**
 
-- **Verified paths:**
-  - `supabase/migrations/20260728100004_variants_images_inventory.sql` (column exists; comment: never expose via public catalog views)
-  - `supabase/migrations/20260728100008_rls_policies.sql` (`product_variants_select_active_public` allows full-row SELECT for `anon`/`authenticated` on active variants)
-  - `supabase/migrations/20260728100010_catalog_views_and_rpc.sql` (`product_catalog` correctly omits `cost_price`)
-  - `lib/features/product/data/repositories/supabase_product_repository.dart` (`getById` uses `.from('product_variants').select()` with no column exclusion)
-  - `docs/backend/flutter_integration_notes.md` (“Do not select `cost_price` in client queries”)
-- **Impact:** Anyone holding the Flutter publishable/anon key can read wholesale cost for active SKUs via PostgREST, independent of the Flutter mapper ignoring the field.
-- **Recommendation:** New migration (do not edit deployed ones): restrict public variant projection (staff-only column grants, or a safe view/RPC for detail) and stop selecting `*` for variants in the client. Add an executable RLS/API test that asserts `cost_price` is absent for anon/customer.
+- **Resolution (TASK-002):**
+  - Migration: `supabase/migrations/20260804143110_protect_product_variant_cost_price.sql` — revokes table-wide SELECT from `anon`/`authenticated` and grants only the safe public variant columns (no `cost_price`). Flutter staff/admin JWTs intentionally remain under the same column restriction; `service_role`/direct DB credentials are unchanged.
+  - Flutter: `lib/features/product/data/repositories/supabase_product_repository.dart` — `getById` uses an explicit `product_variants` select projection matching the mapper (excludes `cost_price` and `*`).
+  - Regression: `supabase/tests/database/02_product_variant_cost_price.sql` — asserts column privileges, role-switched safe reads, `cost_price` denial, and active-row RLS boundary.
+  - Flutter coverage: `test/features/product/supabase_product_repository_test.dart` — asserts `supabaseProductVariantSelect` contains every mapper field and excludes `cost_price`/`*`.
+- **Prior verified gap (historical):** RLS row SELECT alone could not hide `cost_price`; `product_catalog` already omitted it, but direct `product_variants` SELECT leaked the column.
 
 ---
 
@@ -83,7 +81,7 @@
 - **Verified paths:**
   - Executable: `supabase/tests/database/00_constraints.sql` (slug/price/role/order math smoke)
   - Non-executable checklist: `supabase/tests/database/01_rls_checklist.sql` (comments + `select 'See comments...'`)
-- **Missing coverage (verified absence):** cross-user address/cart/order isolation; anon catalog vs draft denial; staff/admin matrix; storage bucket policies; RPC grants; `prevent_profile_privilege_escalation`; direct `cost_price` SELECT.
+- **Missing coverage (verified absence):** cross-user address/cart/order isolation; anon catalog vs draft denial; staff/admin matrix; storage bucket policies; RPC grants; `prevent_profile_privilege_escalation`. (`cost_price` covered by `02_product_variant_cost_price.sql`.)
 - **Impact:** Policies may be correct in SQL but regressions can ship undetected.
 - **Recommendation:** Convert the checklist into role-switched executable tests (pgTAP or scripted `set local role` / JWT claims) before further policy edits.
 
@@ -166,7 +164,7 @@
 3. **Checkout must not trust client totals** — documented in `docs/backend/checkout_security.md`. Current RLS correctly blocks customer order writes; unlocking UI without a trusted RPC would be unsafe.
 4. **Inventory raw table is staff-only**; public stock via `get_variant_availability` (`...00010_catalog_views_and_rpc.sql`).
 5. **Storage:** public read on catalog buckets; staff write; `user-avatars` owner path policies (`...00009_storage_buckets_and_policies.sql`) — not executable-tested yet (P1-2).
-6. **P0-1** currently breaks the intended “cost_price never public” boundary for direct table SELECT.
+6. **P0-1** is resolved: public roles cannot SELECT `product_variants.cost_price`; trusted backend/`service_role` access remains.
 
 ---
 
@@ -176,7 +174,7 @@
 |-------|-------------|-----|
 | Flutter unit/widget | Auth, home, profile, settings, core Result/validators/glass | Shop repositories, checkout lock UX, router entry points, Supabase failure modes |
 | DB constraints | `00_constraints.sql` executable smoke | Broader invariant coverage optional |
-| DB RLS | Comment plan in `01_rls_checklist.sql` | Executable anon/customer/staff/storage/RPC/escalation/`cost_price` tests |
+| DB RLS | Comment plan in `01_rls_checklist.sql` + `02_product_variant_cost_price.sql` | Executable anon/customer/staff/storage/RPC/escalation tests beyond cost_price |
 | Manual / remote | Not run in this audit | No `supabase` remote commands by task rule |
 
 ---
@@ -185,7 +183,7 @@
 
 Small, dependency-ordered backlog (each should be its own implementation task):
 
-1. **Hide `cost_price` from public API** — new migration + executable assertion + tighten Flutter variant select columns (`P0-1`).
+1. ~~**Hide `cost_price` from public API**~~ — **done in TASK-002** (`20260804143110_protect_product_variant_cost_price.sql`, `02_product_variant_cost_price.sql`, explicit Flutter variant select).
 2. **Executable RLS/storage/RPC/privilege test suite** — replace/extend `01_rls_checklist.sql` with runnable tests (`P1-2`); do this before further policy changes.
 3. **Trusted checkout backend** — SECURITY DEFINER RPC or Edge Function: reprice, reserve stock, insert order+items, payment state; service role only on server (`P1-1`, `docs/backend/checkout_security.md`). Include DB tests. **Do not** enable checkout UI first.
 4. **Wire checkout UI to trusted API** — flip `checkoutReadyProvider`, address selection, error/loading states; keep client totals display-only.
