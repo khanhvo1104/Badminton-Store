@@ -10,6 +10,8 @@
   "auto_push": true,
   "auto_create_pr": true,
   "auto_merge": false,
+  "cursor_owns_publish": true,
+  "merge_after_codex_approval": true,
   "quality_commands": [
     "dart format --output=none --set-exit-if-changed .",
     "flutter analyze",

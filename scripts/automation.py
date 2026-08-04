@@ -119,9 +119,13 @@ def changed_paths(base: str = "HEAD") -> list[str]:
     return sorted({p for p in (output + "\n" + untracked).splitlines() if p})
 
 
-def policy_check(config: dict | None = None, allowed: list[str] | None = None) -> None:
+def policy_check(
+    config: dict | None = None,
+    allowed: list[str] | None = None,
+    base: str = "HEAD",
+) -> None:
     config = config or load_json(CONFIG_PATH)
-    paths = changed_paths()
+    paths = changed_paths(base)
     protected = [p.rstrip("/") for p in config["protected_paths"]]
     violations: list[str] = []
     for path in paths:
@@ -273,6 +277,26 @@ def create_pull_request(config: dict, task_id: str, title: str) -> None:
         run(["gh", "pr", "merge", "--auto", "--squash", pr_url])
 
 
+def current_pull_request(branch: str) -> str:
+    result = run(
+        ["gh", "pr", "view", branch, "--json", "url", "--jq", ".url"],
+        capture=True,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        raise AutomationError(
+            "Cursor must push the task branch and open a PR targeting develop"
+        )
+    return result.stdout.strip().splitlines()[-1]
+
+
+def post_review_feedback(pr_url: str, findings: list[str]) -> None:
+    body = "Codex review requested changes:\n\n" + "\n".join(
+        f"- {finding}" for finding in findings
+    )
+    run(["gh", "pr", "comment", pr_url, "--body", body])
+
+
 def run_task(task_path: Path) -> None:
     config = load_json(CONFIG_PATH)
     task_path = task_path.resolve()
@@ -324,26 +348,30 @@ def run_task(task_path: Path) -> None:
 
         if git("branch", "--show-current") != branch:
             raise AutomationError("Cursor changed the active Git branch")
-        if git("rev-parse", "HEAD") != protected_head:
-            raise AutomationError("Cursor created or changed a Git commit")
         if git("remote", "get-url", config["remote"]) != protected_remote:
             raise AutomationError("Cursor changed the Git remote")
-        policy_check(config, allowed)
-        paths = changed_paths()
+        if git("status", "--porcelain"):
+            raise AutomationError(
+                "Cursor must commit all task changes before requesting review"
+            )
+        paths = changed_paths(protected_head)
         if not paths:
             raise AutomationError("Cursor completed without producing a change")
-
-        quality_passed, quality = quality_gates(
-            config, any(p.startswith("supabase/") for p in paths)
-        )
-        (run_dir / f"quality-attempt-{attempt + 1}.txt").write_text(
-            quality, encoding="utf-8"
-        )
-        if not quality_passed:
-            feedback = "One or more quality gates failed:\n\n" + quality
-            continue
-
-        diff = git("diff", "--no-ext-diff", "--unified=80")
+        policy_check(config, allowed, protected_head)
+        pr_url = current_pull_request(branch)
+        pr_base = run(
+            ["gh", "pr", "view", pr_url, "--json", "baseRefName", "--jq", ".baseRefName"],
+            capture=True,
+        ).stdout.strip()
+        if pr_base != config["base_branch"]:
+            raise AutomationError(
+                f"Cursor PR must target {config['base_branch']!r}, got {pr_base!r}"
+            )
+        quality = run(
+            ["gh", "pr", "view", pr_url, "--json", "body", "--jq", ".body"],
+            capture=True,
+        ).stdout
+        diff = git("diff", "--no-ext-diff", "--unified=80", protected_head, "HEAD")
         review_prompt = (
             (AUTOMATION / "prompts/codex_reviewer.md").read_text(encoding="utf-8")
             + "\n\nACTIVE TASK:\n" + task_text
@@ -358,6 +386,7 @@ def run_task(task_path: Path) -> None:
         if review["verdict"] == "approve":
             approved = True
             break
+        post_review_feedback(pr_url, review["blocking_findings"])
         feedback = "Codex review requested changes:\n- " + "\n- ".join(
             review["blocking_findings"]
         )
@@ -367,16 +396,16 @@ def run_task(task_path: Path) -> None:
             f"Task did not pass after {config['max_fix_attempts'] + 1} attempts"
         )
 
-    policy_check(config, allowed)
-    run(["git", "add", "--", *paths])
-    staged = git("diff", "--cached", "--name-only")
-    if set(staged.splitlines()) != set(paths):
-        raise AutomationError("Staged file set differs from reviewed file set")
-    run(["git", "commit", "-m", f"{task_id}: {plan['summary'][:60]}"])
-    if config.get("auto_push"):
-        run(["git", "push", "-u", config["remote"], branch])
-    if config.get("auto_create_pr"):
-        create_pull_request(config, task_id, f"{task_id}: {plan['summary']}")
+    policy_check(config, allowed, protected_head)
+    pr_url = current_pull_request(branch)
+    run(["gh", "pr", "ready", pr_url], check=False)
+    run(["gh", "pr", "checks", pr_url, "--watch", "--interval", "10"])
+    if config.get("merge_after_codex_approval"):
+        run(["gh", "pr", "merge", pr_url, "--merge", "--delete-branch"])
+        git("switch", config["base_branch"], capture=False)
+        run(["git", "pull", "--ff-only", config["remote"], config["base_branch"]])
+    else:
+        print(f"Approved pull request: {pr_url}")
 
 
 def main() -> int:

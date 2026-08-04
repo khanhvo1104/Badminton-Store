@@ -20,9 +20,15 @@ These rules apply to every coding agent working in this repository.
 
 ## Git ownership
 
-- Codex is the orchestration controller and may create/switch branches,
-  commit, push, and create or merge pull requests without confirmation.
-- Cursor and other implementation agents must not modify Git state.
+- Codex is the technical lead: it creates the task branch from `develop`,
+  reviews the pull request, posts requested changes, and performs the final
+  merge into `develop` without confirmation.
+- Cursor is the implementation developer. On the controller-created task
+  branch only, Cursor may stage task-scoped files, commit, push that branch,
+  open a pull request targeting `develop`, and push follow-up review fixes.
+- Cursor must never push directly to `develop`, merge or close a pull request,
+  change branches, alter remotes, bypass branch protection, or approve its own
+  pull request.
 - Never force-push or run destructive Git commands.
 
 ## Verification

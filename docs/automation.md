@@ -1,14 +1,17 @@
 # Codex × Cursor automation
 
-This repository uses Codex as planner/reviewer/publisher and Cursor Agent as the implementation worker. GitHub Actions is the final quality gate.
+This repository uses Codex as technical lead and Cursor Agent as the implementation developer. GitHub Actions is the final quality gate.
 
 ## Safety model
 
 - One task per branch and pull request.
 - The controller requires a clean worktree before starting.
-- Cursor cannot own Git operations and is instructed not to access secrets.
+- Cursor owns commits, pushes, and the pull request on the controller-created
+  task branch. It cannot change branches/remotes, push to `develop`, or merge.
 - Codex planning and review run read-only with structured JSON output.
-- Publishing happens only after local quality gates and an approving Codex review.
+- Cursor runs local quality gates and publishes their real results in the PR.
+- Codex reviews the PR, comments requested changes, asks Cursor to update the
+  same branch, and performs the final merge only after approval.
 - Auto-merge is disabled by default. Enable it only after the workflow has completed several safe tasks successfully.
 
 ## Prerequisites
@@ -40,11 +43,12 @@ The controller will:
 1. Validate the repository and task.
 2. Create `automation/<task-slug>` from the configured base branch.
 3. Ask Codex for a structured read-only plan.
-4. Ask Cursor Agent to implement the plan in its sandbox.
-5. Enforce allowed paths and secret policies.
-6. Run formatting, analysis, tests, and relevant Supabase checks.
-7. Ask Codex for a structured read-only review.
-8. Commit, push, and open a draft pull request when approved.
+4. Ask Cursor Agent to implement the plan and run the required gates.
+5. Ask Cursor to commit, push the task branch, and open a PR into `develop`.
+6. Enforce allowed paths, protected-branch rules, and secret policies.
+7. Ask Codex for a structured read-only PR review.
+8. Post blocking findings to the PR and ask Cursor to update the same branch.
+9. When Codex approves and GitHub checks pass, Codex merges into `develop`.
 
 Run artifacts are written under `.automation/runs/` and ignored by Git.
 
