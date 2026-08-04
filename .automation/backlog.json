@@ -34,6 +34,13 @@
       "title": "Wire Flutter checkout to trusted COD RPC",
       "task_file": ".automation/tasks/TASK-005-wire-checkout-ui.md",
       "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-006",
+      "title": "Build executable RLS, Storage, RPC, and privilege regressions",
+      "task_file": ".automation/tasks/TASK-006-executable-rls-suite.md",
+      "risk": "high",
       "status": "ready"
     }
   ]
