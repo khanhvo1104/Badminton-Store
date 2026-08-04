@@ -212,6 +212,20 @@ def invoke_cursor(config: dict, prompt: str, log_path: Path) -> None:
         command.extend(["--model", config["cursor_model"]])
     command.append(prompt)
     print("+ " + " ".join(shlex.quote(part) for part in command[:-1]) + " <prompt>")
+    cursor_env = {**os.environ, "NO_COLOR": "1"}
+    cursor_env.update(
+        {
+            "GH_CONFIG_DIR": str(Path(config["cursor_gh_config_dir"]).expanduser()),
+            "GIT_SSH_COMMAND": (
+                "ssh -F /dev/null -o IdentitiesOnly=yes -i "
+                + str(Path(config["cursor_ssh_key"]).expanduser())
+            ),
+            "GIT_AUTHOR_NAME": config["cursor_git_name"],
+            "GIT_AUTHOR_EMAIL": config["cursor_git_email"],
+            "GIT_COMMITTER_NAME": config["cursor_git_name"],
+            "GIT_COMMITTER_EMAIL": config["cursor_git_email"],
+        }
+    )
     with log_path.open("w", encoding="utf-8") as log:
         process = subprocess.Popen(
             command,
@@ -219,7 +233,7 @@ def invoke_cursor(config: dict, prompt: str, log_path: Path) -> None:
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            env={**os.environ, "NO_COLOR": "1"},
+            env=cursor_env,
         )
         assert process.stdout is not None
         for line in process.stdout:

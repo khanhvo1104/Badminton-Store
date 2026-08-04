@@ -19,6 +19,9 @@ This repository uses Codex as technical lead and Cursor Agent as the implementat
 - Authenticated Cursor Agent CLI at `~/.local/bin/agent`.
 - Authenticated Codex CLI.
 - Authenticated GitHub CLI with access to this repository.
+- A separate Cursor GitHub CLI config and SSH key. The controller injects
+  these only into the Cursor subprocess, so Cursor publishes as its developer
+  account while Codex keeps the technical-lead account.
 - Flutter and Dart available on `PATH`.
 - Supabase CLI for tasks that touch `supabase/`.
 
