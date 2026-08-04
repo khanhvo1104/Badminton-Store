@@ -89,17 +89,17 @@
 - **Impact:** Policies may be correct in SQL but regressions can ship undetected.
 - **Recommendation:** Convert the checklist into role-switched executable tests (pgTAP or scripted `set local role` / JWT claims) before further policy edits.
 
-### P1-3. Primary docs claim shop Supabase adapters are still unimplemented
+### P1-3. Primary docs still claim most shop adapters are unimplemented (checkout notes updated)
 
-- **Verified stale claims vs code:**
+- **Verified stale claims vs code (remaining):**
   - `docs/architecture.md` — “Shop providers currently throw `UnimplementedError`”; “No `supabase_flutter` network calls are made yet”
-  - `docs/backend/flutter_integration_notes.md` — “Repository implementations and PostgREST data sources remain unimplemented”
   - `docs/coding_guidelines.md` — “Unwired shop repositories may throw `UnimplementedError` until adapters exist”
   - `README.md` — still framed as Dio/fake API starter; demo credentials narrative; incomplete feature list
   - `supabase/README.md` — “Wire Flutter repositories…” still listed as next step
-- **Verified current wiring:** feature `di/*_providers.dart` files register `Supabase*Repository` / Supabase data sources for auth, home, catalog, product, search, favorites, cart, addresses, orders, profile; `pubspec.yaml` depends on `supabase_flutter`.
-- **Impact:** Agents/humans following docs will mis-plan work and re-implement existing adapters.
-- **Recommendation:** Refresh those docs to match migrations + DI; keep ADRs for decisions, not outdated status.
+- **Updated in TASK-005:** `docs/backend/flutter_integration_notes.md` no longer claims repositories/PostgREST adapters are unimplemented; it documents the checkout `checkout_cod` RPC payload, note normalization, estimate-only totals, sanitized errors, and success navigation.
+- **Verified current wiring:** feature `di/*_providers.dart` files register `Supabase*Repository` / Supabase data sources for auth, home, catalog, product, search, favorites, cart, checkout, addresses, orders, profile; `pubspec.yaml` depends on `supabase_flutter`.
+- **Impact:** Agents/humans following remaining stale docs (architecture, coding guidelines, READMEs) may still mis-plan non-checkout work and re-implement existing adapters.
+- **Recommendation:** Refresh architecture/coding-guidelines/READMEs to match migrations + DI; keep ADRs for decisions, not outdated status. Checkout Flutter notes are current.
 
 ### P1-4. Account routes registered but not linked from shell UI (including logout)
 
@@ -129,11 +129,13 @@
 - **Impact:** Dead DI surface; repos bypass facades via `SupabaseClient`.
 - **Recommendation:** Implement facades and migrate repositories, or delete unused providers to reduce trap hazards.
 
-### P2-3. No Flutter tests for Supabase-backed shop repositories / route guards / locked checkout
+### P2-3. Limited Flutter tests for remaining Supabase-backed shop repositories / route guards
 
-- **Verified test tree:** `test/features/{authentication,home,profile,settings}/` + `test/core/`; **no** `test/features/{catalog,product,cart,checkout,orders,favorites,search,addresses,notifications}/`.
-- **Impact:** Regressions in mapping, error mapping, and incomplete-feature behavior go unnoticed in CI.
-- **Recommendation:** Add focused repository unit tests with mocked `SupabaseClient`, plus widget tests for checkout lock and missing nav targets once links exist.
+- **Verified test tree:** `test/features/{authentication,home,profile,settings,checkout,product}/` + `test/core/`.
+- **Checkout (TASK-005):** `test/features/checkout/` — `supabase_checkout_repository_test.dart`, `checkout_view_model_test.dart`, `checkout_page_test.dart` — covers RPC payload (exactly address ID + note), sanitized failures, load/address selection/duplicate-submit/success, provider invalidation after success, and widget UI states (empty cart/address, estimate/COD/backend-authority labels, submit progress, durable success + navigation).
+- **Still missing:** `test/features/{catalog,cart,orders,favorites,search,addresses,notifications}/` repository/widget suites; broader route-guard widget coverage beyond auth/checkout.
+- **Impact:** Checkout regressions are covered in CI; mapping/error-mapping gaps remain for other shop features and account nav entry points.
+- **Recommendation:** Add focused repository unit tests with mocked `SupabaseClient` for remaining shop features, plus widget tests for missing nav targets once shell links exist.
 
 ### P2-4. Money typing guidance vs entities disagree
 
@@ -176,7 +178,7 @@
 
 | Layer | What exists | Gap |
 |-------|-------------|-----|
-| Flutter unit/widget | Auth, home, profile, settings, core Result/validators/glass, checkout repo/VM/widget | Broader shop repositories, router entry points outside checkout |
+| Flutter unit/widget | Auth, home, profile, settings, product variant select, core Result/validators/glass, checkout repo/VM/widget | Broader shop repositories (catalog/cart/orders/…), router entry points outside checkout |
 | DB constraints | `00_constraints.sql` executable smoke | Broader invariant coverage optional |
 | DB RLS | Comment plan in `01_rls_checklist.sql` + `02_product_variant_cost_price.sql` + `03_trusted_cod_checkout.sql` | Executable anon/customer/staff/storage/escalation tests beyond cost_price/checkout |
 | Manual / remote | Not run in this audit | No `supabase` remote commands by task rule |
@@ -193,9 +195,9 @@ Small, dependency-ordered backlog (each should be its own implementation task):
 4. ~~**Wire checkout UI to trusted API**~~ — **done in TASK-005** (`checkout_cod` Flutter repository/ViewModel/UI; estimate-only totals; sanitized errors; success → `/orders` or catalog).
 5. **Profile navigation hub** — links to settings (logout), orders, addresses; optional notifications placeholder (`P1-4`).
 6. **Bootstrap configuration failure UX** — clear error when Supabase env missing instead of composition-root `StateError` (`P1-5`).
-7. **Flutter repository tests** for catalog/product/search/favorites/cart/addresses/orders (`P2-3`; checkout covered in TASK-005).
+7. **Flutter repository tests** for catalog/search/favorites/cart/addresses/orders (`P2-3`; checkout covered in TASK-005; product variant select covered earlier).
 8. **Notifications** — only after schema/RLS designed; then repository + UI (`P2-1`).
-9. **Documentation cleanup** — `README.md`, `docs/architecture.md`, `docs/coding_guidelines.md`, remaining stale claims in ops docs (`P1-3`, `P2-4`, `P2-6`). Checkout Flutter notes updated in TASK-005.
+9. **Documentation cleanup** — `README.md`, `docs/architecture.md`, `docs/coding_guidelines.md`, remaining stale claims in ops docs (`P1-3`, `P2-4`, `P2-6`). Checkout Flutter notes (`docs/backend/flutter_integration_notes.md`) updated in TASK-005.
 10. **Optional facade cleanup** — implement or remove `SupabaseDatabase` / `SupabaseStorage` providers (`P2-2`).
 
 Any future schema change must use a **new** Supabase CLI migration and include database/RLS tests. Do not edit deployed migrations.
