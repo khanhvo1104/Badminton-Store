@@ -41,6 +41,13 @@
       "title": "Build executable RLS, Storage, RPC, and privilege regressions",
       "task_file": ".automation/tasks/TASK-006-executable-rls-suite.md",
       "risk": "high",
+      "status": "blocked_by_task_007"
+    },
+    {
+      "id": "TASK-007",
+      "title": "Revoke unintended client EXECUTE on trigger helpers",
+      "task_file": ".automation/tasks/TASK-007-lock-down-trigger-functions.md",
+      "risk": "high",
       "status": "ready"
     }
   ]
