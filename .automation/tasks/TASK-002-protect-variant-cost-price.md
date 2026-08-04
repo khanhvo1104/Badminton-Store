@@ -13,8 +13,11 @@ detail experience.
 - Create a new Supabase migration with `supabase migration new`; never edit an
   existing migration.
 - Restrict `anon` and `authenticated` Data API access so `cost_price` cannot be
-  selected, while staff/admin access required by trusted operational tooling is
-  preserved.
+  selected. This includes staff/admin users authenticated through Flutter,
+  because they share the PostgreSQL `authenticated` role with customers.
+- Preserve `cost_price` access only for trusted backend operations using
+  `service_role` or direct database credentials. The repository currently has
+  no approved staff/admin Flutter workflow that requires direct cost access.
 - Keep RLS enabled and retain the active-product/active-variant row visibility
   boundary.
 - Replace wildcard variant selection in the Flutter product repository with an
@@ -30,7 +33,9 @@ detail experience.
   `product_variants.cost_price` directly through the Data API.
 - Public product detail can still load all variant fields needed by the current
   Flutter mapper and UI.
-- Staff/admin operational access is not accidentally removed.
+- Trusted backend access through `service_role`/direct database credentials is
+  preserved; Flutter clients, including staff/admin JWT sessions, have no direct
+  `cost_price` access.
 - No existing migration is modified.
 - A new migration and executable regression test demonstrate the intended
   column privileges and public read behavior.
@@ -54,6 +59,8 @@ detail experience.
   an already configured disposable local test instance.
 - Do not expose `cost_price` through a view, RPC, Flutter model, log, fixture, or
   client response.
+- Do not invent an authenticated staff exception, view, or RPC. A future admin
+  workflow requiring cost data must be a separately reviewed backend task.
 - Do not add a service-role or secret key to Flutter or tests.
 - Do not weaken RLS or grant broad table access to solve a permission error.
 - Do not implement checkout or unrelated commerce features.
