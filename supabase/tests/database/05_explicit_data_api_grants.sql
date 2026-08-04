@@ -148,21 +148,70 @@ begin
 end;
 $$;
 
+-- Assert exact table privilege presence/absence (grant layer only).
+create or replace function pg_temp.assert_table_priv(
+  p_role text,
+  p_table text,
+  p_priv text,
+  p_expected boolean
+)
+returns void
+language plpgsql
+as $$
+declare
+  v_has boolean;
+begin
+  v_has := has_table_privilege(
+    p_role,
+    format('public.%I', p_table),
+    p_priv
+  );
+  if p_expected and not v_has then
+    raise exception
+      'FAIL: % missing % on public.%',
+      p_role, p_priv, p_table;
+  end if;
+  if (not p_expected) and v_has then
+    raise exception
+      'FAIL: % unexpectedly has % on public.%',
+      p_role, p_priv, p_table;
+  end if;
+end;
+$$;
+
+-- Apply a 4-tuple privilege mask: SELECT/INSERT/UPDATE/DELETE as booleans.
+create or replace function pg_temp.assert_siud(
+  p_role text,
+  p_table text,
+  p_select boolean,
+  p_insert boolean,
+  p_update boolean,
+  p_delete boolean
+)
+returns void
+language plpgsql
+as $$
+begin
+  perform pg_temp.assert_table_priv(p_role, p_table, 'SELECT', p_select);
+  perform pg_temp.assert_table_priv(p_role, p_table, 'INSERT', p_insert);
+  perform pg_temp.assert_table_priv(p_role, p_table, 'UPDATE', p_update);
+  perform pg_temp.assert_table_priv(p_role, p_table, 'DELETE', p_delete);
+end;
+$$;
+
 -- ---------------------------------------------------------------------------
--- Grant-layer: anon matrix (independent of RLS outcomes)
+-- Grant-layer: exhaustive least-privilege matrix (independent of RLS)
 -- ---------------------------------------------------------------------------
 do $$
 declare
-  catalog_tables text[] := array[
-    'categories', 'brands', 'products', 'product_images', 'product_catalog'
-  ];
-  denied_tables text[] := array[
-    'profiles', 'addresses', 'favorites', 'carts', 'cart_items',
-    'orders', 'order_items', 'order_status_history', 'inventory',
-    'inventory_availability'
+  app_objects text[] := array[
+    'profiles', 'addresses', 'categories', 'brands', 'products',
+    'product_variants', 'product_images', 'inventory', 'favorites',
+    'carts', 'cart_items', 'orders', 'order_items', 'order_status_history',
+    'product_catalog', 'inventory_availability'
   ];
   t text;
-  write_priv text;
+  priv text;
   table_select_grantee text;
   safe_cols text[] := array[
     'id', 'product_id', 'sku', 'name', 'color_name', 'color_hex',
@@ -172,41 +221,54 @@ declare
   ];
   col text;
 begin
-  foreach t in array catalog_tables loop
-    if not has_table_privilege('anon', format('public.%I', t), 'SELECT') then
-      raise exception 'FAIL: anon missing SELECT on public.%', t;
-    end if;
-    foreach write_priv in array array['INSERT', 'UPDATE', 'DELETE'] loop
-      if has_table_privilege('anon', format('public.%I', t), write_priv) then
-        raise exception 'FAIL: anon has % on public.%', write_priv, t;
-      end if;
+  -- PUBLIC: no residual table/view SIUD on any application object.
+  foreach t in array app_objects loop
+    foreach priv in array array['SELECT', 'INSERT', 'UPDATE', 'DELETE'] loop
+      perform pg_temp.assert_table_priv('public', t, priv, false);
     end loop;
   end loop;
 
-  foreach t in array denied_tables loop
-    if has_table_privilege('anon', format('public.%I', t), 'SELECT') then
-      raise exception 'FAIL: anon has SELECT on public.%', t;
-    end if;
-    foreach write_priv in array array['INSERT', 'UPDATE', 'DELETE'] loop
-      if has_table_privilege('anon', format('public.%I', t), write_priv) then
-        raise exception 'FAIL: anon has % on public.%', write_priv, t;
-      end if;
-    end loop;
-  end loop;
+  -- anon: catalog-safe reads only; no writes anywhere.
+  perform pg_temp.assert_siud('anon', 'categories', true, false, false, false);
+  perform pg_temp.assert_siud('anon', 'brands', true, false, false, false);
+  perform pg_temp.assert_siud('anon', 'products', true, false, false, false);
+  perform pg_temp.assert_siud('anon', 'product_images', true, false, false, false);
+  perform pg_temp.assert_siud(
+    'anon', 'product_catalog', true, false, false, false
+  );
 
-  -- product_variants: no table-wide SELECT; safe columns only; no cost_price.
+  perform pg_temp.assert_siud('anon', 'profiles', false, false, false, false);
+  perform pg_temp.assert_siud('anon', 'addresses', false, false, false, false);
+  perform pg_temp.assert_siud('anon', 'favorites', false, false, false, false);
+  perform pg_temp.assert_siud('anon', 'carts', false, false, false, false);
+  perform pg_temp.assert_siud('anon', 'cart_items', false, false, false, false);
+  perform pg_temp.assert_siud('anon', 'orders', false, false, false, false);
+  perform pg_temp.assert_siud('anon', 'order_items', false, false, false, false);
+  perform pg_temp.assert_siud(
+    'anon', 'order_status_history', false, false, false, false
+  );
+  perform pg_temp.assert_siud('anon', 'inventory', false, false, false, false);
+  perform pg_temp.assert_siud(
+    'anon', 'inventory_availability', false, false, false, false
+  );
+
+  -- product_variants: no table-wide SELECT for public roles; no writes for anon.
   for table_select_grantee in
     select grantee
     from information_schema.role_table_grants
     where table_schema = 'public'
       and table_name = 'product_variants'
       and privilege_type = 'SELECT'
-      and grantee in ('anon', 'authenticated')
+      and grantee in ('PUBLIC', 'anon', 'authenticated')
   loop
     raise exception
       'FAIL: % still has table-wide SELECT on product_variants',
       table_select_grantee;
   end loop;
+
+  perform pg_temp.assert_table_priv('anon', 'product_variants', 'INSERT', false);
+  perform pg_temp.assert_table_priv('anon', 'product_variants', 'UPDATE', false);
+  perform pg_temp.assert_table_priv('anon', 'product_variants', 'DELETE', false);
 
   if has_column_privilege(
     'anon', 'public.product_variants', 'cost_price', 'SELECT'
@@ -222,98 +284,66 @@ begin
     end if;
   end loop;
 
-  if not has_function_privilege(
-    'anon', 'public.get_variant_availability(uuid)', 'EXECUTE'
-  ) then
-    raise exception 'FAIL: anon missing EXECUTE on get_variant_availability';
-  end if;
-  if not has_function_privilege(
-    'anon', 'public.search_products(text, integer)', 'EXECUTE'
-  ) then
-    raise exception 'FAIL: anon missing EXECUTE on search_products';
-  end if;
-  if has_function_privilege(
-    'anon', 'public.checkout_cod(uuid, text)', 'EXECUTE'
-  ) then
-    raise exception 'FAIL: anon has EXECUTE on checkout_cod';
-  end if;
+  -- authenticated: exact positive + negative operation matrix.
+  perform pg_temp.assert_siud(
+    'authenticated', 'profiles', true, false, true, false
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'addresses', true, true, true, true
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'categories', true, true, true, true
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'brands', true, true, true, true
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'products', true, true, true, true
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'product_images', true, true, true, true
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'inventory', true, true, true, true
+  );
+  -- Favorites: SELECT/INSERT/DELETE only (no UPDATE grant).
+  perform pg_temp.assert_siud(
+    'authenticated', 'favorites', true, true, false, true
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'carts', true, true, true, true
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'cart_items', true, true, true, true
+  );
+  -- Orders: SELECT/INSERT/UPDATE (no DELETE).
+  perform pg_temp.assert_siud(
+    'authenticated', 'orders', true, true, true, false
+  );
+  -- Order items / history: SELECT/INSERT only (no UPDATE/DELETE).
+  perform pg_temp.assert_siud(
+    'authenticated', 'order_items', true, true, false, false
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'order_status_history', true, true, false, false
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'product_catalog', true, false, false, false
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'inventory_availability', false, false, false, false
+  );
 
-  raise notice 'OK: anon grant-layer matrix';
-end $$;
-
--- ---------------------------------------------------------------------------
--- Grant-layer: authenticated customer + staff operation surface
--- ---------------------------------------------------------------------------
-do $$
-begin
-  if not has_table_privilege('authenticated', 'public.profiles', 'SELECT') then
-    raise exception 'FAIL: authenticated missing SELECT on profiles';
-  end if;
-  if not has_table_privilege('authenticated', 'public.profiles', 'UPDATE') then
-    raise exception 'FAIL: authenticated missing UPDATE on profiles';
-  end if;
-
-  if not (
-    has_table_privilege('authenticated', 'public.addresses', 'SELECT')
-    and has_table_privilege('authenticated', 'public.addresses', 'INSERT')
-    and has_table_privilege('authenticated', 'public.addresses', 'UPDATE')
-    and has_table_privilege('authenticated', 'public.addresses', 'DELETE')
-  ) then
-    raise exception 'FAIL: authenticated missing addresses CRUD grants';
-  end if;
-
-  if not (
-    has_table_privilege('authenticated', 'public.favorites', 'SELECT')
-    and has_table_privilege('authenticated', 'public.favorites', 'INSERT')
-    and has_table_privilege('authenticated', 'public.favorites', 'DELETE')
-  ) then
-    raise exception 'FAIL: authenticated missing favorites SID grants';
-  end if;
-
-  if not (
-    has_table_privilege('authenticated', 'public.carts', 'SELECT')
-    and has_table_privilege('authenticated', 'public.carts', 'INSERT')
-    and has_table_privilege('authenticated', 'public.carts', 'UPDATE')
-    and has_table_privilege('authenticated', 'public.carts', 'DELETE')
-  ) then
-    raise exception 'FAIL: authenticated missing carts CRUD grants';
-  end if;
-
-  if not (
-    has_table_privilege('authenticated', 'public.cart_items', 'SELECT')
-    and has_table_privilege('authenticated', 'public.cart_items', 'INSERT')
-    and has_table_privilege('authenticated', 'public.cart_items', 'UPDATE')
-    and has_table_privilege('authenticated', 'public.cart_items', 'DELETE')
-  ) then
-    raise exception 'FAIL: authenticated missing cart_items CRUD grants';
-  end if;
-
-  if not has_table_privilege('authenticated', 'public.orders', 'SELECT') then
-    raise exception 'FAIL: authenticated missing SELECT on orders';
-  end if;
-  if not has_table_privilege('authenticated', 'public.order_items', 'SELECT') then
-    raise exception 'FAIL: authenticated missing SELECT on order_items';
-  end if;
-  if not has_table_privilege(
-    'authenticated', 'public.order_status_history', 'SELECT'
-  ) then
-    raise exception 'FAIL: authenticated missing SELECT on order_status_history';
-  end if;
-
-  -- Staff-required operation grants (RLS still gates customers).
-  if not (
-    has_table_privilege('authenticated', 'public.categories', 'INSERT')
-    and has_table_privilege('authenticated', 'public.inventory', 'SELECT')
-    and has_table_privilege('authenticated', 'public.inventory', 'UPDATE')
-    and has_table_privilege('authenticated', 'public.orders', 'INSERT')
-    and has_table_privilege('authenticated', 'public.orders', 'UPDATE')
-    and has_table_privilege('authenticated', 'public.order_items', 'INSERT')
-    and has_table_privilege(
-      'authenticated', 'public.order_status_history', 'INSERT'
-    )
-  ) then
-    raise exception 'FAIL: authenticated missing staff operation grants';
-  end if;
+  -- product_variants: column SELECT + staff writes; no table-wide SELECT.
+  perform pg_temp.assert_table_priv(
+    'authenticated', 'product_variants', 'INSERT', true
+  );
+  perform pg_temp.assert_table_priv(
+    'authenticated', 'product_variants', 'UPDATE', true
+  );
+  perform pg_temp.assert_table_priv(
+    'authenticated', 'product_variants', 'DELETE', true
+  );
 
   if has_column_privilege(
     'authenticated', 'public.product_variants', 'cost_price', 'SELECT'
@@ -322,6 +352,21 @@ begin
       'FAIL: authenticated can SELECT product_variants.cost_price';
   end if;
 
+  foreach col in array safe_cols loop
+    if not has_column_privilege(
+      'authenticated', 'public.product_variants', col, 'SELECT'
+    ) then
+      raise exception
+        'FAIL: authenticated missing SELECT on product_variants.%',
+        col;
+    end if;
+  end loop;
+
+  -- service_role retains full SIUD on every application table/view + cost_price.
+  foreach t in array app_objects loop
+    perform pg_temp.assert_siud('service_role', t, true, true, true, true);
+  end loop;
+
   if not has_column_privilege(
     'service_role', 'public.product_variants', 'cost_price', 'SELECT'
   ) then
@@ -329,7 +374,7 @@ begin
       'FAIL: service_role lost SELECT on product_variants.cost_price';
   end if;
 
-  raise notice 'OK: authenticated/service_role grant-layer matrix';
+  raise notice 'OK: exhaustive PUBLIC/anon/authenticated/service_role grants';
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -367,6 +412,43 @@ begin
     end if;
   end loop;
 
+  -- Catalog RPCs: anon + authenticated + service_role.
+  foreach grantee in array array['anon', 'authenticated', 'service_role'] loop
+    if not has_function_privilege(
+      grantee, 'public.get_variant_availability(uuid)', 'EXECUTE'
+    ) then
+      raise exception 'FAIL: % missing EXECUTE on get_variant_availability',
+        grantee;
+    end if;
+    if not has_function_privilege(
+      grantee, 'public.search_products(text, integer)', 'EXECUTE'
+    ) then
+      raise exception 'FAIL: % missing EXECUTE on search_products', grantee;
+    end if;
+  end loop;
+
+  if has_function_privilege(
+    'public', 'public.get_variant_availability(uuid)', 'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on get_variant_availability';
+  end if;
+  if has_function_privilege(
+    'public', 'public.search_products(text, integer)', 'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on search_products';
+  end if;
+
+  -- checkout_cod: authenticated + service_role only.
+  if has_function_privilege(
+    'public', 'public.checkout_cod(uuid, text)', 'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on checkout_cod';
+  end if;
+  if has_function_privilege(
+    'anon', 'public.checkout_cod(uuid, text)', 'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on checkout_cod';
+  end if;
   if not has_function_privilege(
     'authenticated', 'public.checkout_cod(uuid, text)', 'EXECUTE'
   ) then
@@ -378,11 +460,39 @@ begin
     raise exception 'FAIL: service_role missing EXECUTE on checkout_cod';
   end if;
 
-  if not has_function_privilege(
-    'anon', 'public.is_staff_or_admin()', 'EXECUTE'
-  ) then
-    raise exception 'FAIL: anon missing EXECUTE on is_staff_or_admin';
-  end if;
+  -- Policy helpers remain executable by Data API roles.
+  foreach grantee in array array['anon', 'authenticated', 'service_role'] loop
+    if not has_function_privilege(
+      grantee, 'public.is_staff_or_admin()', 'EXECUTE'
+    ) then
+      raise exception 'FAIL: % missing EXECUTE on is_staff_or_admin', grantee;
+    end if;
+    if not has_function_privilege(
+      grantee, 'public.is_admin()', 'EXECUTE'
+    ) then
+      raise exception 'FAIL: % missing EXECUTE on is_admin', grantee;
+    end if;
+  end loop;
+
+  -- Historical helpers: no anon EXECUTE; authenticated + service_role only.
+  foreach sig in array array[
+    'public.set_updated_at()',
+    'public.generate_order_number()',
+    'public.cart_items_enforce_active_cart()'
+  ] loop
+    if has_function_privilege('public', sig, 'EXECUTE') then
+      raise exception 'FAIL: PUBLIC has EXECUTE on %', sig;
+    end if;
+    if has_function_privilege('anon', sig, 'EXECUTE') then
+      raise exception 'FAIL: anon has EXECUTE on %', sig;
+    end if;
+    if not has_function_privilege('authenticated', sig, 'EXECUTE') then
+      raise exception 'FAIL: authenticated missing EXECUTE on %', sig;
+    end if;
+    if not has_function_privilege('service_role', sig, 'EXECUTE') then
+      raise exception 'FAIL: service_role missing EXECUTE on %', sig;
+    end if;
+  end loop;
 
   raise notice 'OK: function EXECUTE contracts';
 end $$;
@@ -627,15 +737,20 @@ declare
   v_addr_a uuid := 'a8200000-0000-4000-8000-000000000001';
   v_addr_b uuid := 'a8200000-0000-4000-8000-000000000002';
   v_order_a uuid := 'a8300000-0000-4000-8000-000000000001';
+  v_order_item_a uuid := 'a8400000-0000-4000-8000-000000000001';
   v_product_id uuid := '30000000-0000-4000-8000-000000000001';
   v_cart_id uuid := 'a8600000-0000-4000-8000-000000000001';
   v_item_id uuid := 'a8700000-0000-4000-8000-000000000001';
   v_count integer;
+  v_item_count integer;
+  v_history_count integer;
   v_name text;
   v_denied boolean;
   v_reserved integer;
   v_status text;
   v_subtotal numeric;
+  v_qty integer;
+  v_cart_status text;
 begin
   -- Customer A: own CRUD flows.
   perform pg_temp.grants_set_auth(v_customer_a);
@@ -700,6 +815,10 @@ begin
 
   perform pg_temp.grants_clear_auth();
 
+  -- Baselines for cross-user mutation checks (owner context).
+  select quantity into v_qty from public.cart_items where id = v_item_id;
+  select status into v_cart_status from public.carts where id = v_cart_id;
+
   -- Customer B cannot read A's private rows.
   perform pg_temp.grants_set_auth(v_customer_b);
 
@@ -720,9 +839,27 @@ begin
     raise exception 'FAIL: customer B can SELECT customer A cart';
   end if;
 
+  select count(*) into v_count from public.cart_items where id = v_item_id;
+  if v_count <> 0 then
+    raise exception 'FAIL: customer B can SELECT customer A cart_item';
+  end if;
+
   select count(*) into v_count from public.orders where id = v_order_a;
   if v_count <> 0 then
     raise exception 'FAIL: customer B can SELECT customer A order';
+  end if;
+
+  select count(*) into v_count
+  from public.order_items where order_id = v_order_a;
+  if v_count <> 0 then
+    raise exception 'FAIL: customer B can SELECT customer A order_items';
+  end if;
+
+  select count(*) into v_count
+  from public.order_status_history where order_id = v_order_a;
+  if v_count <> 0 then
+    raise exception
+      'FAIL: customer B can SELECT customer A order_status_history';
   end if;
 
   v_denied := false;
@@ -751,21 +888,146 @@ begin
     raise exception 'FAIL: customer B mutated customer A address';
   end if;
 
+  -- Cross-user favorite DELETE must not remove A's row.
+  v_denied := false;
+  begin
+    delete from public.favorites
+    where user_id = v_customer_a and product_id = v_product_id;
+    if not found then
+      v_denied := true;
+    end if;
+  exception
+    when insufficient_privilege then
+      v_denied := true;
+    when others then
+      if sqlstate = '42501' then
+        v_denied := true;
+      else
+        perform pg_temp.grants_clear_auth();
+        raise exception
+          'FAIL: cross-user favorite DELETE unexpected SQLSTATE %: %',
+          sqlstate, sqlerrm;
+      end if;
+  end;
+  if not v_denied then
+    perform pg_temp.grants_clear_auth();
+    raise exception 'FAIL: customer B deleted customer A favorite';
+  end if;
+
+  -- Cross-user cart UPDATE must not mutate.
+  v_denied := false;
+  begin
+    update public.carts set status = 'abandoned' where id = v_cart_id;
+    if not found then
+      v_denied := true;
+    end if;
+  exception
+    when insufficient_privilege then
+      v_denied := true;
+    when others then
+      if sqlstate = '42501' then
+        v_denied := true;
+      else
+        perform pg_temp.grants_clear_auth();
+        raise exception
+          'FAIL: cross-user cart UPDATE unexpected SQLSTATE %: %',
+          sqlstate, sqlerrm;
+      end if;
+  end;
+  if not v_denied then
+    perform pg_temp.grants_clear_auth();
+    raise exception 'FAIL: customer B mutated customer A cart';
+  end if;
+
+  -- Cross-user cart_item UPDATE/DELETE must not mutate.
+  v_denied := false;
+  begin
+    update public.cart_items set quantity = 99 where id = v_item_id;
+    if not found then
+      v_denied := true;
+    end if;
+  exception
+    when insufficient_privilege then
+      v_denied := true;
+    when others then
+      if sqlstate = '42501' then
+        v_denied := true;
+      else
+        perform pg_temp.grants_clear_auth();
+        raise exception
+          'FAIL: cross-user cart_item UPDATE unexpected SQLSTATE %: %',
+          sqlstate, sqlerrm;
+      end if;
+  end;
+  if not v_denied then
+    perform pg_temp.grants_clear_auth();
+    raise exception 'FAIL: customer B mutated customer A cart_item';
+  end if;
+
+  v_denied := false;
+  begin
+    delete from public.cart_items where id = v_item_id;
+    if not found then
+      v_denied := true;
+    end if;
+  exception
+    when insufficient_privilege then
+      v_denied := true;
+    when others then
+      if sqlstate = '42501' then
+        v_denied := true;
+      else
+        perform pg_temp.grants_clear_auth();
+        raise exception
+          'FAIL: cross-user cart_item DELETE unexpected SQLSTATE %: %',
+          sqlstate, sqlerrm;
+      end if;
+  end;
+  if not v_denied then
+    perform pg_temp.grants_clear_auth();
+    raise exception 'FAIL: customer B deleted customer A cart_item';
+  end if;
+
   perform pg_temp.grants_clear_auth();
 
-  -- Confirm address unchanged.
+  -- Confirm private rows unchanged after cross-user attempts.
   select street_address into v_name
   from public.addresses where id = v_addr_a;
   if v_name is distinct from '8 Nguyễn Huệ Updated' then
     raise exception 'FAIL: customer A address mutated by cross-user attempt';
   end if;
 
-  -- Trusted order boundary: customer cannot INSERT orders / mutate protected.
-  -- Capture inventory baseline as owner before customer role switch.
-  perform pg_temp.grants_clear_auth();
+  if (
+    select count(*)
+    from public.favorites
+    where user_id = v_customer_a and product_id = v_product_id
+  ) <> 1 then
+    raise exception 'FAIL: customer A favorite mutated by cross-user attempt';
+  end if;
+
+  if (
+    select status from public.carts where id = v_cart_id
+  ) is distinct from v_cart_status then
+    raise exception 'FAIL: customer A cart mutated by cross-user attempt';
+  end if;
+
+  if (
+    select quantity from public.cart_items where id = v_item_id
+  ) is distinct from v_qty then
+    raise exception
+      'FAIL: customer A cart_item mutated by cross-user attempt';
+  end if;
+
+  -- Trusted order boundary: customer cannot INSERT orders / items / history
+  -- or mutate protected fields / inventory.
   select quantity_reserved into v_reserved
   from public.inventory
   where variant_id = '40000000-0000-4000-8000-000000000001';
+
+  select count(*) into v_item_count
+  from public.order_items where order_id = v_order_a;
+  select count(*) into v_history_count
+  from public.order_status_history where order_id = v_order_a;
 
   perform pg_temp.grants_set_auth(v_customer_a);
 
@@ -796,6 +1058,66 @@ begin
   if not v_denied then
     perform pg_temp.grants_clear_auth();
     raise exception 'FAIL: customer direct INSERT on orders succeeded';
+  end if;
+
+  -- Direct order_items INSERT (staff grant exists; customer RLS must deny).
+  v_denied := false;
+  begin
+    insert into public.order_items (
+      order_id, product_id, variant_id, product_name, variant_name, sku,
+      unit_price, quantity, line_total
+    ) values (
+      v_order_a,
+      v_product_id,
+      '40000000-0000-4000-8000-000000000001',
+      'Customer Direct Item',
+      'Variant',
+      'GRANTS-CUST-DIRECT',
+      50, 1, 50
+    );
+  exception
+    when insufficient_privilege then
+      v_denied := true;
+    when others then
+      if sqlstate = '42501' then
+        v_denied := true;
+      else
+        perform pg_temp.grants_clear_auth();
+        raise exception
+          'FAIL: customer order_items INSERT unexpected SQLSTATE %: %',
+          sqlstate, sqlerrm;
+      end if;
+  end;
+  if not v_denied then
+    perform pg_temp.grants_clear_auth();
+    raise exception 'FAIL: customer direct INSERT on order_items succeeded';
+  end if;
+
+  -- Direct order_status_history INSERT must fail for customers.
+  v_denied := false;
+  begin
+    insert into public.order_status_history (
+      order_id, from_status, to_status, note
+    ) values (
+      v_order_a, 'pending', 'cancelled', 'customer-direct'
+    );
+  exception
+    when insufficient_privilege then
+      v_denied := true;
+    when others then
+      if sqlstate = '42501' then
+        v_denied := true;
+      else
+        perform pg_temp.grants_clear_auth();
+        raise exception
+          'FAIL: customer order_status_history INSERT unexpected SQLSTATE %: %',
+          sqlstate, sqlerrm;
+      end if;
+  end;
+  if not v_denied then
+    perform pg_temp.grants_clear_auth();
+    raise exception
+      'FAIL: customer direct INSERT on order_status_history succeeded';
   end if;
 
   v_denied := false;
@@ -832,6 +1154,25 @@ begin
     where variant_id = '40000000-0000-4000-8000-000000000001'
   ) is distinct from v_reserved then
     raise exception 'FAIL: customer inventory UPDATE mutated reserved qty';
+  end if;
+
+  if (
+    select count(*) from public.order_items where order_id = v_order_a
+  ) is distinct from v_item_count then
+    raise exception 'FAIL: customer order_items INSERT mutated rows';
+  end if;
+
+  if (
+    select count(*)
+    from public.order_status_history where order_id = v_order_a
+  ) is distinct from v_history_count then
+    raise exception 'FAIL: customer order_status_history INSERT mutated rows';
+  end if;
+
+  if not exists (
+    select 1 from public.order_items where id = v_order_item_a
+  ) then
+    raise exception 'FAIL: seeded order_item missing after customer attempts';
   end if;
 
   -- Protected order field update must not mutate.
@@ -898,10 +1239,15 @@ declare
   v_admin uuid := 'a8000000-0000-4000-8000-000000000004';
   v_forged uuid := 'a8000000-0000-4000-8000-000000000005';
   v_cat_id uuid := 'a8100000-0000-4000-8000-000000000002';
+  v_admin_cat_id uuid := 'a8100000-0000-4000-8000-000000000003';
   v_order_id uuid := 'a8300000-0000-4000-8000-000000000002';
+  v_order_a uuid := 'a8300000-0000-4000-8000-000000000001';
+  v_history_id uuid := 'a8500000-0000-4000-8000-000000000001';
   v_count integer;
   v_on_hand integer;
   v_denied boolean;
+  v_status text;
+  v_history_count integer;
 begin
   -- Staff catalog write.
   perform pg_temp.grants_set_auth(v_staff);
@@ -954,6 +1300,30 @@ begin
     200, 1, 200
   );
 
+  -- Staff order UPDATE + status-history INSERT (trusted workflows).
+  select status into v_status from public.orders where id = v_order_a;
+  select count(*) into v_history_count
+  from public.order_status_history where order_id = v_order_a;
+
+  update public.orders
+  set status = 'confirmed'
+  where id = v_order_a;
+  if not found then
+    raise exception 'FAIL: staff cannot UPDATE order status';
+  end if;
+
+  -- Trigger may already append history; explicit staff INSERT must still work.
+  insert into public.order_status_history (
+    id, order_id, from_status, to_status, changed_by, note
+  ) values (
+    v_history_id,
+    v_order_a,
+    v_status,
+    'confirmed',
+    v_staff,
+    'staff-status-change'
+  );
+
   perform pg_temp.grants_clear_auth();
 
   if (
@@ -964,15 +1334,89 @@ begin
     raise exception 'FAIL: staff inventory UPDATE did not persist';
   end if;
 
-  -- Admin can select inactive category (staff-or-admin SELECT path).
+  if (
+    select status from public.orders where id = v_order_a
+  ) is distinct from 'confirmed' then
+    raise exception 'FAIL: staff order UPDATE did not persist';
+  end if;
+
+  if (
+    select count(*)
+    from public.order_status_history where id = v_history_id
+  ) <> 1 then
+    raise exception 'FAIL: staff order_status_history INSERT did not persist';
+  end if;
+
+  if (
+    select count(*)
+    from public.order_status_history where order_id = v_order_a
+  ) <= v_history_count then
+    raise exception 'FAIL: staff status history count did not increase';
+  end if;
+
+  -- Admin write workflows (trusted profiles.role = admin).
   perform pg_temp.grants_set_auth(v_admin);
+
   select count(*) into v_count
   from public.categories
   where id = 'a8100000-0000-4000-8000-000000000001';
   if v_count <> 1 then
     raise exception 'FAIL: admin cannot see inactive category';
   end if;
+
+  insert into public.categories (id, name, slug, sort_order, is_active)
+  values (
+    v_admin_cat_id,
+    'Grants Admin Category',
+    'grants-admin-category',
+    997,
+    true
+  );
+
+  update public.categories
+  set description = 'admin-updated'
+  where id = v_admin_cat_id;
+  if not found then
+    raise exception 'FAIL: admin cannot UPDATE category';
+  end if;
+
+  update public.inventory
+  set quantity_on_hand = quantity_on_hand + 1
+  where variant_id = '40000000-0000-4000-8000-000000000001';
+  if not found then
+    raise exception 'FAIL: admin cannot UPDATE inventory';
+  end if;
+
+  update public.orders
+  set status = 'preparing'
+  where id = v_order_a;
+  if not found then
+    raise exception 'FAIL: admin cannot UPDATE order status';
+  end if;
+
+  insert into public.order_status_history (
+    order_id, from_status, to_status, changed_by, note
+  ) values (
+    v_order_a,
+    'confirmed',
+    'preparing',
+    v_admin,
+    'admin-status-change'
+  );
+
   perform pg_temp.grants_clear_auth();
+
+  if (
+    select description from public.categories where id = v_admin_cat_id
+  ) is distinct from 'admin-updated' then
+    raise exception 'FAIL: admin category UPDATE did not persist';
+  end if;
+
+  if (
+    select status from public.orders where id = v_order_a
+  ) is distinct from 'preparing' then
+    raise exception 'FAIL: admin order UPDATE did not persist';
+  end if;
 
   -- Forged JWT role claims do not grant staff authority.
   perform pg_temp.grants_set_auth_forged_staff(v_forged);
