@@ -1,4 +1,4 @@
--- Lock down EXECUTE on internal trigger helpers.
+-- Lock down direct EXECUTE on internal trigger helpers.
 --
 -- PostgreSQL grants EXECUTE to PUBLIC by default. These helpers are intended
 -- only for trigger invocation (and trusted service_role operational access),

@@ -212,7 +212,7 @@ Any future schema change must use a **new** Supabase CLI migration and include d
 | Check | Result |
 |-------|--------|
 | `supabase --version` | Passed — `2.26.9` |
-| `supabase db reset` (local disposable) | Passed — applied through `20260804164758_lock_down_trigger_function_execute.sql` + seed |
+| `supabase db reset` (local disposable) | Passed — applied through `20260804165639_lock_down_trigger_function_execute.sql` + seed |
 | `00_constraints.sql` | Passed (via `docker exec … psql -v ON_ERROR_STOP=1`; host `psql` unavailable) |
 | `02_product_variant_cost_price.sql` | Passed |
 | `03_trusted_cod_checkout.sql` | Passed |
