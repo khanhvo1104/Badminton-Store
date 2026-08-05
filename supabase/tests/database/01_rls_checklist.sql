@@ -653,6 +653,32 @@ begin
       'FAIL: get_variant_availability exposes a protected column name';
   end if;
 
+  -- search_products returns setof product_catalog; assert its composite
+  -- return attributes exclude protected cost/inventory fields explicitly.
+  if (
+    select t.typname
+    from pg_proc p
+    join pg_type t on t.oid = p.prorettype
+    where p.oid = 'public.search_products(text, integer)'::regprocedure
+  ) is distinct from 'product_catalog' then
+    raise exception
+      'FAIL: search_products return type is not product_catalog';
+  end if;
+
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_type t on t.oid = p.prorettype
+    join pg_attribute a on a.attrelid = t.typrelid
+    where p.oid = 'public.search_products(text, integer)'::regprocedure
+      and a.attnum > 0
+      and not a.attisdropped
+      and a.attname = any (bad_cols)
+  ) then
+    raise exception
+      'FAIL: search_products exposes a protected column name';
+  end if;
+
   raise notice 'OK: function EXECUTE + RPC schema contracts';
 end $$;
 
@@ -1132,15 +1158,24 @@ declare
   v_cart_a uuid := 'a6600000-0000-4000-8000-000000000001';
   v_cart_b uuid := 'a6600000-0000-4000-8000-000000000002';
   v_item_a uuid := 'a6700000-0000-4000-8000-000000000001';
+  v_item_b uuid := 'a6700000-0000-4000-8000-000000000002';
   v_order_a uuid := 'a6300000-0000-4000-8000-000000000001';
   v_order_b uuid := 'a6300000-0000-4000-8000-000000000002';
   v_product uuid := 'a6120000-0000-4000-8000-000000000001';
-  v_new_addr uuid := 'a6200000-0000-4000-8000-000000000011';
+  v_draft_product uuid := 'a6120000-0000-4000-8000-000000000002';
+  v_inactive_variant uuid := 'a6130000-0000-4000-8000-000000000002';
+  v_new_addr_a uuid := 'a6200000-0000-4000-8000-000000000011';
+  v_new_addr_b uuid := 'a6200000-0000-4000-8000-000000000012';
+  v_cart_extra_a uuid := 'a6600000-0000-4000-8000-000000000011';
+  v_cart_extra_b uuid := 'a6600000-0000-4000-8000-000000000012';
+  v_item_extra_a uuid := 'a6700000-0000-4000-8000-000000000011';
+  v_item_extra_b uuid := 'a6700000-0000-4000-8000-000000000012';
   v_count integer;
   v_qty integer;
   v_street text;
   v_name text;
 begin
+  -- ----- Customer A: full owned CRUD on required surfaces -----
   perform pg_temp.rls_set_auth(v_a);
 
   select full_name into v_name from public.profiles where id = v_a;
@@ -1171,9 +1206,14 @@ begin
     id, user_id, recipient_name, phone_number,
     province_name, district_name, ward_name, street_address, is_default
   ) values (
-    v_new_addr, v_a, 'Customer A2', '0906000011',
-    'TP Hồ Chí Minh', 'Quận 1', 'Phường Bến Nghé', '6 RLS Extra', false
+    v_new_addr_a, v_a, 'Customer A2', '0906000011',
+    'TP Hồ Chí Minh', 'Quận 1', 'Phường Bến Nghé', '6 RLS Extra A', false
   );
+
+  delete from public.addresses where id = v_new_addr_a;
+  if not found then
+    raise exception 'FAIL: customer A cannot DELETE own address';
+  end if;
 
   select count(*) into v_count
   from public.favorites
@@ -1182,14 +1222,55 @@ begin
     raise exception 'FAIL: customer A cannot SELECT own favorite';
   end if;
 
+  insert into public.favorites (user_id, product_id)
+  values (v_a, v_draft_product);
+
+  delete from public.favorites
+  where user_id = v_a and product_id = v_draft_product;
+  if not found then
+    raise exception 'FAIL: customer A cannot DELETE own favorite';
+  end if;
+
   select count(*) into v_count from public.carts where id = v_cart_a;
   if v_count <> 1 then
     raise exception 'FAIL: customer A cannot SELECT own cart';
   end if;
 
+  update public.carts
+  set expires_at = timezone('utc', now()) + interval '7 days'
+  where id = v_cart_a;
+  if not found then
+    raise exception 'FAIL: customer A cannot UPDATE own cart';
+  end if;
+
+  -- Extra abandoned cart avoids carts_one_active_per_user_idx.
+  insert into public.carts (id, user_id, status, currency_code)
+  values (v_cart_extra_a, v_a, 'abandoned', 'VND');
+
+  delete from public.carts where id = v_cart_extra_a;
+  if not found then
+    raise exception 'FAIL: customer A cannot DELETE own cart';
+  end if;
+
+  select count(*) into v_count from public.cart_items where id = v_item_a;
+  if v_count <> 1 then
+    raise exception 'FAIL: customer A cannot SELECT own cart_item';
+  end if;
+
   update public.cart_items set quantity = 2 where id = v_item_a;
   if not found then
     raise exception 'FAIL: customer A cannot UPDATE own cart_item';
+  end if;
+
+  insert into public.cart_items (
+    id, cart_id, variant_id, quantity, unit_price_snapshot
+  ) values (
+    v_item_extra_a, v_cart_a, v_inactive_variant, 1, 100000
+  );
+
+  delete from public.cart_items where id = v_item_extra_a;
+  if not found then
+    raise exception 'FAIL: customer A cannot DELETE own cart_item';
   end if;
 
   select count(*) into v_count from public.orders where id = v_order_a;
@@ -1220,6 +1301,120 @@ begin
   if v_count <> 0 then
     raise exception 'FAIL: customer A can see B profile';
   end if;
+
+  perform pg_temp.rls_clear_auth();
+
+  -- ----- Customer B: full owned CRUD on required surfaces -----
+  perform pg_temp.rls_set_auth(v_b);
+
+  select full_name into v_name from public.profiles where id = v_b;
+  if v_name is distinct from 'RLS Customer B' then
+    raise exception 'FAIL: customer B cannot read own profile';
+  end if;
+
+  update public.profiles
+  set full_name = 'RLS Customer B Updated', phone_number = '0906222222'
+  where id = v_b;
+  if not found then
+    raise exception 'FAIL: customer B cannot UPDATE own profile fields';
+  end if;
+
+  select count(*) into v_count from public.addresses where id = v_addr_b;
+  if v_count <> 1 then
+    raise exception 'FAIL: customer B cannot SELECT own address';
+  end if;
+
+  update public.addresses
+  set street_address = '6 RLS Street B Updated'
+  where id = v_addr_b;
+  if not found then
+    raise exception 'FAIL: customer B cannot UPDATE own address';
+  end if;
+
+  insert into public.addresses (
+    id, user_id, recipient_name, phone_number,
+    province_name, district_name, ward_name, street_address, is_default
+  ) values (
+    v_new_addr_b, v_b, 'Customer B2', '0906000022',
+    'Hà Nội', 'Quận Ba Đình', 'Phường Điện Biên', '6 RLS Extra B', false
+  );
+
+  delete from public.addresses where id = v_new_addr_b;
+  if not found then
+    raise exception 'FAIL: customer B cannot DELETE own address';
+  end if;
+
+  select count(*) into v_count
+  from public.favorites
+  where user_id = v_b and product_id = v_product;
+  if v_count <> 1 then
+    raise exception 'FAIL: customer B cannot SELECT own favorite';
+  end if;
+
+  insert into public.favorites (user_id, product_id)
+  values (v_b, v_draft_product);
+
+  delete from public.favorites
+  where user_id = v_b and product_id = v_draft_product;
+  if not found then
+    raise exception 'FAIL: customer B cannot DELETE own favorite';
+  end if;
+
+  select count(*) into v_count from public.carts where id = v_cart_b;
+  if v_count <> 1 then
+    raise exception 'FAIL: customer B cannot SELECT own cart';
+  end if;
+
+  update public.carts
+  set expires_at = timezone('utc', now()) + interval '7 days'
+  where id = v_cart_b;
+  if not found then
+    raise exception 'FAIL: customer B cannot UPDATE own cart';
+  end if;
+
+  insert into public.carts (id, user_id, status, currency_code)
+  values (v_cart_extra_b, v_b, 'abandoned', 'VND');
+
+  delete from public.carts where id = v_cart_extra_b;
+  if not found then
+    raise exception 'FAIL: customer B cannot DELETE own cart';
+  end if;
+
+  select count(*) into v_count from public.cart_items where id = v_item_b;
+  if v_count <> 1 then
+    raise exception 'FAIL: customer B cannot SELECT own cart_item';
+  end if;
+
+  update public.cart_items set quantity = 3 where id = v_item_b;
+  if not found then
+    raise exception 'FAIL: customer B cannot UPDATE own cart_item';
+  end if;
+
+  insert into public.cart_items (
+    id, cart_id, variant_id, quantity, unit_price_snapshot
+  ) values (
+    v_item_extra_b, v_cart_b, v_inactive_variant, 1, 100000
+  );
+
+  delete from public.cart_items where id = v_item_extra_b;
+  if not found then
+    raise exception 'FAIL: customer B cannot DELETE own cart_item';
+  end if;
+
+  select count(*) into v_count from public.orders where id = v_order_b;
+  if v_count <> 1 then
+    raise exception 'FAIL: customer B cannot SELECT own order';
+  end if;
+
+  -- Favorites have no UPDATE grant; deny at grant layer for B.
+  perform pg_temp.assert_privilege_error(
+    'B favorite UPDATE',
+    format(
+      $q$update public.favorites set created_at = timezone('utc', now())
+         where user_id = %L and product_id = %L$q$,
+      v_b, v_product
+    )
+  );
 
   perform pg_temp.rls_clear_auth();
 
@@ -1340,15 +1535,7 @@ begin
     raise exception 'FAIL: A cart mutated by B';
   end if;
 
-  -- Customer A can delete own extra address / own cart item update remains.
-  perform pg_temp.rls_set_auth(v_a);
-  delete from public.addresses where id = v_new_addr;
-  if not found then
-    raise exception 'FAIL: customer A cannot DELETE own address';
-  end if;
-  perform pg_temp.rls_clear_auth();
-
-  raise notice 'OK: customer A/B isolation';
+  raise notice 'OK: customer A/B isolation + owned CRUD';
 exception
   when others then
     perform pg_temp.rls_clear_auth();
@@ -1587,6 +1774,14 @@ declare
   v_order_a uuid := 'a6300000-0000-4000-8000-000000000001';
   v_cat_id uuid := 'a6100000-0000-4000-8000-000000000011';
   v_admin_cat uuid := 'a6100000-0000-4000-8000-000000000012';
+  v_staff_brand uuid := 'a6110000-0000-4000-8000-000000000011';
+  v_staff_product uuid := 'a6120000-0000-4000-8000-000000000011';
+  v_staff_variant uuid := 'a6130000-0000-4000-8000-000000000011';
+  v_staff_image uuid := 'a6140000-0000-4000-8000-000000000011';
+  v_admin_brand uuid := 'a6110000-0000-4000-8000-000000000012';
+  v_admin_product uuid := 'a6120000-0000-4000-8000-000000000012';
+  v_admin_variant uuid := 'a6130000-0000-4000-8000-000000000012';
+  v_admin_image uuid := 'a6140000-0000-4000-8000-000000000012';
   v_staff_order uuid := 'a6300000-0000-4000-8000-000000000011';
   v_history_id uuid := 'a6500000-0000-4000-8000-000000000001';
   v_count integer;
@@ -1653,6 +1848,7 @@ begin
     1
   );
 
+  -- Categories INSERT / UPDATE (DELETE exercised by admin on this row).
   insert into public.categories (id, name, slug, sort_order, is_active)
   values (v_cat_id, 'RLS Staff Category', 'rls-staff-category', 912, true);
 
@@ -1663,6 +1859,124 @@ begin
     raise exception 'FAIL: staff cannot UPDATE category';
   end if;
 
+  -- Brands INSERT / UPDATE / DELETE
+  insert into public.brands (id, name, slug, sort_order, is_active)
+  values (v_staff_brand, 'RLS Staff Brand', 'rls-staff-brand', 920, true);
+
+  update public.brands
+  set description = 'staff-brand-updated'
+  where id = v_staff_brand;
+  if not found then
+    raise exception 'FAIL: staff cannot UPDATE brand';
+  end if;
+
+  -- Products INSERT / UPDATE under existing active category + staff brand
+  insert into public.products (
+    id, category_id, brand_id, name, slug, status, is_featured, published_at
+  ) values (
+    v_staff_product,
+    'a6100000-0000-4000-8000-000000000001',
+    v_staff_brand,
+    'RLS Staff Product',
+    'rls-staff-product',
+    'draft',
+    false,
+    null
+  );
+
+  update public.products
+  set short_description = 'staff-product-updated'
+  where id = v_staff_product;
+  if not found then
+    raise exception 'FAIL: staff cannot UPDATE product';
+  end if;
+
+  -- Variants INSERT / UPDATE (omit cost_price; authenticated has no SELECT)
+  insert into public.product_variants (
+    id, product_id, sku, name, price, is_active, is_default, sort_order
+  ) values (
+    v_staff_variant,
+    v_staff_product,
+    'RLS-SKU-STAFF',
+    'Staff Variant',
+    150000,
+    true,
+    true,
+    0
+  );
+
+  update public.product_variants
+  set name = 'Staff Variant Updated'
+  where id = v_staff_variant;
+  if not found then
+    raise exception 'FAIL: staff cannot UPDATE variant';
+  end if;
+
+  -- Images INSERT / UPDATE / DELETE (non-primary avoids unique primary clash)
+  insert into public.product_images (
+    id, product_id, storage_path, is_primary, sort_order, alt_text
+  ) values (
+    v_staff_image,
+    v_staff_product,
+    'product-images/rls-staff.webp',
+    false,
+    1,
+    'staff-image'
+  );
+
+  update public.product_images
+  set alt_text = 'staff-image-updated'
+  where id = v_staff_image;
+  if not found then
+    raise exception 'FAIL: staff cannot UPDATE product_image';
+  end if;
+
+  -- Inventory INSERT / UPDATE / DELETE for the staff-created variant
+  insert into public.inventory (
+    variant_id, quantity_on_hand, quantity_reserved, reorder_level, allow_backorder
+  ) values (
+    v_staff_variant, 4, 0, 1, false
+  );
+
+  update public.inventory
+  set quantity_on_hand = quantity_on_hand + 1
+  where variant_id = v_staff_variant;
+  if not found then
+    raise exception 'FAIL: staff cannot UPDATE staff inventory row';
+  end if;
+
+  delete from public.inventory where variant_id = v_staff_variant;
+  if not found then
+    raise exception 'FAIL: staff cannot DELETE inventory';
+  end if;
+
+  insert into public.inventory (
+    variant_id, quantity_on_hand, quantity_reserved, reorder_level, allow_backorder
+  ) values (
+    v_staff_variant, 4, 0, 1, false
+  );
+
+  delete from public.product_images where id = v_staff_image;
+  if not found then
+    raise exception 'FAIL: staff cannot DELETE product_image';
+  end if;
+
+  delete from public.product_variants where id = v_staff_variant;
+  if not found then
+    raise exception 'FAIL: staff cannot DELETE variant';
+  end if;
+
+  delete from public.products where id = v_staff_product;
+  if not found then
+    raise exception 'FAIL: staff cannot DELETE product';
+  end if;
+
+  delete from public.brands where id = v_staff_brand;
+  if not found then
+    raise exception 'FAIL: staff cannot DELETE brand';
+  end if;
+
+  -- Existing fixture inventory UPDATE (persisted for owner check below)
   select quantity_on_hand into v_on_hand
   from public.inventory
   where variant_id = 'a6130000-0000-4000-8000-000000000001';
@@ -1674,6 +1988,7 @@ begin
     raise exception 'FAIL: staff cannot UPDATE inventory';
   end if;
 
+  -- Orders / order_items / history: granted INSERT/UPDATE (no DELETE grant)
   insert into public.orders (
     id, order_number, user_id,
     subtotal, discount_total, shipping_fee, grand_total,
@@ -1713,6 +2028,19 @@ begin
     v_history_id, v_order_a, v_status, 'confirmed', v_staff, 'staff-note'
   );
 
+  -- Not granted: order DELETE / order_items UPDATE
+  perform pg_temp.assert_privilege_error(
+    'staff order DELETE',
+    format($q$delete from public.orders where id = %L$q$, v_staff_order)
+  );
+  perform pg_temp.assert_privilege_error(
+    'staff order_items UPDATE',
+    format(
+      $q$update public.order_items set quantity = 2 where order_id = %L$q$,
+      v_staff_order
+    )
+  );
+
   perform pg_temp.rls_clear_auth();
 
   if (
@@ -1721,6 +2049,12 @@ begin
     where variant_id = 'a6130000-0000-4000-8000-000000000001'
   ) is distinct from v_on_hand + 1 then
     raise exception 'FAIL: staff inventory UPDATE did not persist';
+  end if;
+
+  if (
+    select count(*) from public.brands where id = v_staff_brand
+  ) <> 0 then
+    raise exception 'FAIL: staff brand DELETE did not persist';
   end if;
 
   -- Admin: same operational paths; is_admin() true.
@@ -1741,6 +2075,79 @@ begin
     raise exception 'FAIL: admin cannot UPDATE category';
   end if;
 
+  insert into public.brands (id, name, slug, sort_order, is_active)
+  values (v_admin_brand, 'RLS Admin Brand', 'rls-admin-brand', 921, true);
+
+  update public.brands
+  set description = 'admin-brand-updated'
+  where id = v_admin_brand;
+  if not found then
+    raise exception 'FAIL: admin cannot UPDATE brand';
+  end if;
+
+  insert into public.products (
+    id, category_id, brand_id, name, slug, status, is_featured, published_at
+  ) values (
+    v_admin_product,
+    v_admin_cat,
+    v_admin_brand,
+    'RLS Admin Product',
+    'rls-admin-product',
+    'active',
+    false,
+    timezone('utc', now())
+  );
+
+  update public.products
+  set short_description = 'admin-product-updated'
+  where id = v_admin_product;
+  if not found then
+    raise exception 'FAIL: admin cannot UPDATE product';
+  end if;
+
+  insert into public.product_variants (
+    id, product_id, sku, name, price, is_active, is_default, sort_order
+  ) values (
+    v_admin_variant,
+    v_admin_product,
+    'RLS-SKU-ADMIN',
+    'Admin Variant',
+    175000,
+    true,
+    true,
+    0
+  );
+
+  update public.product_variants
+  set name = 'Admin Variant Updated'
+  where id = v_admin_variant;
+  if not found then
+    raise exception 'FAIL: admin cannot UPDATE variant';
+  end if;
+
+  insert into public.product_images (
+    id, product_id, storage_path, is_primary, sort_order
+  ) values (
+    v_admin_image,
+    v_admin_product,
+    'product-images/rls-admin.webp',
+    true,
+    0
+  );
+
+  update public.product_images
+  set alt_text = 'admin-image-updated'
+  where id = v_admin_image;
+  if not found then
+    raise exception 'FAIL: admin cannot UPDATE product_image';
+  end if;
+
+  insert into public.inventory (
+    variant_id, quantity_on_hand, quantity_reserved, reorder_level, allow_backorder
+  ) values (
+    v_admin_variant, 6, 0, 1, false
+  );
+
   update public.inventory
   set quantity_on_hand = quantity_on_hand + 1
   where variant_id = 'a6130000-0000-4000-8000-000000000001';
@@ -1759,9 +2166,39 @@ begin
     v_order_a, 'confirmed', 'preparing', v_admin, 'admin-note'
   );
 
+  delete from public.inventory where variant_id = v_admin_variant;
+  if not found then
+    raise exception 'FAIL: admin cannot DELETE inventory';
+  end if;
+
+  delete from public.product_images where id = v_admin_image;
+  if not found then
+    raise exception 'FAIL: admin cannot DELETE product_image';
+  end if;
+
+  delete from public.product_variants where id = v_admin_variant;
+  if not found then
+    raise exception 'FAIL: admin cannot DELETE variant';
+  end if;
+
+  delete from public.products where id = v_admin_product;
+  if not found then
+    raise exception 'FAIL: admin cannot DELETE product';
+  end if;
+
+  delete from public.brands where id = v_admin_brand;
+  if not found then
+    raise exception 'FAIL: admin cannot DELETE brand';
+  end if;
+
   delete from public.categories where id = v_cat_id;
   if not found then
     raise exception 'FAIL: admin cannot DELETE staff category';
+  end if;
+
+  delete from public.categories where id = v_admin_cat;
+  if not found then
+    raise exception 'FAIL: admin cannot DELETE admin category';
   end if;
 
   perform pg_temp.rls_clear_auth();
