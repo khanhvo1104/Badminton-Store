@@ -10,7 +10,7 @@
 
 ## Verdict
 
-**Commerce MVP path is implementable end-to-end for authenticated COD.** Auth, catalog browse, product detail, search, favorites, cart, addresses, order history, and Flutter checkout UI are wired to Supabase adapters / the trusted `checkout_cod` RPC. Table RLS is enabled; TASK-008 makes Data API grants explicit for CLI 2.111+; TASK-006 makes RLS/Storage/RPC/privilege regressions executable in suite `01`. Remaining blockers are mostly P1/P2 (stale ops docs outside checkout notes, missing shell nav to account routes). Full local DB coverage is suites `00`–`05` plus checkout concurrency.
+**Commerce MVP path is implementable end-to-end for authenticated COD.** Auth, catalog browse, product detail, search, favorites, cart, addresses, order history, and Flutter checkout UI are wired to Supabase adapters / the trusted `checkout_cod` RPC. Table RLS is enabled; TASK-008 makes Data API grants explicit for CLI 2.111+; TASK-006 makes RLS/Storage/RPC/privilege regressions executable in suite `01`; TASK-009 links Profile to orders, addresses, and settings/logout. Remaining blockers are mostly P1/P2 (stale ops docs outside checkout notes, bootstrap config UX). Full local DB coverage is suites `00`–`05` plus checkout concurrency.
 
 **Legend:** *Verified* = confirmed in source/migrations. *Inferred* = likely impact from wiring/docs without runtime proof.
 
@@ -101,11 +101,12 @@
 - **Impact:** Agents/humans following remaining stale docs (architecture, coding guidelines, READMEs) may still mis-plan non-checkout work and re-implement existing adapters.
 - **Recommendation:** Refresh architecture/coding-guidelines/READMEs to match migrations + DI; keep ADRs for decisions, not outdated status. Checkout Flutter notes are current.
 
-### P1-4. Account routes registered but not linked from shell UI (including logout)
+### P1-4. Account routes registered but not linked from shell UI (including logout) — **RESOLVED (TASK-009)**
 
-- **Verified paths:** routes in `lib/app/router/app_router.dart` / `app_routes.dart` for `/settings`, `/orders`, `/addresses`, `/notifications`; logout only in `lib/features/settings/presentation/views/settings_page.dart`; no `context.push(AppRoutes.settings|orders|addresses|notifications)` elsewhere under `lib/` (Catalog→Search and Cart→Checkout are the only shop push links found).
-- **Impact:** Authenticated users cannot reach settings/logout, orders, addresses, or notifications through normal navigation (deep link only).
-- **Recommendation:** Add Profile (or AppBar) entry points; keep notifications as placeholder until backend exists.
+- **Verified paths:** routes in `lib/app/router/app_router.dart` / `app_routes.dart` for `/settings`, `/orders`, `/addresses`, `/notifications`; logout only in `lib/features/settings/presentation/views/settings_page.dart`.
+- **Resolved in TASK-009:** authenticated Profile loaded state pushes `AppRoutes.orders`, `AppRoutes.addresses`, and `AppRoutes.settings` via `context.push` (shell Profile state preserved on back). Settings remains the owner of logout. Notifications stay intentionally unlinked until a backend/repository exists.
+- **Impact (historical):** Authenticated users previously could not reach settings/logout, orders, or addresses through normal navigation (deep link only).
+- **Recommendation (historical):** Add Profile (or AppBar) entry points; keep notifications as placeholder until backend exists.
 
 ### P1-5. Missing Supabase config soft-skips init but hard-fails client providers
 
@@ -193,7 +194,7 @@ Small, dependency-ordered backlog (each should be its own implementation task):
 2. ~~**Executable RLS/storage/RPC/privilege test suite**~~ — **done in TASK-006** (`01_rls_checklist.sql` / `01_rls_checklist.sh`); trigger-helper EXECUTE in TASK-007; Data API grants + representative RLS in TASK-008.
 3. ~~**Trusted checkout backend**~~ — **done in TASK-004** (`20260804153740_trusted_cod_checkout.sql`, `03_trusted_cod_checkout.sql`, `docs/backend/checkout_security.md`).
 4. ~~**Wire checkout UI to trusted API**~~ — **done in TASK-005** (`checkout_cod` Flutter repository/ViewModel/UI; estimate-only totals; sanitized errors; success → `/orders` or catalog).
-5. **Profile navigation hub** — links to settings (logout), orders, addresses; optional notifications placeholder (`P1-4`).
+5. ~~**Profile navigation hub**~~ — **done in TASK-009** (Profile pushes orders, addresses, settings/logout; notifications remain unlinked).
 6. **Bootstrap configuration failure UX** — clear error when Supabase env missing instead of composition-root `StateError` (`P1-5`).
 7. **Flutter repository tests** for catalog/search/favorites/cart/addresses/orders (`P2-3`; checkout covered in TASK-005; product variant select covered earlier).
 8. **Notifications** — only after schema/RLS designed; then repository + UI (`P2-1`).
@@ -206,7 +207,19 @@ Any future schema change must use a **new** Supabase CLI migration and include d
 
 ## Checks run
 
-### TASK-006 (this task)
+### TASK-009 (this task)
+
+| Check | Result |
+|-------|--------|
+| `dart format` (changed Dart files) | Passed — `profile_page.dart`, `profile_page_test.dart` |
+| `flutter analyze` | Passed — no issues |
+| `flutter test test/features/profile` | Passed — ViewModel, use-case, and page widget tests |
+| `flutter test` | Passed — all tests |
+| `python3 scripts/automation.py policy-check` | Passed |
+
+No schema, migration, RLS, auth, or router architecture changes.
+
+### Historical — TASK-006 (executable RLS / Storage / RPC / privilege suite)
 
 | Check | Result |
 |-------|--------|
@@ -291,6 +304,6 @@ No remote Supabase migration or link commands are run for TASK-008. Remote apply
 
 ## Remaining work (out of scope for TASK-006)
 
-- Shell navigation hub for settings/orders/addresses (`P1-4`)
+- ~~Shell navigation hub for settings/orders/addresses (`P1-4`)~~ — **done in TASK-009**
 - Refreshing general documentation beyond checkout Flutter notes + this audit's TASK-006 sections
 - Remote apply of prior migrations remains post-approval/merge only (this task changes no migrations)
