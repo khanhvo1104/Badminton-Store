@@ -76,6 +76,7 @@ Complete local test order:
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/00_constraints.sql
+bash supabase/tests/database/01_rls_checklist.sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/02_product_variant_cost_price.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/03_trusted_cod_checkout.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/04_trigger_function_execute.sql
@@ -83,7 +84,34 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/05_explicit_d
 bash supabase/tests/database/03_trusted_cod_checkout_concurrency.sh
 ```
 
-`01_rls_checklist.sql` remains a comment checklist, not an executable suite.
+### RLS / Storage / RPC suite (TASK-006)
+
+Primary invocation (validates the local `supabase_db_*` container first):
+
+```bash
+bash supabase/tests/database/01_rls_checklist.sh
+```
+
+Equivalent direct pipe when preferred:
+
+```bash
+docker exec -i supabase_db_Badminton-Store psql -U postgres -d postgres \
+  -v ON_ERROR_STOP=1 < supabase/tests/database/01_rls_checklist.sql
+```
+
+`01_rls_checklist.sql` is an executable, transaction-wrapped regression (ends in
+`ROLLBACK`). It asserts grants independently of RLS, then role-switches with
+transaction-local JWT claims for anon catalog boundaries, customer A/B
+isolation, privilege-escalation / forged-metadata denial, staff/admin workflows
+(trusted `profiles.role`; `is_admin()` distinction only), Storage
+SELECT/INSERT/UPDATE/DELETE policies, and RPC EXECUTE contracts. Fixtures use
+TASK-006-specific UUIDs and `.invalid` emails.
+
+**Not duplicated here:** TASK-002 cost-price column details live in
+`02_product_variant_cost_price.sql`; TASK-004 checkout totals/reservation/
+concurrency live in `03_trusted_cod_checkout.sql` and
+`03_trusted_cod_checkout_concurrency.sh`. Suite `05` remains the focused
+Data API grant matrix from TASK-008.
 
 ### Explicit grants suite (TASK-008)
 
