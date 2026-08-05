@@ -3,14 +3,14 @@
 | Field | Value |
 |-------|--------|
 | Audit date | 2026-08-05 |
-| Task | TASK-008 (explicit least-privilege Data API grants; prior TASK-007 trigger EXECUTE / TASK-005 Flutter checkout / TASK-004 backend) |
-| Scope | New grants migration + suite 05 grant/RLS regressions + docs; no Flutter/app code |
-| Method | New migration + local `db reset` / SQL regressions / Flutter analyze+test; no remote Supabase mutations |
-| Allowed change (TASK-008) | `supabase/migrations` (new only), `05_explicit_data_api_grants.sql`, `supabase/README.md`, this audit |
+| Task | TASK-006 (executable RLS / Storage / RPC / privilege suite; prior TASK-008 grants / TASK-007 trigger EXECUTE / TASK-005 Flutter checkout / TASK-004 backend) |
+| Scope | Convert suite 01 to executable regressions + docs; no migrations / Flutter |
+| Method | Local `db reset` / SQL regressions / Flutter analyze+test; no remote Supabase mutations |
+| Allowed change (TASK-006) | `01_rls_checklist.sql`, optional `01_rls_checklist.sh`, `supabase/README.md`, this audit |
 
 ## Verdict
 
-**Commerce MVP path is implementable end-to-end for authenticated COD.** Auth, catalog browse, product detail, search, favorites, cart, addresses, order history, and Flutter checkout UI are wired to Supabase adapters / the trusted `checkout_cod` RPC. Table RLS is enabled; TASK-008 makes Data API grants explicit for CLI 2.111+. Remaining blockers are mostly P1/P2 (storage policy executable tests, stale ops docs outside checkout notes, missing shell nav to account routes). Grant-layer + representative RLS coverage is in suites `02`–`05`; `01_rls_checklist.sql` remains a partial comment checklist.
+**Commerce MVP path is implementable end-to-end for authenticated COD.** Auth, catalog browse, product detail, search, favorites, cart, addresses, order history, and Flutter checkout UI are wired to Supabase adapters / the trusted `checkout_cod` RPC. Table RLS is enabled; TASK-008 makes Data API grants explicit for CLI 2.111+; TASK-006 makes RLS/Storage/RPC/privilege regressions executable in suite `01`. Remaining blockers are mostly P1/P2 (stale ops docs outside checkout notes, missing shell nav to account routes). Full local DB coverage is suites `00`–`05` plus checkout concurrency.
 
 **Legend:** *Verified* = confirmed in source/migrations. *Inferred* = likely impact from wiring/docs without runtime proof.
 
@@ -36,8 +36,8 @@
 | Notifications | Push `/notifications` | `UnimplementedError` if provider read | **No notifications table** | None | UI is placeholder only (safe) |
 | Design system | Debug `/design-system` | N/A | N/A | Glass widget tests | Gated by `kDebugMode` |
 | Supabase core facades | N/A | Auth DS wired; DB/Storage providers throw | Migrations present | None | Repos use `supabaseClientProvider` directly |
-| Storage buckets | N/A | Storage provider unwired | Buckets + policies in migration | No executable storage tests | Public read catalog; staff write; avatar ownership |
-| RLS verification | N/A | N/A | Policies in `...00008_rls_policies.sql` | Comment checklist only | Constraint smoke SQL is executable |
+| Storage buckets | N/A | Storage provider unwired | Buckets + policies in migration | Suite `01` Storage SIUD | Public read catalog; staff write; avatar ownership |
+| RLS verification | N/A | N/A | Policies in `...00008_rls_policies.sql` | Executable suite `01` (+ `05`) | Grants asserted separately from RLS |
 
 ---
 
@@ -80,16 +80,14 @@
 - **Impact:** Authenticated customers with a non-empty cart and owned address can place COD orders in-app. Customer RLS still blocks direct order/inventory writes.
 - **Recommendation:** Keep client totals display-only; do not broaden table RLS; replace address demo FAB with a real form in a later task.
 
-### P1-2. RLS / storage / privilege scenarios lack executable tests (partially resolved)
+### P1-2. RLS / storage / privilege scenarios lack executable tests — **RESOLVED (TASK-006)**
 
-- **Verified paths:**
-  - Executable: `supabase/tests/database/00_constraints.sql` (slug/price/role/order math smoke)
-  - Non-executable checklist: `supabase/tests/database/01_rls_checklist.sql` (comments + `select 'See comments...'`)
+- **Resolved in TASK-006:** `supabase/tests/database/01_rls_checklist.sql` (+ `01_rls_checklist.sh`) replaces the comment checklist with transaction-rolled-back assertions: RLS enabled on all 14 app tables; `security_invoker` on catalog/availability views; grant matrix vs RLS behavioral checks; anon catalog boundary; customer A/B isolation; privilege-escalation / forged JWT denial; staff/admin matrix (`is_admin()` distinction only); Storage SELECT/INSERT/UPDATE/DELETE; RPC EXECUTE contracts. Does not change migrations/policies.
 - **Resolved in TASK-007 (trigger-helper EXECUTE):** migration `*_lock_down_trigger_function_execute.sql` + `04_trigger_function_execute.sql` prove `PUBLIC`/`anon`/`authenticated` cannot `EXECUTE` `prevent_profile_privilege_escalation`, `assign_order_number`, `record_order_status_change`, and audited `validate_product_image_variant`; `service_role` retains EXECUTE; profile escalation trigger and order number/history triggers still fire. Direct client calls fail with SQLSTATE `42501`.
-- **Resolved in TASK-008 (explicit Data API grants):** migration `*_explicit_data_api_grants.sql` enumerates least-privilege table/view/function grants for `anon` / `authenticated` / `service_role` under CLI 2.111+ defaults (no blanket `GRANT ON ALL` / `ALTER DEFAULT PRIVILEGES`). Suite `05_explicit_data_api_grants.sql` asserts grant-layer privileges independently of RLS, then role-switches for anon catalog vs draft/inactive denial, customer own address/favorite/cart CRUD + cross-user denial, trusted order/inventory write boundary, staff/admin workflows via trusted `profiles.role`, and forged JWT role denial. `product_variants.cost_price` table-wide SELECT remains denied; `product_catalog.has_stock` uses `get_variant_availability` so anon needs no raw inventory SELECT.
-- **Still missing:** storage bucket policy execution (outside TASK-008 Data API grant scope); broader checklist rows in `01_rls_checklist.sql` not yet converted. (`cost_price` covered by `02`; checkout by `03`; trigger helpers by `04`; Data API grants + representative RLS by `05`.)
-- **Impact:** Storage policy regressions may still go undetected; remaining non-executable checklist items are lower risk than pre-TASK-008 grant failures on fresh projects.
-- **Recommendation:** Add executable storage policy tests before changing bucket policies; keep converting remaining checklist items as policies change.
+- **Resolved in TASK-008 (explicit Data API grants):** migration `*_explicit_data_api_grants.sql` enumerates least-privilege table/view/function grants for `anon` / `authenticated` / `service_role` under CLI 2.111+ defaults (no blanket `GRANT ON ALL` / `ALTER DEFAULT PRIVILEGES`). Suite `05_explicit_data_api_grants.sql` asserts grant-layer privileges independently of RLS, then role-switches for representative anon/customer/staff flows. `product_variants.cost_price` table-wide SELECT remains denied; `product_catalog.has_stock` uses `get_variant_availability` so anon needs no raw inventory SELECT.
+- **Related suites (not replaced):** `02` cost-price details (TASK-002); `03` + concurrency checkout (TASK-004).
+- **Impact:** Authorization regressions across grants, RLS, Storage, and RPC are locally executable after `db reset`.
+- **Recommendation:** Keep suite `01` green on fresh resets; any real policy defect found later needs a separately approved migration task.
 
 ### P1-3. Primary docs still claim most shop adapters are unimplemented (checkout notes updated)
 
@@ -171,7 +169,7 @@
 2. **Authorization is server-side** via `public.profiles.role` helpers (`is_staff_or_admin` / `is_admin`) and `prevent_profile_privilege_escalation` in `supabase/migrations/20260728100002_profiles_and_addresses.sql` — not user-editable JWT metadata. TASK-007 revokes client `EXECUTE` on that helper (and other internal trigger helpers); trusted contract is `service_role` only.
 3. **Checkout must not trust client totals** — `public.checkout_cod` recomputes totals server-side (`docs/backend/checkout_security.md`). RLS still blocks customer order/inventory writes; Flutter checkout calls the RPC with address ID + optional note only.
 4. **Inventory raw table is staff-only**; public stock via `get_variant_availability` (`...00010_catalog_views_and_rpc.sql`).
-5. **Storage:** public read on catalog buckets; staff write; `user-avatars` owner path policies (`...00009_storage_buckets_and_policies.sql`) — not executable-tested yet (P1-2).
+5. **Storage:** public read on catalog buckets; staff write; `user-avatars` owner path policies (`...00009_storage_buckets_and_policies.sql`) — executable SIUD coverage in suite `01` (TASK-006).
 6. **P0-1** is resolved: public roles cannot SELECT `product_variants.cost_price`; trusted backend/`service_role` access remains.
 
 ---
@@ -182,7 +180,7 @@
 |-------|-------------|-----|
 | Flutter unit/widget | Auth, home, profile, settings, product variant select, core Result/validators/glass, checkout repo/VM/widget | Broader shop repositories (catalog/cart/orders/…), router entry points outside checkout |
 | DB constraints | `00_constraints.sql` executable smoke | Broader invariant coverage optional |
-| DB RLS / grants | Comment plan in `01_rls_checklist.sql` + `02` cost_price + `03` checkout + `04` trigger EXECUTE + `05` explicit Data API grants | Storage bucket policy execution still untested; remaining checklist rows |
+| DB RLS / grants | Executable `01` (TASK-006 RLS/Storage/RPC) + `02` cost_price + `03` checkout + `04` trigger EXECUTE + `05` Data API grants | Keep suites green on policy changes |
 | Manual / remote | Not run in this audit | No `supabase` remote commands by task rule |
 
 ---
@@ -192,7 +190,7 @@
 Small, dependency-ordered backlog (each should be its own implementation task):
 
 1. ~~**Hide `cost_price` from public API**~~ — **done in TASK-002** (`20260804145709_protect_product_variant_cost_price.sql`, `02_product_variant_cost_price.sql`, explicit Flutter variant select).
-2. **Executable RLS/storage/RPC/privilege test suite** — replace/extend `01_rls_checklist.sql` with runnable tests (`P1-2`); trigger-helper EXECUTE covered in TASK-007; Data API grants + representative anon/customer/staff RLS covered in TASK-008; **storage policy execution** still open.
+2. ~~**Executable RLS/storage/RPC/privilege test suite**~~ — **done in TASK-006** (`01_rls_checklist.sql` / `01_rls_checklist.sh`); trigger-helper EXECUTE in TASK-007; Data API grants + representative RLS in TASK-008.
 3. ~~**Trusted checkout backend**~~ — **done in TASK-004** (`20260804153740_trusted_cod_checkout.sql`, `03_trusted_cod_checkout.sql`, `docs/backend/checkout_security.md`).
 4. ~~**Wire checkout UI to trusted API**~~ — **done in TASK-005** (`checkout_cod` Flutter repository/ViewModel/UI; estimate-only totals; sanitized errors; success → `/orders` or catalog).
 5. **Profile navigation hub** — links to settings (logout), orders, addresses; optional notifications placeholder (`P1-4`).
@@ -208,7 +206,25 @@ Any future schema change must use a **new** Supabase CLI migration and include d
 
 ## Checks run
 
-### TASK-008 (this task)
+### TASK-006 (this task)
+
+| Check | Result |
+|-------|--------|
+| `supabase --version` | Passed — `2.111.0` |
+| `supabase db reset` (local disposable) | Passed — applied through `20260804170907_explicit_data_api_grants.sql` + seed |
+| `00_constraints.sql` | Passed (via `docker exec … psql -v ON_ERROR_STOP=1`) |
+| `bash supabase/tests/database/01_rls_checklist.sh` | Passed — grants vs RLS, anon/customer/staff/admin, Storage SIUD, RPC contracts; fixtures rolled back |
+| `02_product_variant_cost_price.sql` | Passed |
+| `03_trusted_cod_checkout.sql` | Passed |
+| `03_trusted_cod_checkout_concurrency.sh` | Passed — concurrent `cart_items` INSERT rejected after checkout; no phantom line |
+| `supabase db lint` (local) | Passed — no schema errors |
+| `flutter analyze` | Passed — no issues |
+| `flutter test` | Passed — all tests |
+| `python3 scripts/automation.py policy-check` | Passed |
+
+No remote Supabase migration or link commands are run for TASK-006. No schema/policy changes.
+
+### Historical — TASK-008 (explicit Data API grants)
 
 | Check | Result |
 |-------|--------|
@@ -273,9 +289,8 @@ No remote Supabase migration or link commands are run for TASK-008. Remote apply
 
 ---
 
-## Remaining work (out of scope for TASK-008)
+## Remaining work (out of scope for TASK-006)
 
-- Executable **storage** policy suite (`P1-2` remainder); Data API grant-layer + representative RLS covered by suite `05`
 - Shell navigation hub for settings/orders/addresses (`P1-4`)
-- Refreshing general documentation beyond checkout Flutter notes + this audit's TASK-008 sections
-- Applying the new migration to remote Supabase (post-approval/merge only)
+- Refreshing general documentation beyond checkout Flutter notes + this audit's TASK-006 sections
+- Remote apply of prior migrations remains post-approval/merge only (this task changes no migrations)
