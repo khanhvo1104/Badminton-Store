@@ -1773,6 +1773,7 @@ declare
   v_customer_a uuid := 'a6000000-0000-4000-8000-000000000001';
   v_order_a uuid := 'a6300000-0000-4000-8000-000000000001';
   v_cat_id uuid := 'a6100000-0000-4000-8000-000000000011';
+  v_staff_cat_delete uuid := 'a6100000-0000-4000-8000-000000000013';
   v_admin_cat uuid := 'a6100000-0000-4000-8000-000000000012';
   v_staff_brand uuid := 'a6110000-0000-4000-8000-000000000011';
   v_staff_product uuid := 'a6120000-0000-4000-8000-000000000011';
@@ -1848,7 +1849,7 @@ begin
     1
   );
 
-  -- Categories INSERT / UPDATE (DELETE exercised by admin on this row).
+  -- Categories INSERT / UPDATE / DELETE (v_cat_id kept for admin DELETE).
   insert into public.categories (id, name, slug, sort_order, is_active)
   values (v_cat_id, 'RLS Staff Category', 'rls-staff-category', 912, true);
 
@@ -1857,6 +1858,20 @@ begin
   where id = v_cat_id;
   if not found then
     raise exception 'FAIL: staff cannot UPDATE category';
+  end if;
+
+  insert into public.categories (id, name, slug, sort_order, is_active)
+  values (
+    v_staff_cat_delete,
+    'RLS Staff Category Delete',
+    'rls-staff-category-delete',
+    914,
+    true
+  );
+
+  delete from public.categories where id = v_staff_cat_delete;
+  if not found then
+    raise exception 'FAIL: staff cannot DELETE category';
   end if;
 
   -- Brands INSERT / UPDATE / DELETE
@@ -2055,6 +2070,12 @@ begin
     select count(*) from public.brands where id = v_staff_brand
   ) <> 0 then
     raise exception 'FAIL: staff brand DELETE did not persist';
+  end if;
+
+  if (
+    select count(*) from public.categories where id = v_staff_cat_delete
+  ) <> 0 then
+    raise exception 'FAIL: staff category DELETE did not persist';
   end if;
 
   -- Admin: same operational paths; is_admin() true.
