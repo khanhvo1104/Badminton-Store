@@ -41,7 +41,7 @@
       "title": "Build executable RLS, Storage, RPC, and privilege regressions",
       "task_file": ".automation/tasks/TASK-006-executable-rls-suite.md",
       "risk": "high",
-      "status": "blocked_by_task_008"
+      "status": "complete"
     },
     {
       "id": "TASK-007",
@@ -55,6 +55,13 @@
       "title": "Declare explicit least-privilege Data API grants",
       "task_file": ".automation/tasks/TASK-008-explicit-data-api-grants.md",
       "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-009",
+      "title": "Add an account navigation hub to Profile",
+      "task_file": ".automation/tasks/TASK-009-profile-navigation-hub.md",
+      "risk": "medium",
       "status": "ready"
     }
   ]
