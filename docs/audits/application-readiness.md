@@ -108,11 +108,12 @@
 - **Impact (historical):** Authenticated users previously could not reach settings/logout, orders, or addresses through normal navigation (deep link only).
 - **Recommendation (historical):** Add Profile (or AppBar) entry points; keep notifications as placeholder until backend exists.
 
-### P1-5. Missing Supabase config soft-skips init but hard-fails client providers
+### P1-5. Missing Supabase config soft-skips init but hard-fails client providers — **RESOLVED (TASK-010)**
 
-- **Verified paths:** `lib/core/supabase/supabase_initializer.dart` (skips when unconfigured), `lib/core/supabase/supabase_providers.dart` (`supabaseClientProvider` throws `StateError` if not initialized), auth/home/shop providers all `ref.watch(supabaseClientProvider)`.
-- **Impact (inferred):** Without env keys, splash session restore can fail hard / leave loading state instead of a clear configuration error.
-- **Recommendation:** Fail closed with an explicit bootstrap error UI, or gate repository providers on `isInitialized` with `Result` failures — do not throw from composition roots during session restore.
+- **Verified paths:** `lib/app/bootstrap.dart` (`buildBootstrapRoot` gates on `SupabaseConfig.isConfigured` before initialize / `ProviderScope`), `lib/app/configuration_error_app.dart` (standalone configuration-error UX), `lib/core/supabase/supabase_initializer.dart` (still skips when unconfigured as a secondary path), `lib/core/supabase/supabase_providers.dart` (`supabaseClientProvider` remains fail-closed with `StateError` if not initialized).
+- **Resolved in TASK-010:** Incomplete URL/key configuration selects `ConfigurationErrorApp` before the normal `App` and Supabase-dependent providers mount. Valid configuration initializes Supabase once and mounts the existing `ProviderScope` overrides unchanged. Initialization exceptions propagate and are not labeled as missing configuration. `supabaseClientProvider` stays a defensive fail-closed invariant.
+- **Impact (historical):** Without env keys, splash session restore could fail hard / leave loading state instead of a clear configuration error.
+- **Recommendation (historical):** Fail closed with an explicit bootstrap error UI — do not throw from composition roots during session restore.
 
 ---
 
@@ -207,7 +208,19 @@ Any future schema change must use a **new** Supabase CLI migration and include d
 
 ## Checks run
 
-### TASK-009 (this task)
+### TASK-010 (this task)
+
+| Check | Result |
+|-------|--------|
+| `dart format` (changed Dart files) | Passed — `bootstrap.dart`, `configuration_error_app.dart`, `bootstrap_test.dart`, `configuration_error_app_test.dart` |
+| `flutter analyze` | Passed — no issues |
+| `flutter test test/app` | Passed — bootstrap root-selection + configuration-error UX tests |
+| `flutter test` | Passed — all tests |
+| `python3 scripts/automation.py policy-check` | Passed |
+
+No schema, migration, RLS, auth, router, repository, or feature behavior changes. `supabaseClientProvider` fail-closed guard unchanged.
+
+### Historical — TASK-009 (Profile account navigation hub)
 
 | Check | Result |
 |-------|--------|
