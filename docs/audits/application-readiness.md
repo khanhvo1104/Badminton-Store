@@ -10,7 +10,7 @@
 
 ## Verdict
 
-**Commerce MVP path is implementable end-to-end for authenticated COD.** Auth, catalog browse, product detail, search, favorites, cart, addresses, order history, and Flutter checkout UI are wired to Supabase adapters / the trusted `checkout_cod` RPC. Table RLS is enabled; TASK-008 makes Data API grants explicit for CLI 2.111+; TASK-006 makes RLS/Storage/RPC/privilege regressions executable in suite `01`; TASK-009 links Profile to orders, addresses, and settings/logout. Remaining blockers are mostly P1/P2 (stale ops docs outside checkout notes, bootstrap config UX). Full local DB coverage is suites `00`–`05` plus checkout concurrency.
+**Commerce MVP path is implementable end-to-end for authenticated COD.** Auth, catalog browse, product detail, search, favorites, cart, addresses, order history, and Flutter checkout UI are wired to Supabase adapters / the trusted `checkout_cod` RPC. Table RLS is enabled; TASK-008 makes Data API grants explicit for CLI 2.111+; TASK-006 makes RLS/Storage/RPC/privilege regressions executable in suite `01`. Remaining blockers are mostly P1/P2 (stale ops docs outside checkout notes, missing shell nav to account routes). Full local DB coverage is suites `00`–`05` plus checkout concurrency.
 
 **Legend:** *Verified* = confirmed in source/migrations. *Inferred* = likely impact from wiring/docs without runtime proof.
 
@@ -194,7 +194,7 @@ Small, dependency-ordered backlog (each should be its own implementation task):
 2. ~~**Executable RLS/storage/RPC/privilege test suite**~~ — **done in TASK-006** (`01_rls_checklist.sql` / `01_rls_checklist.sh`); trigger-helper EXECUTE in TASK-007; Data API grants + representative RLS in TASK-008.
 3. ~~**Trusted checkout backend**~~ — **done in TASK-004** (`20260804153740_trusted_cod_checkout.sql`, `03_trusted_cod_checkout.sql`, `docs/backend/checkout_security.md`).
 4. ~~**Wire checkout UI to trusted API**~~ — **done in TASK-005** (`checkout_cod` Flutter repository/ViewModel/UI; estimate-only totals; sanitized errors; success → `/orders` or catalog).
-5. ~~**Profile navigation hub**~~ — **done in TASK-009** (Profile pushes orders, addresses, settings/logout; notifications remain unlinked).
+5. **Profile navigation hub** — links to settings (logout), orders, addresses; optional notifications placeholder (`P1-4`).
 6. **Bootstrap configuration failure UX** — clear error when Supabase env missing instead of composition-root `StateError` (`P1-5`).
 7. **Flutter repository tests** for catalog/search/favorites/cart/addresses/orders (`P2-3`; checkout covered in TASK-005; product variant select covered earlier).
 8. **Notifications** — only after schema/RLS designed; then repository + UI (`P2-1`).
@@ -304,6 +304,6 @@ No remote Supabase migration or link commands are run for TASK-008. Remote apply
 
 ## Remaining work (out of scope for TASK-006)
 
-- ~~Shell navigation hub for settings/orders/addresses (`P1-4`)~~ — **done in TASK-009**
+- Shell navigation hub for settings/orders/addresses (`P1-4`)
 - Refreshing general documentation beyond checkout Flutter notes + this audit's TASK-006 sections
 - Remote apply of prior migrations remains post-approval/merge only (this task changes no migrations)
