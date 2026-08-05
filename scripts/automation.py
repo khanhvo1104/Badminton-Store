@@ -11,6 +11,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -106,6 +107,63 @@ def allowed_paths(task_text: str) -> list[str]:
     return paths
 
 
+def task_risk(task_text: str) -> str:
+    match = re.search(r"(?im)^Risk:\s*(low|medium|high)\s*$", task_text)
+    # Missing/unknown risk stays on the conservative planner path.
+    return match.group(1).lower() if match else "high"
+
+
+def section_bullets(task_text: str, heading: str) -> list[str]:
+    match = re.search(
+        rf"(?ms)^## {re.escape(heading)}\s*$\n(.*?)(?=^##\s|\Z)",
+        task_text,
+    )
+    if not match:
+        return []
+    return [
+        line.strip()[1:].strip().strip("`")
+        for line in match.group(1).splitlines()
+        if line.strip().startswith("-")
+    ]
+
+
+def task_spec_is_complete(task_text: str) -> bool:
+    required_headings = (
+        "Objective",
+        "Scope",
+        "Non-goals",
+        "Allowed paths",
+        "Acceptance criteria",
+        "Required quality gates",
+    )
+    return all(
+        re.search(rf"(?m)^## {re.escape(heading)}\s*$", task_text)
+        for heading in required_headings
+    )
+
+
+def task_spec_plan(task_text: str, allowed: list[str], risk: str) -> dict:
+    checks = section_bullets(task_text, "Required quality gates")
+    return {
+        "status": "ready",
+        "summary": (
+            f"Use the active {risk}-risk task specification as the implementation "
+            "plan; the separate Codex planner was skipped to avoid duplicate "
+            "repository analysis."
+        ),
+        "steps": [
+            "Implement every scoped requirement and acceptance criterion exactly.",
+            "Modify only the task's allowed paths and preserve all non-goals.",
+            "Run every required quality gate and report truthful results in the PR.",
+        ],
+        "files": allowed,
+        "checks": checks,
+        "risks": [
+            "Stop and report a blocker if implementation requires work outside the task scope."
+        ],
+    }
+
+
 def path_is_allowed(path: str, allowed: list[str]) -> bool:
     normalized = path.rstrip("/")
     return any(
@@ -175,26 +233,66 @@ def doctor() -> None:
 
 
 def invoke_codex(
-    config: dict, prompt: str, schema: Path, output: Path
+    config: dict,
+    prompt: str,
+    schema: Path,
+    output: Path,
+    transcript: Path,
+    *,
+    isolated: bool = False,
 ) -> dict:
-    run(
-        [
+    with tempfile.TemporaryDirectory(prefix="badminton-codex-review-") as temp_dir:
+        working_dir = temp_dir if isolated else str(ROOT)
+        command = [
             config["codex_cli"],
             "exec",
             "--ephemeral",
             "--sandbox",
             "read-only",
             "--cd",
-            str(ROOT),
-            "--output-schema",
-            str(schema),
-            "--output-last-message",
-            str(output),
-            "-",
-        ],
-        input_text=prompt,
+            working_dir,
+        ]
+        if isolated:
+            command.append("--skip-git-repo-check")
+        command.extend(
+            [
+                "--output-schema",
+                str(schema),
+                "--output-last-message",
+                str(output),
+                "-",
+            ]
+        )
+        result = run(
+            command,
+            input_text=prompt,
+            capture=True,
+            check=False,
+            print_output=False,
+        )
+    full_transcript = result.stdout + result.stderr
+    transcript.write_text(full_transcript, encoding="utf-8")
+    if result.returncode != 0:
+        raise AutomationError(
+            f"Codex failed ({result.returncode}); see {transcript.relative_to(ROOT)}"
+        )
+    response = load_json(output)
+    token_matches = re.findall(
+        r"tokens used\s*[\r\n]+\s*([0-9,]+)", full_transcript, re.IGNORECASE
     )
-    return load_json(output)
+    tokens = token_matches[-1] if token_matches else "unknown"
+    kind = "review" if "verdict" in response else "plan"
+    state = response.get("verdict", response.get("status", "complete"))
+    summary = " ".join(response.get("summary", "").split())
+    if len(summary) > 500:
+        summary = summary[:497] + "..."
+    print(f"Codex {kind}: {state} (tokens={tokens}) — {summary}", flush=True)
+    for finding in response.get("blocking_findings", []):
+        print(
+            f"Codex finding: {finding['path']} — {finding['title']}",
+            flush=True,
+        )
+    return response
 
 
 def invoke_cursor(config: dict, prompt: str, log_path: Path) -> None:
@@ -477,6 +575,7 @@ def run_task(task_path: Path) -> None:
     task_text = task_path.read_text(encoding="utf-8")
     task_id, slug = task_identity(task_path)
     allowed = allowed_paths(task_text)
+    risk = task_risk(task_text)
     branch = config["branch_prefix"] + slug
     run_dir = AUTOMATION / "runs" / (
         datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + task_id.lower()
@@ -486,15 +585,28 @@ def run_task(task_path: Path) -> None:
     git("switch", "-c", branch, capture=False)
     protected_head = git("rev-parse", "HEAD")
     protected_remote = git("remote", "get-url", config["remote"])
-    planner_prompt = (
-        (AUTOMATION / "prompts/codex_planner.md").read_text(encoding="utf-8")
-        + "\n\nACTIVE TASK:\n"
-        + task_text
-    )
     plan_path = run_dir / "plan.json"
-    plan = invoke_codex(
-        config, planner_prompt, AUTOMATION / "schemas/plan.schema.json", plan_path
-    )
+    planner_risks = {
+        str(item).lower() for item in config.get("codex_planner_risks", ["high"])
+    }
+    needs_planner = risk in planner_risks or not task_spec_is_complete(task_text)
+    if needs_planner:
+        planner_prompt = (
+            (AUTOMATION / "prompts/codex_planner.md").read_text(encoding="utf-8")
+            + "\n\nACTIVE TASK:\n"
+            + task_text
+        )
+        plan = invoke_codex(
+            config,
+            planner_prompt,
+            AUTOMATION / "schemas/plan.schema.json",
+            plan_path,
+            run_dir / "codex-plan.log",
+        )
+    else:
+        plan = task_spec_plan(task_text, allowed, risk)
+        plan_path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+        print(f"Codex plan: skipped for {risk}-risk task; using task specification")
     if plan["status"] != "ready":
         raise AutomationError("Codex planner blocked the task: " + plan["summary"])
 
@@ -566,9 +678,11 @@ def run_task(task_path: Path) -> None:
         reviewer_rules = (AUTOMATION / "prompts/codex_reviewer.md").read_text(
             encoding="utf-8"
         )
+        repository_rules = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         if attempt == 0:
             review_prompt = (
                 reviewer_rules
+                + "\n\nREPOSITORY RULES:\n" + repository_rules
                 + "\n\nACTIVE TASK:\n" + task_text
                 + "\n\nPLAN:\n" + json.dumps(plan, separators=(",", ":"))
                 + "\n\nQUALITY GATES:\n" + quality
@@ -581,6 +695,7 @@ def run_task(task_path: Path) -> None:
                 )
             review_prompt = (
                 reviewer_rules
+                + "\n\nREPOSITORY RULES:\n" + repository_rules
                 + "\n\nFOLLOW-UP REVIEW MODE:\n"
                 "Review only the incremental diff below and verify that every "
                 "previous blocking finding was resolved. Do not re-review "
@@ -593,7 +708,12 @@ def run_task(task_path: Path) -> None:
             )
         review_path = run_dir / f"review-attempt-{attempt + 1}.json"
         review = invoke_codex(
-            config, review_prompt, AUTOMATION / "schemas/review.schema.json", review_path
+            config,
+            review_prompt,
+            AUTOMATION / "schemas/review.schema.json",
+            review_path,
+            run_dir / f"codex-review-attempt-{attempt + 1}.log",
+            isolated=True,
         )
         if review["verdict"] == "approve":
             approved = True
