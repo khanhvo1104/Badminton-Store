@@ -30,6 +30,12 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Create CI environment files
+        run: |
+          cp .env.example .env.development
+          cp .env.example .env.staging
+          cp .env.example .env.production
+
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed .
 

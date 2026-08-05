@@ -45,7 +45,9 @@ The controller will:
 
 1. Validate the repository and task.
 2. Create `automation/<task-slug>` from the configured base branch.
-3. Ask Codex for a structured read-only plan.
+3. Use the complete task specification directly for low/medium-risk tasks; ask
+   Codex for a separate structured plan only for configured high-risk tasks or
+   incomplete task specifications.
 4. Ask Cursor Agent to implement the plan and run the required gates.
 5. Ask Cursor to commit, push the task branch, and open a PR into `develop`.
 6. Enforce allowed paths, protected-branch rules, and secret policies.
@@ -61,15 +63,20 @@ Run artifacts are written under `.automation/runs/` and ignored by Git.
 
 ## Token-efficient reviews
 
-The first Codex review receives the complete task diff with a small amount of
-surrounding context. If changes are requested, later reviews receive only the
-commits added since the previous review plus the prior blocking findings.
-Unchanged files are not re-audited; repository-wide path and secret checks
-still run on every attempt.
+The first Codex review receives a self-contained bundle containing repository
+rules, the task, plan, PR quality evidence, and the complete task diff with a
+small amount of surrounding context. It runs from an isolated non-repository
+directory and does not search or reread the workspace. If changes are requested,
+later reviews receive only the commits added since the previous review plus the
+prior blocking findings. Unchanged files are not re-audited; repository-wide
+path and secret checks still run on every attempt.
 
 Cursor's complete stream-json transcript is retained under `.automation/runs/`
 for diagnostics. The controller prints only short assistant updates so file
 contents, tool traces, and test logs do not inflate the parent Codex context.
+Codex planner/reviewer transcripts follow the same rule: full logs stay in the
+run directory while the console prints only status, token count, summary, and
+blocking-finding titles.
 
 ## Backlog
 
