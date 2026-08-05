@@ -101,11 +101,12 @@
 - **Impact:** Agents/humans following remaining stale docs (architecture, coding guidelines, READMEs) may still mis-plan non-checkout work and re-implement existing adapters.
 - **Recommendation:** Refresh architecture/coding-guidelines/READMEs to match migrations + DI; keep ADRs for decisions, not outdated status. Checkout Flutter notes are current.
 
-### P1-4. Account routes registered but not linked from shell UI (including logout)
+### P1-4. Account routes registered but not linked from shell UI (including logout) — **RESOLVED (TASK-009)**
 
-- **Verified paths:** routes in `lib/app/router/app_router.dart` / `app_routes.dart` for `/settings`, `/orders`, `/addresses`, `/notifications`; logout only in `lib/features/settings/presentation/views/settings_page.dart`; no `context.push(AppRoutes.settings|orders|addresses|notifications)` elsewhere under `lib/` (Catalog→Search and Cart→Checkout are the only shop push links found).
-- **Impact:** Authenticated users cannot reach settings/logout, orders, addresses, or notifications through normal navigation (deep link only).
-- **Recommendation:** Add Profile (or AppBar) entry points; keep notifications as placeholder until backend exists.
+- **Verified paths:** routes in `lib/app/router/app_router.dart` / `app_routes.dart` for `/settings`, `/orders`, `/addresses`, `/notifications`; logout only in `lib/features/settings/presentation/views/settings_page.dart`.
+- **Resolved in TASK-009:** authenticated Profile loaded state pushes `AppRoutes.orders`, `AppRoutes.addresses`, and `AppRoutes.settings` via `context.push` (shell Profile state preserved on back). Settings remains the owner of logout. Notifications stay intentionally unlinked until a backend/repository exists.
+- **Impact (historical):** Authenticated users previously could not reach settings/logout, orders, or addresses through normal navigation (deep link only).
+- **Recommendation (historical):** Add Profile (or AppBar) entry points; keep notifications as placeholder until backend exists.
 
 ### P1-5. Missing Supabase config soft-skips init but hard-fails client providers
 
@@ -206,7 +207,19 @@ Any future schema change must use a **new** Supabase CLI migration and include d
 
 ## Checks run
 
-### TASK-006 (this task)
+### TASK-009 (this task)
+
+| Check | Result |
+|-------|--------|
+| `dart format` (changed Dart files) | Passed — `profile_page.dart`, `profile_page_test.dart` |
+| `flutter analyze` | Passed — no issues |
+| `flutter test test/features/profile` | Passed — ViewModel, use-case, and page widget tests |
+| `flutter test` | Passed — all tests |
+| `python3 scripts/automation.py policy-check` | Passed |
+
+No schema, migration, RLS, auth, or router architecture changes.
+
+### Historical — TASK-006 (executable RLS / Storage / RPC / privilege suite)
 
 | Check | Result |
 |-------|--------|
