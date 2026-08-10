@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "TASK-000",
+      "title": "Restore a green Flutter CI baseline",
+      "task_file": ".automation/tasks/TASK-000-green-ci-baseline.md",
+      "risk": "medium",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-001",
+      "title": "Audit current application readiness",
+      "task_file": ".automation/tasks/TASK-001-audit.md",
+      "risk": "low",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-002",
+      "title": "Protect product variant cost price",
+      "task_file": ".automation/tasks/TASK-002-protect-variant-cost-price.md",
+      "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-004",
+      "title": "Build trusted COD checkout backend",
+      "task_file": ".automation/tasks/TASK-004-trusted-checkout-backend.md",
+      "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-005",
+      "title": "Wire Flutter checkout to trusted COD RPC",
+      "task_file": ".automation/tasks/TASK-005-wire-checkout-ui.md",
+      "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-006",
+      "title": "Build executable RLS, Storage, RPC, and privilege regressions",
+      "task_file": ".automation/tasks/TASK-006-executable-rls-suite.md",
+      "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-007",
+      "title": "Revoke unintended client EXECUTE on trigger helpers",
+      "task_file": ".automation/tasks/TASK-007-lock-down-trigger-functions.md",
+      "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-008",
+      "title": "Declare explicit least-privilege Data API grants",
+      "task_file": ".automation/tasks/TASK-008-explicit-data-api-grants.md",
+      "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-009",
+      "title": "Add an account navigation hub to Profile",
+      "task_file": ".automation/tasks/TASK-009-profile-navigation-hub.md",
+      "risk": "medium",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-010",
+      "title": "Add explicit Supabase configuration failure UX",
+      "task_file": ".automation/tasks/TASK-010-supabase-config-failure-ux.md",
+      "risk": "medium",
+      "status": "ready"
+    }
+  ]
+}

@@ -18,14 +18,24 @@ class AppScaffold extends ConsumerWidget {
       label: 'Home',
     ),
     GlassDestination(
+      icon: Icons.grid_view_outlined,
+      selectedIcon: Icons.grid_view,
+      label: 'Catalog',
+    ),
+    GlassDestination(
+      icon: Icons.shopping_bag_outlined,
+      selectedIcon: Icons.shopping_bag,
+      label: 'Cart',
+    ),
+    GlassDestination(
+      icon: Icons.favorite_outline,
+      selectedIcon: Icons.favorite,
+      label: 'Favorites',
+    ),
+    GlassDestination(
       icon: Icons.person_outline,
       selectedIcon: Icons.person,
       label: 'Profile',
-    ),
-    GlassDestination(
-      icon: Icons.settings_outlined,
-      selectedIcon: Icons.settings,
-      label: 'Settings',
     ),
   ];
 

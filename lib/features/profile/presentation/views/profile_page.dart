@@ -1,7 +1,9 @@
+import 'package:base_project/app/router/app_routes.dart';
 import 'package:base_project/app/theme/app_spacing.dart';
 import 'package:base_project/core/ui/glass/glass_app_bar.dart';
 import 'package:base_project/core/ui/glass/glass_avatar.dart';
 import 'package:base_project/core/ui/glass/glass_button.dart';
+import 'package:base_project/core/ui/glass/glass_card.dart';
 import 'package:base_project/core/ui/glass/glass_error_view.dart';
 import 'package:base_project/core/ui/glass/glass_loading_indicator.dart';
 import 'package:base_project/core/ui/glass/glass_panel.dart';
@@ -11,6 +13,7 @@ import 'package:base_project/features/profile/presentation/view_models/profile_s
 import 'package:base_project/features/profile/presentation/view_models/profile_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -44,21 +47,89 @@ class ProfilePage extends ConsumerWidget {
               ),
               child: SingleChildScrollView(
                 padding: AppSpacing.page,
-                child: GlassPanel(
-                  child: _ProfileFormBody(
-                    key: ValueKey(user.id),
-                    email: user.email,
-                    initialDisplayName: user.displayName,
-                    isSaving: isSaving,
-                    validationError: validationError,
-                    apiError: apiError,
-                    successMessage: successMessage,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    GlassPanel(
+                      child: _ProfileFormBody(
+                        key: ValueKey(user.id),
+                        email: user.email,
+                        initialDisplayName: user.displayName,
+                        isSaving: isSaving,
+                        validationError: validationError,
+                        apiError: apiError,
+                        successMessage: successMessage,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      'Account',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    _ProfileAccountEntry(
+                      key: const Key('profile_account_orders'),
+                      label: 'Orders',
+                      icon: Icons.receipt_long_outlined,
+                      onTap: () => context.push(AppRoutes.orders),
+                    ),
+                    _ProfileAccountEntry(
+                      key: const Key('profile_account_addresses'),
+                      label: 'Addresses',
+                      icon: Icons.location_on_outlined,
+                      onTap: () => context.push(AppRoutes.addresses),
+                    ),
+                    _ProfileAccountEntry(
+                      key: const Key('profile_account_settings'),
+                      label: 'Settings & logout',
+                      icon: Icons.settings_outlined,
+                      onTap: () => context.push(AppRoutes.settings),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
       },
+    );
+  }
+}
+
+class _ProfileAccountEntry extends StatelessWidget {
+  const _ProfileAccountEntry({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Semantics(
+      button: true,
+      label: label,
+      child: GlassCard(
+        variant: GlassCardVariant.interactive,
+        onTap: onTap,
+        margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+        child: Row(
+          children: [
+            Icon(icon, color: theme.colorScheme.primary),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(label, style: theme.textTheme.titleSmall)),
+            Icon(
+              Icons.chevron_right,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

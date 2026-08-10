@@ -5,33 +5,48 @@
             "name": "base_project (development)",
             "request": "launch",
             "type": "dart",
-            "program": "lib/main_development.dart"
+            "program": "lib/main_development.dart",
+            "env": {
+                "PATH": "/opt/homebrew/bin:${env:PATH}"
+            }
         },
         {
             "name": "base_project (staging)",
             "request": "launch",
             "type": "dart",
-            "program": "lib/main_staging.dart"
+            "program": "lib/main_staging.dart",
+            "env": {
+                "PATH": "/opt/homebrew/bin:${env:PATH}"
+            }
         },
         {
             "name": "base_project (production)",
             "request": "launch",
             "type": "dart",
-            "program": "lib/main_production.dart"
+            "program": "lib/main_production.dart",
+            "env": {
+                "PATH": "/opt/homebrew/bin:${env:PATH}"
+            }
         },
         {
             "name": "base_project (profile)",
             "request": "launch",
             "type": "dart",
             "program": "lib/main_development.dart",
-            "flutterMode": "profile"
+            "flutterMode": "profile",
+            "env": {
+                "PATH": "/opt/homebrew/bin:${env:PATH}"
+            }
         },
         {
             "name": "base_project (release)",
             "request": "launch",
             "type": "dart",
             "program": "lib/main_development.dart",
-            "flutterMode": "release"
+            "flutterMode": "release",
+            "env": {
+                "PATH": "/opt/homebrew/bin:${env:PATH}"
+            }
         }
     ]
 }

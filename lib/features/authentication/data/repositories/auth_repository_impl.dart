@@ -59,18 +59,16 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<User?>> restoreSession() async {
     try {
-      final token = await _localDataSource.readAccessToken();
-      if (token == null || token.isEmpty) {
-        return const Success(null);
-      }
-
-      final cachedUser = await _localDataSource.readCachedUser();
-      if (cachedUser == null) {
+      final remoteUser = await _remoteDataSource.getCurrentUser();
+      if (remoteUser == null) {
         await _localDataSource.clearSession();
         return const Success(null);
       }
-
-      return Success(UserMapper.toEntity(cachedUser));
+      await _localDataSource.saveSession(
+        accessToken: _remoteDataSource.currentAccessToken ?? '',
+        user: remoteUser,
+      );
+      return Success(UserMapper.toEntity(remoteUser));
     } on Object catch (error, stackTrace) {
       final mapped = _errorMapper.map(error, stackTrace);
       _logger.error(
@@ -85,6 +83,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> logout() async {
     try {
+      await _remoteDataSource.logout();
       await _localDataSource.clearSession();
       return const Success(null);
     } on Object catch (error, stackTrace) {

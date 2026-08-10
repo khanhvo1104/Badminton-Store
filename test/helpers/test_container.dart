@@ -8,6 +8,8 @@ import 'package:base_project/core/network/network_info_provider.dart';
 import 'package:base_project/core/storage/preferences_service.dart';
 import 'package:base_project/core/storage/secure_storage_service.dart';
 import 'package:base_project/core/storage/storage_providers.dart';
+import 'package:base_project/features/authentication/data/data_sources/fake_auth_remote_data_source.dart';
+import 'package:base_project/features/authentication/di/auth_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,6 +39,9 @@ Future<ProviderContainer> createTestContainer({
       ),
       networkInfoProvider.overrideWithValue(networkInfo ?? FakeNetworkInfo()),
       appLoggerProvider.overrideWithValue(AppLogger()),
+      authRemoteDataSourceProvider.overrideWithValue(
+        FakeAuthRemoteDataSource(delay: Duration.zero),
+      ),
       ...overrides,
     ],
   );

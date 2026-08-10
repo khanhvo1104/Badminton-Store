@@ -1,0 +1,11 @@
+id,parent_id,name,slug,description,image_path,sort_order,is_active
+10000000-0000-4000-8000-000000000001,,Vợt cầu lông,vot-cau-long,Vợt thi đấu và luyện tập cho mọi trình độ,category-assets/10000000-0000-4000-8000-000000000001/main.webp,10,true
+10000000-0000-4000-8000-000000000002,,Giày cầu lông,giay-cau-long,Giày chuyên dụng sân trong nhà,category-assets/10000000-0000-4000-8000-000000000002/main.webp,20,true
+10000000-0000-4000-8000-000000000003,,Cầu lông,cau-long,Cầu lông ống thi đấu và luyện tập,category-assets/10000000-0000-4000-8000-000000000003/main.webp,30,true
+10000000-0000-4000-8000-000000000004,,Cước đan vợt,cuoc-dan-vot,Dây đan vợt cảm giác và độ bền,category-assets/10000000-0000-4000-8000-000000000004/main.webp,40,true
+10000000-0000-4000-8000-000000000005,,Quấn cán,quan-can,Grip và overgrip chống trượt,category-assets/10000000-0000-4000-8000-000000000005/main.webp,50,true
+10000000-0000-4000-8000-000000000006,,Túi và balo cầu lông,tui-balo-cau-long,Túi vợt và balo đựng phụ kiện,category-assets/10000000-0000-4000-8000-000000000006/main.webp,60,true
+10000000-0000-4000-8000-000000000007,,Quần áo cầu lông,quan-ao-cau-long,Áo quần thi đấu và tập luyện,category-assets/10000000-0000-4000-8000-000000000007/main.webp,70,true
+10000000-0000-4000-8000-000000000008,,Vớ thể thao,vo-the-thao,Vớ đệm êm cho sân cầu lông,category-assets/10000000-0000-4000-8000-000000000008/main.webp,80,true
+10000000-0000-4000-8000-000000000009,,Đồ bảo hộ,do-bao-ho,"Băng hỗ trợ cổ tay, gối, mắt cá",category-assets/10000000-0000-4000-8000-000000000009/main.webp,90,true
+10000000-0000-4000-8000-000000000010,,Phụ kiện tập luyện,phu-kien-tap-luyen,Dụng cụ rèn chân và thể lực,category-assets/10000000-0000-4000-8000-000000000010/main.webp,100,true

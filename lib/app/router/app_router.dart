@@ -1,10 +1,19 @@
 import 'package:base_project/app/router/app_routes.dart';
 import 'package:base_project/app/router/route_refresh_notifier.dart';
+import 'package:base_project/features/addresses/presentation/views/addresses_page.dart';
 import 'package:base_project/features/authentication/presentation/views/login_page.dart';
 import 'package:base_project/features/authentication/presentation/views/splash_page.dart';
+import 'package:base_project/features/cart/presentation/views/cart_page.dart';
+import 'package:base_project/features/catalog/presentation/views/catalog_page.dart';
+import 'package:base_project/features/checkout/presentation/views/checkout_page.dart';
 import 'package:base_project/features/design_system/presentation/views/design_system_gallery_page.dart';
+import 'package:base_project/features/favorites/presentation/views/favorites_page.dart';
 import 'package:base_project/features/home/presentation/views/home_page.dart';
+import 'package:base_project/features/notifications/presentation/views/notifications_page.dart';
+import 'package:base_project/features/orders/presentation/views/orders_page.dart';
+import 'package:base_project/features/product/presentation/views/product_detail_page.dart';
 import 'package:base_project/features/profile/presentation/views/profile_page.dart';
+import 'package:base_project/features/search/presentation/views/search_page.dart';
 import 'package:base_project/features/settings/presentation/views/settings_page.dart';
 import 'package:base_project/shared/session/auth_session_provider.dart';
 import 'package:base_project/shared/session/auth_session_state.dart';
@@ -36,6 +45,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isSplash = location == AppRoutes.splash;
       final isLoginRoute = location == AppRoutes.login;
       final isDesignSystem = location == AppRoutes.designSystem;
+      final isRoot = location == AppRoutes.root;
 
       if (session is AuthSessionInitial ||
           session is AuthSessionLoading ||
@@ -53,13 +63,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return AppRoutes.home;
       }
 
-      if (isAuthenticated && (isLoginRoute || isSplash)) {
+      if (isAuthenticated && (isLoginRoute || isSplash || isRoot)) {
         return AppRoutes.home;
       }
 
       return null;
     },
     routes: [
+      GoRoute(
+        path: AppRoutes.root,
+        name: AppRoutes.rootName,
+        redirect: (_, __) => AppRoutes.home,
+      ),
       GoRoute(
         path: AppRoutes.splash,
         name: AppRoutes.splashName,
@@ -76,6 +91,44 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           name: AppRoutes.designSystemName,
           builder: (context, state) => const DesignSystemGalleryPage(),
         ),
+      GoRoute(
+        path: AppRoutes.product,
+        name: AppRoutes.productName,
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return ProductDetailPage(productId: id);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.checkout,
+        name: AppRoutes.checkoutName,
+        builder: (context, state) => const CheckoutPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.orders,
+        name: AppRoutes.ordersName,
+        builder: (context, state) => const OrdersPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.addresses,
+        name: AppRoutes.addressesName,
+        builder: (context, state) => const AddressesPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.search,
+        name: AppRoutes.searchName,
+        builder: (context, state) => const SearchPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.settings,
+        name: AppRoutes.settingsName,
+        builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        name: AppRoutes.notificationsName,
+        builder: (context, state) => const NotificationsPage(),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return AppScaffold(navigationShell: navigationShell);
@@ -93,18 +146,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.profile,
-                name: AppRoutes.profileName,
-                builder: (context, state) => const ProfilePage(),
+                path: AppRoutes.catalog,
+                name: AppRoutes.catalogName,
+                builder: (context, state) => const CatalogPage(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: AppRoutes.settings,
-                name: AppRoutes.settingsName,
-                builder: (context, state) => const SettingsPage(),
+                path: AppRoutes.cart,
+                name: AppRoutes.cartName,
+                builder: (context, state) => const CartPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.favorites,
+                name: AppRoutes.favoritesName,
+                builder: (context, state) => const FavoritesPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.profile,
+                name: AppRoutes.profileName,
+                builder: (context, state) => const ProfilePage(),
               ),
             ],
           ),

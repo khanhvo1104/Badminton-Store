@@ -1,0 +1,9 @@
+id,name,slug,description,logo_path,website_url,country_of_origin,sort_order,is_active
+20000000-0000-4000-8000-000000000001,Yonex,yonex,Thương hiệu tham chiếu trong dữ liệu demo,brand-assets/20000000-0000-4000-8000-000000000001/logo.webp,,Japan,10,true
+20000000-0000-4000-8000-000000000002,Victor,victor,Thương hiệu tham chiếu trong dữ liệu demo,brand-assets/20000000-0000-4000-8000-000000000002/logo.webp,,Taiwan,20,true
+20000000-0000-4000-8000-000000000003,Li-Ning,li-ning,Thương hiệu tham chiếu trong dữ liệu demo,brand-assets/20000000-0000-4000-8000-000000000003/logo.webp,,China,30,true
+20000000-0000-4000-8000-000000000004,Mizuno,mizuno,Thương hiệu tham chiếu trong dữ liệu demo,brand-assets/20000000-0000-4000-8000-000000000004/logo.webp,,Japan,40,true
+20000000-0000-4000-8000-000000000005,Kumpoo,kumpoo,Thương hiệu tham chiếu trong dữ liệu demo,brand-assets/20000000-0000-4000-8000-000000000005/logo.webp,,China,50,true
+20000000-0000-4000-8000-000000000006,Apacs,apacs,Thương hiệu tham chiếu trong dữ liệu demo,brand-assets/20000000-0000-4000-8000-000000000006/logo.webp,,Malaysia,60,true
+20000000-0000-4000-8000-000000000007,Kamito,kamito,Thương hiệu tham chiếu trong dữ liệu demo,brand-assets/20000000-0000-4000-8000-000000000007/logo.webp,,Vietnam,70,true
+20000000-0000-4000-8000-000000000008,ProAce,proace,Thương hiệu tham chiếu trong dữ liệu demo,brand-assets/20000000-0000-4000-8000-000000000008/logo.webp,,Vietnam,80,true

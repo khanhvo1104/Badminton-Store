@@ -2,10 +2,12 @@ import 'package:base_project/core/errors/error_mapper.dart';
 import 'package:base_project/core/logging/logger_provider.dart';
 import 'package:base_project/core/network/network_info_provider.dart';
 import 'package:base_project/core/storage/storage_providers.dart';
+import 'package:base_project/core/supabase/supabase_auth_data_source_impl.dart';
+import 'package:base_project/core/supabase/supabase_providers.dart';
 import 'package:base_project/features/authentication/data/data_sources/auth_local_data_source.dart';
 import 'package:base_project/features/authentication/data/data_sources/auth_local_data_source_impl.dart';
 import 'package:base_project/features/authentication/data/data_sources/auth_remote_data_source.dart';
-import 'package:base_project/features/authentication/data/data_sources/fake_auth_remote_data_source.dart';
+import 'package:base_project/features/authentication/data/data_sources/supabase_auth_remote_data_source.dart';
 import 'package:base_project/features/authentication/data/repositories/auth_repository_impl.dart';
 import 'package:base_project/features/authentication/domain/repositories/auth_repository.dart';
 import 'package:base_project/features/authentication/domain/use_cases/login_use_case.dart';
@@ -14,7 +16,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Composition root for authentication. Presentation imports this module,
 /// not concrete data-source files.
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
-  return FakeAuthRemoteDataSource();
+  return SupabaseAuthRemoteDataSource(
+    SupabaseAuthDataSourceImpl(ref.watch(supabaseClientProvider)),
+  );
 });
 
 final authLocalDataSourceProvider = Provider<AuthLocalDataSource>((ref) {

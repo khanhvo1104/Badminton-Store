@@ -80,7 +80,7 @@ void main() {
     expect(find.text('Password must be at least 8 characters'), findsOneWidget);
   });
 
-  testWidgets('demo credentials are shown when debug tools enabled', (
+  testWidgets('supabase account hint is shown when debug tools enabled', (
     tester,
   ) async {
     final preferences = await SharedPreferences.getInstance();
@@ -95,8 +95,11 @@ void main() {
       ),
     );
 
-    expect(find.text('Demo account'), findsOneWidget);
-    expect(find.textContaining(DemoCredentials.email), findsOneWidget);
+    expect(find.text('Supabase account'), findsOneWidget);
+    expect(
+      find.textContaining('valid email/password from your Supabase project'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('loading disables the login button', (tester) async {

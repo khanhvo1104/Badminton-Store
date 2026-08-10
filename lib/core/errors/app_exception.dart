@@ -12,14 +12,34 @@ sealed class AppException implements Exception {
   String toString() => 'AppException($message)';
 }
 
+/// Authentication / session failures (sign-in, token refresh, sign-out).
+final class AuthenticationException extends AppException {
+  const AuthenticationException(super.message, {super.cause, super.stackTrace});
+}
+
+/// Connectivity and transport-level failures.
 final class NetworkException extends AppException {
   const NetworkException(super.message, {super.cause, super.stackTrace});
 }
 
+/// Remote or local database / query failures (e.g. Supabase PostgREST).
+final class DatabaseException extends AppException {
+  const DatabaseException(
+    super.message, {
+    this.code,
+    super.cause,
+    super.stackTrace,
+  });
+
+  final String? code;
+}
+
+/// Session expired or caller lacks permission for the resource.
 final class UnauthorizedException extends AppException {
   const UnauthorizedException(super.message, {super.cause, super.stackTrace});
 }
 
+/// Input or domain-rule validation failures.
 final class ValidationException extends AppException {
   const ValidationException(
     super.message, {
@@ -31,6 +51,12 @@ final class ValidationException extends AppException {
   final Map<String, String> fieldErrors;
 }
 
+/// File / object storage failures (uploads, signed URLs, buckets).
+final class StorageException extends AppException {
+  const StorageException(super.message, {super.cause, super.stackTrace});
+}
+
+/// Unexpected or non-success HTTP / RPC responses from the backend.
 final class ServerException extends AppException {
   const ServerException(
     super.message, {
@@ -42,10 +68,12 @@ final class ServerException extends AppException {
   final int? statusCode;
 }
 
+/// Local cache / preferences read-write failures.
 final class CacheException extends AppException {
   const CacheException(super.message, {super.cause, super.stackTrace});
 }
 
+/// Fallback when an error cannot be classified.
 final class UnknownException extends AppException {
   const UnknownException(super.message, {super.cause, super.stackTrace});
 }

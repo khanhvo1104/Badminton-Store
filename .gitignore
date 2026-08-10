@@ -12,6 +12,10 @@
 .swiftpm/
 migrate_working_dir/
 
+# Local automation run artifacts
+.automation/runs/*
+!.automation/runs/.gitkeep
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -43,3 +47,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Local Supabase CLI binary / temp
+.tools/
+supabase/.temp/
+.tools

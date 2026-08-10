@@ -1,0 +1,37 @@
+{
+  "base_branch": "develop",
+  "branch_prefix": "automation/",
+  "remote": "origin",
+  "cursor_agent": "/Users/khanhvo/.local/bin/agent",
+  "cursor_gh_config_dir": "/Users/khanhvo/.config/gh-cursor",
+  "cursor_ssh_key": "/Users/khanhvo/.ssh/volinhkhanh-Cursor-GitHub",
+  "cursor_git_name": "volinhkhanh",
+  "cursor_git_email": "24489878+volinhkhanh@users.noreply.github.com",
+  "codex_cli": "/Applications/ChatGPT.app/Contents/Resources/codex",
+  "flutter_sdk": "/Users/khanhvo/.local/share/flutter",
+  "cursor_model": null,
+  "codex_planner_risks": ["high"],
+  "max_fix_attempts": 2,
+  "review_diff_context_lines": 5,
+  "auto_push": true,
+  "auto_create_pr": true,
+  "auto_merge": false,
+  "cursor_owns_publish": true,
+  "merge_after_codex_approval": true,
+  "quality_commands": [
+    "dart format --output=none --set-exit-if-changed .",
+    "flutter analyze",
+    "flutter test",
+    "python3 scripts/automation.py policy-check"
+  ],
+  "supabase_quality_commands": [
+    "supabase migration list --local"
+  ],
+  "protected_paths": [
+    ".env",
+    ".env.development",
+    ".env.staging",
+    ".env.production",
+    ".git/"
+  ]
+}

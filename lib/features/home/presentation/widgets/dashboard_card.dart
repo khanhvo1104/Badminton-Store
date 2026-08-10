@@ -12,6 +12,9 @@ class DashboardCard extends StatelessWidget {
       'security' => Icons.security,
       'notifications' => Icons.notifications_outlined,
       'storage' => Icons.storage_outlined,
+      'sports' => Icons.sports_tennis,
+      'footwear' => Icons.directions_run,
+      'inventory' => Icons.inventory_2_outlined,
       _ => Icons.dashboard_outlined,
     };
   }
