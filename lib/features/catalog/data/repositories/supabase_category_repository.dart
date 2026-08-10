@@ -3,22 +3,68 @@ import 'package:base_project/core/result/result.dart';
 import 'package:base_project/core/supabase/supabase_row.dart';
 import 'package:base_project/features/catalog/domain/entities/category.dart';
 import 'package:base_project/features/catalog/domain/repositories/category_repository.dart';
+import 'package:meta/meta.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-final class SupabaseCategoryRepository implements CategoryRepository {
-  SupabaseCategoryRepository(this._client);
+/// Fetches a single category row by table + equality filter.
+@visibleForTesting
+typedef CategorySingleQuery =
+    Future<Map<String, dynamic>> Function({
+      required String table,
+      required String filterColumn,
+      required String filterValue,
+    });
 
-  final SupabaseClient _client;
+/// Fetches category rows ordered by a single column.
+@visibleForTesting
+typedef CategoryOrderedListQuery =
+    Future<List<Map<String, dynamic>>> Function({
+      required String table,
+      required String orderColumn,
+    });
+
+final class SupabaseCategoryRepository implements CategoryRepository {
+  SupabaseCategoryRepository(SupabaseClient client)
+    : _fetchSingle =
+          (({
+            required String table,
+            required String filterColumn,
+            required String filterValue,
+          }) async {
+            final row = await client
+                .from(table)
+                .select()
+                .eq(filterColumn, filterValue)
+                .single();
+            return Map<String, dynamic>.from(row);
+          }),
+      _fetchOrderedList =
+          (({required String table, required String orderColumn}) async {
+            final rows = await client.from(table).select().order(orderColumn);
+            return rows
+                .map((row) => Map<String, dynamic>.from(row))
+                .toList(growable: false);
+          });
+
+  @visibleForTesting
+  SupabaseCategoryRepository.testing({
+    required CategorySingleQuery fetchSingle,
+    required CategoryOrderedListQuery fetchOrderedList,
+  }) : _fetchSingle = fetchSingle,
+       _fetchOrderedList = fetchOrderedList;
+
+  final CategorySingleQuery _fetchSingle;
+  final CategoryOrderedListQuery _fetchOrderedList;
 
   @override
   Future<Result<Category>> getById(String id) async {
     try {
-      final row = await _client
-          .from('categories')
-          .select()
-          .eq('id', id)
-          .single();
-      return Success(_mapCategory(Map<String, dynamic>.from(row)));
+      final row = await _fetchSingle(
+        table: 'categories',
+        filterColumn: 'id',
+        filterValue: id,
+      );
+      return Success(_mapCategory(row));
     } on PostgrestException catch (error, stackTrace) {
       return Failure(
         DatabaseException(
@@ -34,12 +80,12 @@ final class SupabaseCategoryRepository implements CategoryRepository {
   @override
   Future<Result<Category>> getBySlug(String slug) async {
     try {
-      final row = await _client
-          .from('categories')
-          .select()
-          .eq('slug', slug)
-          .single();
-      return Success(_mapCategory(Map<String, dynamic>.from(row)));
+      final row = await _fetchSingle(
+        table: 'categories',
+        filterColumn: 'slug',
+        filterValue: slug,
+      );
+      return Success(_mapCategory(row));
     } on PostgrestException catch (error, stackTrace) {
       return Failure(
         DatabaseException(
@@ -55,15 +101,11 @@ final class SupabaseCategoryRepository implements CategoryRepository {
   @override
   Future<Result<List<Category>>> list() async {
     try {
-      final rows = await _client
-          .from('categories')
-          .select()
-          .order('sort_order');
-      return Success(
-        rows
-            .map((row) => _mapCategory(Map<String, dynamic>.from(row)))
-            .toList(growable: false),
+      final rows = await _fetchOrderedList(
+        table: 'categories',
+        orderColumn: 'sort_order',
       );
+      return Success(rows.map(_mapCategory).toList(growable: false));
     } on PostgrestException catch (error, stackTrace) {
       return Failure(
         DatabaseException(

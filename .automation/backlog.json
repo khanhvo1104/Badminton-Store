@@ -76,7 +76,7 @@
       "title": "Add catalog and search repository regression tests",
       "task_file": ".automation/tasks/TASK-011-catalog-search-repository-tests.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }

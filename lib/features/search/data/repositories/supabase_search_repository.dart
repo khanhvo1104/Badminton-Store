@@ -7,13 +7,36 @@ import 'package:base_project/core/storage/preferences_service.dart';
 import 'package:base_project/features/product/data/supabase_product_mapper.dart';
 import 'package:base_project/features/product/domain/entities/product.dart';
 import 'package:base_project/features/search/domain/repositories/search_repository.dart';
+import 'package:meta/meta.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-final class SupabaseSearchRepository implements SearchRepository {
-  SupabaseSearchRepository(this._client, this._preferences);
+/// Invokes a Supabase RPC and returns dynamic list rows.
+@visibleForTesting
+typedef SearchProductsRpc =
+    Future<List<dynamic>> Function({
+      required String functionName,
+      required Map<String, Object?> params,
+    });
 
-  final SupabaseClient _client;
+final class SupabaseSearchRepository implements SearchRepository {
+  SupabaseSearchRepository(SupabaseClient client, this._preferences)
+    : _rpc =
+          (({
+            required String functionName,
+            required Map<String, Object?> params,
+          }) {
+            return client.rpc<List<dynamic>>(functionName, params: params);
+          });
+
+  @visibleForTesting
+  SupabaseSearchRepository.testing({
+    required PreferencesService preferences,
+    required SearchProductsRpc rpc,
+  }) : _preferences = preferences,
+       _rpc = rpc;
+
   final PreferencesService _preferences;
+  final SearchProductsRpc _rpc;
 
   @override
   Future<Result<void>> clearRecentQueries() async {
@@ -27,13 +50,17 @@ final class SupabaseSearchRepository implements SearchRepository {
     if (raw == null || raw.isEmpty) {
       return const Success(<String>[]);
     }
-    final decoded = jsonDecode(raw);
-    if (decoded is! List) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) {
+        return const Success(<String>[]);
+      }
+      return Success(
+        decoded.map((item) => item.toString()).toList(growable: false),
+      );
+    } on FormatException {
       return const Success(<String>[]);
     }
-    return Success(
-      decoded.map((item) => item.toString()).toList(growable: false),
-    );
   }
 
   @override
@@ -43,8 +70,8 @@ final class SupabaseSearchRepository implements SearchRepository {
     int pageSize = 20,
   }) async {
     try {
-      final rows = await _client.rpc<List<dynamic>>(
-        'search_products',
+      final rows = await _rpc(
+        functionName: 'search_products',
         params: {'p_query': query, 'p_limit': pageSize},
       );
       await _rememberQuery(query);
