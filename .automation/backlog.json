@@ -84,6 +84,13 @@
       "task_file": ".automation/tasks/TASK-012-favorites-repository-tests.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-013",
+      "title": "Add cart repository regression tests",
+      "task_file": ".automation/tasks/TASK-013-cart-repository-tests.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
