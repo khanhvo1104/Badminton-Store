@@ -97,7 +97,7 @@
       "title": "Add address repository regression tests",
       "task_file": ".automation/tasks/TASK-014-address-repository-tests.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
