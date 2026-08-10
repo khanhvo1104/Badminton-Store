@@ -69,6 +69,13 @@
       "title": "Add explicit Supabase configuration failure UX",
       "task_file": ".automation/tasks/TASK-010-supabase-config-failure-ux.md",
       "risk": "medium",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-011",
+      "title": "Add catalog and search repository regression tests",
+      "task_file": ".automation/tasks/TASK-011-catalog-search-repository-tests.md",
+      "risk": "medium",
       "status": "ready"
     }
   ]
