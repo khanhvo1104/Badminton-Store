@@ -83,7 +83,7 @@
       "title": "Add favorites repository regression tests",
       "task_file": ".automation/tasks/TASK-012-favorites-repository-tests.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
