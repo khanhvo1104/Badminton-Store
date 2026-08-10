@@ -168,6 +168,7 @@ SupabaseCartRepository _repo({
           required String table,
           required String selectColumns,
           required List<String> productIds,
+          required bool primaryOnly,
         }) async => _unusedSeam()),
   );
 }
@@ -250,11 +251,14 @@ SupabaseCartRepository _repoWithLoadedCart({
           required String table,
           required String selectColumns,
           required List<String> productIds,
+          required bool primaryOnly,
         }) async {
           expect(table, 'product_images');
           expect(selectColumns, supabaseCartProductImageSelect);
+          expect(primaryOnly, isTrue);
           return imageRows
               .where((row) => productIds.contains(row['product_id']))
+              .where((row) => !primaryOnly || row['is_primary'] == true)
               .toList(growable: false);
         },
   );
@@ -543,6 +547,7 @@ void main() {
         late List<String> imageProductIds;
         late String productSelect;
         late String imageSelect;
+        late bool imagePrimaryOnly;
 
         final repo = _repo(
           findActiveCart:
@@ -611,10 +616,12 @@ void main() {
                 required String table,
                 required String selectColumns,
                 required List<String> productIds,
+                required bool primaryOnly,
               }) async {
                 expect(table, 'product_images');
                 imageSelect = selectColumns;
                 imageProductIds = List<String>.from(productIds)..sort();
+                imagePrimaryOnly = primaryOnly;
                 return [
                   {
                     'product_id': _productId,
@@ -640,6 +647,7 @@ void main() {
         expect(productIds, [_otherProductId, _productId]..sort());
         expect(imageSelect, supabaseCartProductImageSelect);
         expect(imageProductIds, [_otherProductId, _productId]..sort());
+        expect(imagePrimaryOnly, isTrue);
 
         expect(result, isA<Success<Cart>>());
         final items = (result as Success<Cart>).data.items;
@@ -659,6 +667,82 @@ void main() {
         expect(items[1].productName, 'Court Shoes');
         expect(items[1].variantLabel, '42 • 42');
         expect(items[1].imagePath, 'products/shoes.png');
+      },
+    );
+
+    test(
+      'requests primary-only images and ignores non-primary gallery rows',
+      () async {
+        late bool imagePrimaryOnly;
+
+        final repo = _repo(
+          findActiveCart:
+              ({
+                required String table,
+                required String userId,
+                required String status,
+              }) async => _cartRow(),
+          fetchCartById:
+              ({required String table, required String cartId}) async =>
+                  _cartRow(),
+          listCartItems:
+              ({
+                required String table,
+                required String cartId,
+                required String orderColumn,
+              }) async => [_cartItemRow()],
+          fetchVariantsByIds:
+              ({
+                required String table,
+                required String selectColumns,
+                required List<String> ids,
+              }) async => [_variantRow()],
+          fetchProductsByIds:
+              ({
+                required String table,
+                required String selectColumns,
+                required List<String> ids,
+              }) async => [
+                {'id': _productId, 'name': 'Astrox 88'},
+              ],
+          fetchProductImages:
+              ({
+                required String table,
+                required String selectColumns,
+                required List<String> productIds,
+                required bool primaryOnly,
+              }) async {
+                expect(table, 'product_images');
+                expect(selectColumns, supabaseCartProductImageSelect);
+                expect(productIds, [_productId]);
+                imagePrimaryOnly = primaryOnly;
+                final allRows = [
+                  {
+                    'product_id': _productId,
+                    'storage_path': 'products/astrox-gallery.png',
+                    'is_primary': false,
+                  },
+                  {
+                    'product_id': _productId,
+                    'storage_path': 'products/astrox-primary.png',
+                    'is_primary': true,
+                  },
+                ];
+                // Mirror production Data API: only primary product-level images.
+                return allRows
+                    .where((row) => !primaryOnly || row['is_primary'] == true)
+                    .toList(growable: false);
+              },
+        );
+
+        final result = await repo.getCart();
+
+        expect(imagePrimaryOnly, isTrue);
+        expect(result, isA<Success<Cart>>());
+        expect(
+          (result as Success<Cart>).data.items.single.imagePath,
+          'products/astrox-primary.png',
+        );
       },
     );
 
@@ -706,6 +790,7 @@ void main() {
               required String table,
               required String selectColumns,
               required List<String> productIds,
+              required bool primaryOnly,
             }) async {
               imageCalls++;
               return const [];

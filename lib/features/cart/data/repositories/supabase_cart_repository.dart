@@ -97,13 +97,14 @@ typedef CartRowsByIdsQuery =
       required List<String> ids,
     });
 
-/// Fetches product-level images for the given product ids.
+/// Fetches product-level primary images for the given product ids.
 @visibleForTesting
 typedef CartProductImagesQuery =
     Future<List<Map<String, dynamic>>> Function({
       required String table,
       required String selectColumns,
       required List<String> productIds,
+      required bool primaryOnly,
     });
 
 final class SupabaseCartRepository implements CartRepository {
@@ -232,12 +233,17 @@ final class SupabaseCartRepository implements CartRepository {
             required String table,
             required String selectColumns,
             required List<String> productIds,
+            required bool primaryOnly,
           }) async {
-            final rows = await client
+            var query = client
                 .from(table)
                 .select(selectColumns)
                 .inFilter('product_id', productIds)
                 .isFilter('variant_id', null);
+            if (primaryOnly) {
+              query = query.eq('is_primary', true);
+            }
+            final rows = await query;
             return rows
                 .map((row) => Map<String, dynamic>.from(row))
                 .toList(growable: false);
@@ -493,6 +499,7 @@ final class SupabaseCartRepository implements CartRepository {
             table: 'product_images',
             selectColumns: supabaseCartProductImageSelect,
             productIds: productIds,
+            primaryOnly: true,
           );
     final imageByProductId = <String, String>{};
     for (final row in imageRows) {
