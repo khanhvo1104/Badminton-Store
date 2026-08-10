@@ -77,6 +77,13 @@
       "task_file": ".automation/tasks/TASK-011-catalog-search-repository-tests.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-012",
+      "title": "Add favorites repository regression tests",
+      "task_file": ".automation/tasks/TASK-012-favorites-repository-tests.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
