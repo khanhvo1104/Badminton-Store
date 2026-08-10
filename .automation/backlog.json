@@ -91,6 +91,13 @@
       "task_file": ".automation/tasks/TASK-013-cart-repository-tests.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-014",
+      "title": "Add address repository regression tests",
+      "task_file": ".automation/tasks/TASK-014-address-repository-tests.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
