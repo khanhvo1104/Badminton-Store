@@ -168,6 +168,13 @@
       "task_file": ".automation/tasks/TASK-024-nextjs-cms-scaffold.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-025",
+      "title": "Add Supabase SSR authentication to the CMS",
+      "task_file": ".automation/tasks/TASK-025-cms-supabase-ssr-auth.md",
+      "risk": "high",
+      "status": "ready"
     }
   ]
 }
