@@ -266,7 +266,7 @@ final class SupabaseNotificationRepository implements NotificationRepository {
       title: requireString(row, 'title'),
       body: requireString(row, 'body'),
       type: _mapType(requireString(row, 'type')),
-      isRead: requireBool(row, 'is_read', fallback: false),
+      isRead: _mapIsRead(row['is_read']),
       payload: _mapPayload(row['payload']),
       createdAt: _mapCreatedAt(row['created_at']),
     );
@@ -280,6 +280,13 @@ final class SupabaseNotificationRepository implements NotificationRepository {
       'stock_alert' => NotificationType.stockAlert,
       _ => throw DatabaseException('Unsupported notification type: $raw'),
     };
+  }
+
+  bool _mapIsRead(Object? value) {
+    if (value is bool) {
+      return value;
+    }
+    throw const DatabaseException('Invalid notification is_read');
   }
 
   Map<String, String>? _mapPayload(Object? value) {
@@ -307,15 +314,17 @@ final class SupabaseNotificationRepository implements NotificationRepository {
     return mapped;
   }
 
-  DateTime? _mapCreatedAt(Object? value) {
+  DateTime _mapCreatedAt(Object? value) {
     if (value is String && value.isNotEmpty) {
       final parsed = DateTime.tryParse(value);
-      return parsed?.toUtc();
+      if (parsed != null) {
+        return parsed.toUtc();
+      }
     }
     if (value is DateTime) {
       return value.toUtc();
     }
-    return null;
+    throw const DatabaseException('Invalid notification created_at');
   }
 
   String _requireUserId() {

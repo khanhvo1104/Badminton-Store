@@ -9,6 +9,7 @@ const _userId = '11111111-1111-4111-8111-111111111111';
 const _notificationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const _otherNotificationId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const _createdAt = '2026-08-10T10:00:00.000Z';
+const _missingField = Object();
 
 Never _unusedSeam() => throw StateError('database seam must not be invoked');
 
@@ -292,7 +293,7 @@ void main() {
                     body: 'Rackets on sale',
                     isRead: true,
                     payload: const <String, dynamic>{},
-                    createdAt: null,
+                    createdAt: '2026-08-09T08:30:00.000Z',
                   ),
                 ];
               },
@@ -332,7 +333,11 @@ void main() {
         expect(items[1].type, NotificationType.promotion);
         expect(items[1].isRead, isTrue);
         expect(items[1].payload, isEmpty);
-        expect(items[1].createdAt, isNull);
+        expect(
+          items[1].createdAt,
+          DateTime.parse('2026-08-09T08:30:00.000Z').toUtc(),
+        );
+        expect(items[1].createdAt!.isUtc, isTrue);
       },
     );
 
@@ -456,6 +461,123 @@ void main() {
       final error = (result as Failure<List<AppNotification>>).error;
       expect(error, isA<DatabaseException>());
       expect(error.message, 'Missing required field: title');
+    });
+
+    test('missing or non-bool is_read returns DatabaseException', () async {
+      Future<Result<List<AppNotification>>> listWithIsRead(
+        Object? isRead,
+      ) async {
+        final repo = _repo(
+          list:
+              ({
+                required String table,
+                required String selectColumns,
+                required String userId,
+                required String primaryOrderColumn,
+                required bool primaryAscending,
+                required String secondaryOrderColumn,
+                required bool secondaryAscending,
+                required int from,
+                required int to,
+              }) async {
+                final row = _notificationRow();
+                if (isRead == _missingField) {
+                  row.remove('is_read');
+                } else {
+                  row['is_read'] = isRead;
+                }
+                return [row];
+              },
+        );
+        return repo.list();
+      }
+
+      for (final invalid in <Object?>[_missingField, null, 'true', 1]) {
+        final result = await listWithIsRead(invalid);
+        expect(result, isA<Failure<List<AppNotification>>>());
+        expect(
+          (result as Failure<List<AppNotification>>).error,
+          isA<DatabaseException>(),
+        );
+        expect(result.error.message, 'Invalid notification is_read');
+      }
+    });
+
+    test(
+      'null, empty, or malformed created_at returns DatabaseException',
+      () async {
+        Future<Result<List<AppNotification>>> listWithCreatedAt(
+          Object? createdAt,
+        ) async {
+          final repo = _repo(
+            list:
+                ({
+                  required String table,
+                  required String selectColumns,
+                  required String userId,
+                  required String primaryOrderColumn,
+                  required bool primaryAscending,
+                  required String secondaryOrderColumn,
+                  required bool secondaryAscending,
+                  required int from,
+                  required int to,
+                }) async {
+                  final row = _notificationRow();
+                  if (createdAt == _missingField) {
+                    row.remove('created_at');
+                  } else {
+                    row['created_at'] = createdAt;
+                  }
+                  return [row];
+                },
+          );
+          return repo.list();
+        }
+
+        for (final invalid in <Object?>[
+          _missingField,
+          null,
+          '',
+          'not-a-timestamp',
+          12345,
+        ]) {
+          final result = await listWithCreatedAt(invalid);
+          expect(result, isA<Failure<List<AppNotification>>>());
+          expect(
+            (result as Failure<List<AppNotification>>).error,
+            isA<DatabaseException>(),
+          );
+          expect(result.error.message, 'Invalid notification created_at');
+        }
+      },
+    );
+
+    test('DateTime created_at values are converted to UTC', () async {
+      final local = DateTime(2026, 8, 10, 10);
+      final repo = _repo(
+        list:
+            ({
+              required String table,
+              required String selectColumns,
+              required String userId,
+              required String primaryOrderColumn,
+              required bool primaryAscending,
+              required String secondaryOrderColumn,
+              required bool secondaryAscending,
+              required int from,
+              required int to,
+            }) async {
+              return [_notificationRow(createdAt: local)];
+            },
+      );
+
+      final result = await repo.list();
+
+      expect(result, isA<Success<List<AppNotification>>>());
+      final createdAt =
+          (result as Success<List<AppNotification>>).data.single.createdAt;
+      expect(createdAt, local.toUtc());
+      expect(createdAt!.isUtc, isTrue);
     });
 
     test('non-string payload values return DatabaseException', () async {
