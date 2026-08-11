@@ -160,7 +160,7 @@
       "title": "Turn Home into a navigable storefront",
       "task_file": ".automation/tasks/TASK-023-home-storefront-polish.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
