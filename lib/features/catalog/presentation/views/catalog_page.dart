@@ -71,9 +71,11 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
         child: ListView(
           padding: AppSpacing.page,
           children: [
-            const Text(
+            Text(
               'Danh mục sản phẩm',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: AppSpacing.sm),
             categoriesAsync.when(

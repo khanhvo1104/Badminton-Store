@@ -2,6 +2,7 @@ import 'package:base_project/app/theme/app_spacing.dart';
 import 'package:base_project/features/addresses/domain/entities/address.dart';
 import 'package:base_project/features/addresses/presentation/view_models/address_form_state.dart';
 import 'package:base_project/features/addresses/presentation/view_models/address_form_view_model.dart';
+import 'package:base_project/shared/widgets/shop_page_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -75,7 +76,7 @@ class _AddressFormPageState extends ConsumerState<AddressFormPage> {
     final isEditing = widget.existing != null;
     final theme = Theme.of(context);
 
-    return Scaffold(
+    return ShopPageScaffold(
       appBar: AppBar(
         title: Text(isEditing ? 'Chỉnh sửa địa chỉ' : 'Thêm địa chỉ'),
       ),

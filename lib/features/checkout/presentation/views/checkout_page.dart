@@ -5,6 +5,7 @@ import 'package:base_project/features/cart/domain/entities/cart_item.dart';
 import 'package:base_project/features/checkout/presentation/view_models/checkout_state.dart';
 import 'package:base_project/features/checkout/presentation/view_models/checkout_view_model.dart';
 import 'package:base_project/shared/widgets/shop/price_label.dart';
+import 'package:base_project/shared/widgets/shop_page_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -68,7 +69,7 @@ class _CheckoutPageState extends ConsumerState<CheckoutPage> {
       _noteSeeded = false;
     }
 
-    return Scaffold(
+    return ShopPageScaffold(
       appBar: AppBar(title: const Text('Thanh toán')),
       body: switch (state) {
         CheckoutInitial() || CheckoutLoading() => const Center(

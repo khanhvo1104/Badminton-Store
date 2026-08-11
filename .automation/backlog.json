@@ -195,7 +195,7 @@
       "title": "Restore readable light UI on child screens",
       "task_file": ".automation/tasks/TASK-028-light-child-screen-contrast.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
