@@ -53,5 +53,22 @@ cd cms && npm test -- --run
 cd cms && npm run build
 ```
 
-This scaffold validates public configuration at startup and exposes no live
-Supabase client, auth session, or catalog operation yet.
+The CMS now uses Supabase SSR authentication with three separate concerns:
+
+- browser auth UI via `cms/src/lib/supabase/browser.ts`
+- request-scoped server auth/data access via `cms/src/lib/supabase/server.ts`
+- optimistic session refresh in `cms/src/proxy.ts`
+
+Proxy refreshes cookies with `supabase.auth.getClaims()` and forwards refreshed
+cookies to both the upstream request and browser response. Proxy is not an
+authorization boundary: protected pages, Server Actions, and Route Handlers must
+still validate identity and authorization independently.
+
+CMS authorization trusts only the signed-in user's `public.profiles` row,
+restricted to `id, full_name, role, is_active`. Active `staff` and active
+`admin` profiles are allowed; anonymous users go to `/login`; all other
+authenticated cases receive the same sanitized `/unauthorized` response.
+
+There is no self-signup or staff-management flow in this milestone. A trusted
+operator must manually create or promote the first active admin before the CMS
+can be used.

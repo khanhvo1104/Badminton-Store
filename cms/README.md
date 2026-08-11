@@ -23,6 +23,34 @@ npm test -- --run
 npm run build
 ```
 
-This scaffold validates the public Supabase environment at startup, but it does
-not create a Supabase client, perform authentication, or make live network
-requests.
+## Authentication flow
+
+- `src/lib/supabase/browser.ts` creates the browser client for client-side auth
+  UI only.
+- `src/lib/supabase/server.ts` creates request-scoped server clients backed by
+  Next.js `cookies()` for Server Components and Server Actions.
+- `src/proxy.ts` is the optimistic session refresh boundary. It calls
+  `supabase.auth.getClaims()`, forwards refreshed cookies to the upstream
+  request, mirrors them to the browser response, and applies the SSR package's
+  no-cache headers.
+
+The CMS authorizes from the trusted `public.profiles` row only. Every protected
+request validates claims server-side, selects only `id, full_name, role,
+is_active` for the signed-in subject, and allows only active `staff` or active
+`admin` profiles into the dashboard.
+
+## Access prerequisites
+
+- Self-signup is not part of the CMS.
+- A project owner must create or promote the first active `admin` manually in
+  Supabase before anyone can access the dashboard.
+- Customer accounts, inactive profiles, missing profiles, and unsupported roles
+  all receive the same sanitized unauthorized experience.
+
+## Notes
+
+- The CMS uses only `NEXT_PUBLIC_SUPABASE_URL` and
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+- No service-role or secret key is created, stored, or exposed in browser code.
+- Authenticated requests continue to use the signed-in user's JWT and remain
+  subject to existing RLS and grants.
