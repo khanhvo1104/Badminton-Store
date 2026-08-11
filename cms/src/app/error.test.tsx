@@ -2,7 +2,6 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import GlobalError from "@/app/error";
-import { PublicEnvironmentError } from "@/lib/errors/public-environment-error";
 
 describe("GlobalError", () => {
   it("renders sanitized startup copy for public configuration failures", () => {
@@ -10,9 +9,10 @@ describe("GlobalError", () => {
     const consoleError = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    const error = new PublicEnvironmentError("invalid-url");
-    error.message =
-      "NEXT_PUBLIC_SUPABASE_URL=https://secret-project.supabase.co token=super-secret";
+    const error = new Error(
+      "NEXT_PUBLIC_SUPABASE_URL=https://secret-project.supabase.co token=super-secret",
+    );
+    error.name = "PublicEnvironmentError";
 
     render(<GlobalError error={error} reset={reset} />);
 

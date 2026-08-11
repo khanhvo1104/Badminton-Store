@@ -1,4 +1,8 @@
-import { PublicEnvironmentError } from "@/lib/errors/public-environment-error";
+import {
+  isPublicEnvironmentError,
+  USER_FACING_CONFIGURATION_DESCRIPTION,
+  USER_FACING_CONFIGURATION_TITLE,
+} from "@/lib/errors/public-environment-error";
 
 export type UserFacingError = {
   title: string;
@@ -12,10 +16,10 @@ const FALLBACK_ERROR: UserFacingError = {
 };
 
 export function toUserFacingError(error: unknown): UserFacingError {
-  if (error instanceof PublicEnvironmentError) {
+  if (isPublicEnvironmentError(error)) {
     return {
-      title: error.title,
-      description: error.description,
+      title: USER_FACING_CONFIGURATION_TITLE,
+      description: USER_FACING_CONFIGURATION_DESCRIPTION,
     };
   }
 

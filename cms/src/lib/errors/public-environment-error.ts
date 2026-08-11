@@ -1,5 +1,5 @@
-const USER_FACING_CONFIGURATION_TITLE = "Configuration unavailable";
-const USER_FACING_CONFIGURATION_DESCRIPTION =
+export const USER_FACING_CONFIGURATION_TITLE = "Configuration unavailable";
+export const USER_FACING_CONFIGURATION_DESCRIPTION =
   "This CMS foundation cannot start until its public configuration is set correctly. Check the documented setup steps and restart the application.";
 
 export type PublicEnvironmentErrorCode =
@@ -17,4 +17,17 @@ export class PublicEnvironmentError extends Error {
     this.name = "PublicEnvironmentError";
     this.code = code;
   }
+}
+
+export function isPublicEnvironmentError(
+  error: unknown,
+): error is PublicEnvironmentError {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === "PublicEnvironmentError" ||
+    error.message === "Invalid public environment configuration."
+  );
 }

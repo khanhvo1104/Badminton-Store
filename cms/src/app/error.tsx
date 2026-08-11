@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
 
-import { PublicEnvironmentError } from "@/lib/errors/public-environment-error";
+import { ConfigurationUnavailableShell } from "@/features/landing/components/configuration-unavailable-shell";
+import { isPublicEnvironmentError } from "@/lib/errors/public-environment-error";
 import { toUserFacingError } from "@/lib/errors/to-user-facing-error";
 
 type GlobalErrorProps = {
@@ -13,15 +13,20 @@ type GlobalErrorProps = {
 
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
   const safeError = toUserFacingError(error);
+  const isConfigurationError = isPublicEnvironmentError(error);
 
   useEffect(() => {
-    if (error instanceof PublicEnvironmentError) {
+    if (isConfigurationError) {
       console.error("Public configuration error.");
       return;
     }
 
     console.error(error);
-  }, [error]);
+  }, [error, isConfigurationError]);
+
+  if (safeError.title === "Configuration unavailable") {
+    return <ConfigurationUnavailableShell onRetry={reset} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 px-6 py-12 text-slate-50">
@@ -43,12 +48,6 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
           >
             Retry startup
           </button>
-          <Link
-            href="/"
-            className="rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-          >
-            Return to home
-          </Link>
         </div>
       </main>
     </div>
