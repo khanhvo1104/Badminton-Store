@@ -79,9 +79,10 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/00_constraint
 bash supabase/tests/database/01_rls_checklist.sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/02_product_variant_cost_price.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/03_trusted_cod_checkout.sql
+bash supabase/tests/database/03_trusted_cod_checkout_concurrency.sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/04_trigger_function_execute.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/05_explicit_data_api_grants.sql
-bash supabase/tests/database/03_trusted_cod_checkout_concurrency.sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/06_notifications.sql
 ```
 
 ### RLS / Storage / RPC suite (TASK-006)
@@ -105,13 +106,16 @@ transaction-local JWT claims for anon catalog boundaries, customer A/B
 isolation, privilege-escalation / forged-metadata denial, staff/admin workflows
 (trusted `profiles.role`; `is_admin()` distinction only), Storage
 SELECT/INSERT/UPDATE/DELETE policies, and RPC EXECUTE contracts. Fixtures use
-TASK-006-specific UUIDs and `.invalid` emails.
+TASK-006-specific UUIDs and `.invalid` emails. The exhaustive table/object
+inventories include `notifications` (column-level `UPDATE(is_read)` for
+authenticated — not table-wide UPDATE).
 
 **Not duplicated here:** TASK-002 cost-price column details live in
 `02_product_variant_cost_price.sql`; TASK-004 checkout totals/reservation/
 concurrency live in `03_trusted_cod_checkout.sql` and
 `03_trusted_cod_checkout_concurrency.sh`. Suite `05` remains the focused
-Data API grant matrix from TASK-008.
+Data API grant matrix from TASK-008. Suite `06` covers notifications
+constraints and owner isolation (TASK-019).
 
 ### Explicit grants suite (TASK-008)
 
@@ -119,7 +123,24 @@ Data API grant matrix from TASK-008.
 role-switched RLS behavior: anon catalog-only matrix, authenticated customer
 CRUD + cross-user denial, staff/admin workflows under trusted `profiles.role`,
 forged JWT role denial, `cost_price` column lockdown, and function EXECUTE
-contracts.
+contracts. Notifications appear in the exhaustive object inventory with
+authenticated table `SELECT`, no table-wide `UPDATE`/`INSERT`/`DELETE`, and
+column-level `UPDATE` on `is_read` only.
+
+### Notifications suite (TASK-019)
+
+`06_notifications.sql` is a transaction-wrapped (`BEGIN`/`ROLLBACK`) regression
+for `public.notifications`. It proves schema constraints (type allowlist,
+non-blank title/body, object-only payload, null rejection, defaults), anon and
+null-UID denial, customer A own select/mark-read, customer B isolation,
+cross-owner update denial with no-mutation checks, authenticated denial of
+content/owner updates plus INSERT/DELETE, and trusted `service_role`
+insert/read/delete.
+
+**Grants vs RLS for notifications:** column grants make content immutable to
+customers (`is_read` is the only writable column); RLS `USING`/`WITH CHECK`
+require a non-null `auth.uid()` matching `user_id`. See
+`docs/backend/notifications_security.md`.
 
 ### Trigger-helper EXECUTE contract (TASK-007)
 

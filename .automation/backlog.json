@@ -132,7 +132,7 @@
       "title": "Build least-privilege notifications backend",
       "task_file": ".automation/tasks/TASK-019-notifications-backend.md",
       "risk": "high",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
