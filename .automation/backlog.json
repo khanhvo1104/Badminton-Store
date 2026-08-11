@@ -98,6 +98,13 @@
       "task_file": ".automation/tasks/TASK-014-address-repository-tests.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-015",
+      "title": "Add order repository regression tests",
+      "task_file": ".automation/tasks/TASK-015-order-repository-tests.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
