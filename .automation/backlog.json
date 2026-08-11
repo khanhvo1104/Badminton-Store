@@ -188,7 +188,7 @@
       "title": "Build the CMS dashboard shell",
       "task_file": ".automation/tasks/TASK-027-cms-dashboard-shell.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
