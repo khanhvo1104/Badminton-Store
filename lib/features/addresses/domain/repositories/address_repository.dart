@@ -1,7 +1,7 @@
 import 'package:base_project/core/result/result.dart';
 import 'package:base_project/features/addresses/domain/entities/address.dart';
 
-/// Shipping / billing addresses. Implementations arrive in a later milestone.
+/// Shipping / billing addresses. Wired via SupabaseAddressRepository.
 abstract interface class AddressRepository {
   Future<Result<List<Address>>> list();
 

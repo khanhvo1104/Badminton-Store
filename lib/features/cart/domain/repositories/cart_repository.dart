@@ -1,7 +1,7 @@
 import 'package:base_project/core/result/result.dart';
 import 'package:base_project/features/cart/domain/entities/cart.dart';
 
-/// Shopping cart persistence. Implementations arrive in a later milestone.
+/// Shopping cart persistence. Wired via SupabaseCartRepository.
 abstract interface class CartRepository {
   Future<Result<Cart>> getCart();
 

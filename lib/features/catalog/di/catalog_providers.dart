@@ -6,7 +6,7 @@ import 'package:base_project/features/catalog/domain/repositories/category_repos
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Catalog DI composition root.
-/// Repository implementations are registered in a later milestone.
+/// Registers Supabase-backed category and brand repositories.
 final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
   return SupabaseCategoryRepository(ref.watch(supabaseClientProvider));
 });

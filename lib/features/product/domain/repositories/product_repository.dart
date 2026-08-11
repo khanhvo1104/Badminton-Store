@@ -1,7 +1,7 @@
 import 'package:base_project/core/result/result.dart';
 import 'package:base_project/features/product/domain/entities/product.dart';
 
-/// Catalog product access. Implementations arrive in a later milestone.
+/// Catalog product access. Wired via SupabaseProductRepository.
 abstract interface class ProductRepository {
   Future<Result<Product>> getById(String id);
 

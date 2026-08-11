@@ -1,15 +1,35 @@
-# Base Project — Flutter Architecture Starter
+# Badminton Store
 
-Production-oriented Flutter starter for medium and large apps.
+Flutter client for a badminton e-commerce shop backed by Supabase (Auth, PostgREST, Storage, trusted COD checkout RPC).
 
-**Stack:** Feature-first · MVVM · Selective use cases · Repository pattern · Riverpod · go_router · Fake API ready for Dio.
+**Stack:** Feature-first · MVVM · Selective use cases · Repository pattern · Riverpod · go_router · `supabase_flutter`
+
+## What is implemented
+
+Authenticated commerce MVP path:
+
+| Area | Status |
+|------|--------|
+| Auth (login, session restore, logout via Settings) | Wired to Supabase Auth + secure storage |
+| Home (featured products) | Supabase `product_catalog` |
+| Catalog (categories, brands, product list) | Supabase repositories |
+| Product detail (variants, images, availability) | Supabase repositories |
+| Search | `search_products` RPC |
+| Favorites | Own-row RLS repository |
+| Cart | Own-cart RLS repository |
+| Checkout (COD) | Trusted `checkout_cod` RPC only — client totals are estimates |
+| Orders (history) | Read-only own-order repository |
+| Addresses (CRUD + validated create/edit form) | Own-row RLS repository |
+| Profile | Supabase profile data source |
+| Settings / appearance | Local preferences + logout |
+| Notifications | Placeholder UI only — no schema, repository throws if read |
 
 ## Architecture overview
 
 ```
 View → ViewModel → UseCase (when needed) → Repository interface
                                           → Repository implementation
-                                          → Remote / local data source
+                                          → Supabase client / data source
 ```
 
 Presentation never depends on Dio, SharedPreferences, secure storage, databases, or concrete repository implementations.
@@ -23,9 +43,8 @@ flowchart TD
   VM --> RI[Repository Interfaces]
   UC --> RI
   RI --> RImpl[Repository Implementations]
-  RImpl --> RDS[Remote Data Sources]
+  RImpl --> SB[Supabase Client / Remote DS]
   RImpl --> LDS[Local Data Sources]
-  RDS --> Fake[Fake API / Dio Client]
   LDS --> Storage[Secure Storage / Preferences]
 ```
 
@@ -33,18 +52,17 @@ flowchart TD
 
 ```
 lib/
-  app/                  # Bootstrap, router, theme
-  core/                 # Config, network, storage, errors, Result
-  features/
-    authentication/
-    home/
-    profile/
-    settings/
-  shared/               # Cross-feature providers & shell UI
+  app/                  # Bootstrap, router, theme, configuration-error UX
+  core/                 # Config, errors, Result, Supabase helpers
+  features/             # authentication, home, catalog, product, cart,
+                        # checkout, orders, favorites, addresses, search,
+                        # profile, settings, notifications (placeholder)
+  shared/               # Cross-feature providers & shop UI
   main_development.dart
   main_staging.dart
   main_production.dart
-docs/architecture/      # Architecture decision records
+docs/                   # Architecture, coding guidelines, audits, backend notes
+supabase/               # Migrations (source of truth), seed, local DB tests
 test/
 ```
 
@@ -54,59 +72,47 @@ test/
 | ------------ | ------------------------------------------------------- |
 | Presentation | Declarative UI, ViewModels, sealed UI state             |
 | Domain       | Entities, repository interfaces, selective use cases    |
-| Data         | DTOs, mappers, fake/real data sources, repository impls |
-| Core         | Environment, networking, storage abstractions, logging  |
+| Data         | DTOs, mappers, Supabase data sources, repository impls  |
+| Core         | Environment, Supabase config/init, storage, logging     |
 
-## Why use cases are selective
+## Security (client)
 
-Use cases exist only when they encode validation, orchestration, reuse, or an important business action (login, logout, update profile). Simple reads go ViewModel → repository interface.
-
-## State management rules
-
-- Riverpod is the only DI mechanism (no GetIt).
-- Screen state uses sealed classes: initial / loading / success / empty / error.
-- `ref.watch` for render-driving values; `ref.read` in handlers.
-- No `BuildContext` in providers or repositories.
-
-## Error handling strategy
-
-Repositories return `Result<T>` (`Success` / `Failure`). Infrastructure errors become `AppException` via `ErrorMapper`. Unexpected errors are logged with stack traces.
-
-## Authentication flow
-
-1. Bootstrap restores session from secure storage.
-2. Splash / init UI is shown until session state is known.
-3. `go_router` redirects using `authSessionProvider`.
-4. Login validates input, calls `LoginUseCase`, stores token + user.
-5. Logout clears sensitive session data and returns to `/login`.
-
-**Demo credentials**
-
-- Email: `demo@example.com`
-- Password: `Password123`
+- Flutter may contain only a Supabase **publishable** key or legacy **anon** key.
+- Never put a `service_role` / secret key, database password, or other credentials in the app or git.
+- Authorization, order totals, inventory reservation, and privileged transitions are enforced server-side (RLS + `checkout_cod`). See `docs/architecture.md` and `docs/backend/checkout_security.md`.
 
 ## Environment setup
 
-Example env files (no real secrets):
+Copy `.env.example` into the env file for the flavor you run (do not commit real secrets):
 
 - `.env.development`
 - `.env.staging`
 - `.env.production`
 
-Keys:
+Keys (placeholders only — see `.env.example`):
 
 ```
 API_BASE_URL=...
 ENABLE_NETWORK_LOGS=true|false
 ENABLE_DEBUG_TOOLS=true|false
+SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_OR_LEGACY_ANON_KEY
 ```
+
+If URL/key configuration is incomplete, bootstrap shows `ConfigurationErrorApp` instead of mounting the normal provider graph.
 
 ## Commands
 
-### Dependencies & codegen
+### Dependencies
 
 ```bash
 flutter pub get
+```
+
+Codegen (Freezed / json_serializable) when models change:
+
+```bash
 dart run build_runner build --delete-conflicting-outputs
 ```
 
@@ -124,31 +130,46 @@ flutter run -t lib/main_production.dart
 dart format .
 flutter analyze
 flutter test
+python3 scripts/automation.py policy-check
 ```
 
-## Replacing fake APIs with real APIs
+### Local Supabase database regressions
 
-1. Implement `AuthRemoteDataSource` / `HomeRemoteDataSource` / `ProfileRemoteDataSource` with Dio (`ApiClient`).
-2. Override the corresponding Riverpod providers (or swap the default implementation).
-3. Keep DTO ↔ entity mapping inside the data layer.
-4. Leave ViewModels and widgets unchanged.
+Requires Docker + Supabase CLI. Against a **local disposable** stack only (`supabase db reset` first). See `supabase/README.md` for details.
 
-## Adding a new feature (example: notifications)
-
-1. Create `lib/features/notifications/{domain,data,presentation}`.
-2. Add `Notification` entity + `NotificationsRepository` interface in domain.
-3. Add DTO, fake/real data source, and `NotificationsRepositoryImpl` in data.
-4. Add sealed `NotificationsState` + ViewModel + page in presentation.
-5. Register providers and a protected route under the shell if needed.
-6. Do **not** import another feature’s data or presentation layers.
-
-Example domain contract:
-
-```dart
-abstract interface class NotificationsRepository {
-  Future<Result<List<NotificationItem>>> getNotifications();
-}
+```bash
+supabase db reset
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/00_constraints.sql
+bash supabase/tests/database/01_rls_checklist.sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/02_product_variant_cost_price.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/03_trusted_cod_checkout.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/04_trigger_function_execute.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/05_explicit_data_api_grants.sql
+bash supabase/tests/database/03_trusted_cod_checkout_concurrency.sh
 ```
+
+Never run destructive resets against a linked remote production project from this README.
+
+## State management rules
+
+- Riverpod is the only DI mechanism (no GetIt).
+- Screen state uses sealed classes: initial / loading / success / empty / error.
+- `ref.watch` for render-driving values; `ref.read` in handlers.
+- No `BuildContext` in providers or repositories.
+
+## Error handling strategy
+
+Repositories return `Result<T>` (`Success` / `Failure`). Infrastructure errors become `AppException` via `ErrorMapper` / `SupabaseExceptionMapper`. Unexpected errors are logged with stack traces.
+
+## Adding a new feature
+
+1. Create `lib/features/<name>/{domain,data,presentation}` (+ `di/` providers).
+2. Add entities + repository interface in domain.
+3. Add DTO, Supabase data source / repository impl in data.
+4. Add sealed state + ViewModel + page in presentation.
+5. Register providers and routes; do **not** import another feature’s data or presentation layers.
+
+**Notifications** remain unimplemented (placeholder page; no table). Do not treat them as a wired commerce feature.
 
 ## Common mistakes to avoid
 
@@ -156,19 +177,20 @@ abstract interface class NotificationsRepository {
 - Creating one-line use cases for every CRUD method
 - Passing large domain objects through `GoRouter` `extra`
 - Importing feature A’s data layer from feature B
+- Trusting client-calculated checkout totals or inventory
+- Embedding service-role keys in Flutter
 - Swallowing exceptions without logging
 - Navigating inside repositories
 
-## Architectural decision records
+## Further reading
 
-See `docs/architecture/`:
-
-1. Feature-first organization
-2. Riverpod for state and DI
-3. Selective use cases
-4. Result / error handling
-5. Environment configuration
+- `docs/architecture.md` — current system architecture
+- `docs/coding_guidelines.md` — contributor conventions (including money)
+- `docs/audits/application-readiness.md` — readiness matrix and remaining work
+- `docs/architecture/` — ADRs (feature-first, Riverpod, selective use cases, Result, env)
+- `supabase/README.md` — local DB / grants / regression commands
+- `docs/backend/` — checkout security and Flutter integration notes
 
 ## Package versions note
 
-Dependencies were resolved against the installed Flutter/Dart SDK. Riverpod 2.x is used because Riverpod 3 / generator 4 require a newer analyzer/`meta` than this Flutter pin provides. Freezed + `json_serializable` still generate DTOs; ViewModels use explicit Riverpod providers for maximum compatibility.
+Dependencies are resolved against the installed Flutter/Dart SDK. Riverpod 2.x is used because Riverpod 3 / generator 4 require a newer analyzer/`meta` than this Flutter pin provides. Freezed + `json_serializable` generate DTOs; ViewModels use explicit Riverpod providers.

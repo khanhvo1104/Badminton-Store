@@ -154,9 +154,17 @@ SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 
 Never put `service_role` in Flutter.
 
-## Next steps
+## Local verification checklist
+
+Flutter commerce repositories (catalog, product, search, favorites, cart,
+checkout, orders, addresses, home, auth/profile) are already wired to Supabase
+in the app. This folder owns the database source of truth and local regressions.
 
 1. Install Docker + CLI 2.111+
-2. `supabase db reset`
+2. `supabase db reset` (local disposable stack only)
 3. Run the local database regressions above
 4. Verify `product_catalog` view returns active products
+
+Do not treat “wire Flutter repositories” as remaining Supabase work. Remote
+migration apply remains post-approval/merge via the established workflow — these
+commands are for local verification only.

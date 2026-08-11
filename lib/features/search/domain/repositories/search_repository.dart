@@ -1,7 +1,7 @@
 import 'package:base_project/core/result/result.dart';
 import 'package:base_project/features/product/domain/entities/product.dart';
 
-/// Product search and suggestions. Implementations arrive in a later milestone.
+/// Product search and suggestions. Wired via SupabaseSearchRepository.
 abstract interface class SearchRepository {
   Future<Result<List<Product>>> search({
     required String query,

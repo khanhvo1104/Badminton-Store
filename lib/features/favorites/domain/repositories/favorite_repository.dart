@@ -1,7 +1,7 @@
 import 'package:base_project/core/result/result.dart';
 import 'package:base_project/features/favorites/domain/entities/favorite.dart';
 
-/// Wishlist / favorites. Implementations arrive in a later milestone.
+/// Wishlist / favorites. Wired via SupabaseFavoriteRepository.
 abstract interface class FavoriteRepository {
   Future<Result<List<Favorite>>> list();
 
