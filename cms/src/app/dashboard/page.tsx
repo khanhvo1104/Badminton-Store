@@ -1,62 +1,67 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
 
-import { SiteShell } from "@/components/layout/site-shell";
-import { logout } from "@/features/auth/actions/logout";
-import {
-  type AuthorizationSupabaseClient,
-  authorizeCmsRequest,
-  CMS_LOGIN_PATH,
-  CMS_UNAUTHORIZED_PATH,
-} from "@/lib/auth/authorization";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { DASHBOARD_NAV_ITEMS } from "@/lib/navigation/dashboard-routes";
 
-export const dynamic = "force-dynamic";
-
-export default async function DashboardPage() {
-  const supabase = await createSupabaseServerClient();
-  const authorization = await authorizeCmsRequest(
-    supabase as unknown as AuthorizationSupabaseClient,
+export default function DashboardOverviewPage() {
+  const quickAccess = DASHBOARD_NAV_ITEMS.filter(
+    (item) => item.id !== "overview",
   );
 
-  if (authorization.kind === "anonymous") {
-    redirect(CMS_LOGIN_PATH);
-  }
-
-  if (authorization.kind === "unauthorized") {
-    redirect(CMS_UNAUTHORIZED_PATH);
-  }
-
   return (
-    <SiteShell>
-      <main
-        id="main-content"
-        className="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-16"
-      >
-        <section className="w-full rounded-3xl border border-white/10 bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/30 sm:p-12">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-            Protected dashboard
-          </p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white">
-            Welcome back
-            {authorization.profile.fullName
-              ? `, ${authorization.profile.fullName}`
-              : ""}
-            .
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200">
-            You are signed in as an active {authorization.profile.role} profile.
-          </p>
+    <div className="mx-auto max-w-5xl space-y-8">
+      <header className="space-y-3">
+        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
+          Dashboard
+        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          Catalog management workspace
+        </h1>
+        <p className="max-w-3xl text-base leading-7 text-slate-300">
+          This shell prepares staff and admins for upcoming category, brand,
+          product, and inventory workflows. No live catalog totals or business
+          metrics are loaded here.
+        </p>
+      </header>
 
-          <form action={logout} className="mt-8">
-            <button
-              type="submit"
-              className="rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
-            >
-              Sign out
-            </button>
-          </form>
-        </section>
-      </main>
-    </SiteShell>
+      <section aria-labelledby="cms-scope-heading" className="space-y-4">
+        <h2
+          id="cms-scope-heading"
+          className="text-xl font-semibold tracking-tight text-white"
+        >
+          Current CMS scope
+        </h2>
+        <p className="max-w-3xl text-sm leading-7 text-slate-300">
+          Use the navigation to reach protected placeholder areas. Each area
+          will gain CRUD and inventory operations in later tasks. Authorization
+          continues to run on the server for every protected request.
+        </p>
+      </section>
+
+      <section aria-labelledby="quick-access-heading" className="space-y-4">
+        <h2
+          id="quick-access-heading"
+          className="text-xl font-semibold tracking-tight text-white"
+        >
+          Quick access
+        </h2>
+        <ul className="grid gap-4 sm:grid-cols-2">
+          {quickAccess.map((item) => (
+            <li key={item.id}>
+              <Link
+                href={item.href}
+                className="block h-full rounded-3xl border border-white/10 bg-slate-900/70 p-6 transition hover:border-emerald-300/40 hover:bg-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+              >
+                <h3 className="text-lg font-semibold text-white">
+                  {item.label}
+                </h3>
+                <p className="mt-2 text-sm leading-7 text-slate-300">
+                  {item.description}
+                </p>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
   );
 }

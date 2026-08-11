@@ -177,6 +177,11 @@ authorizes only from the caller's trusted `public.profiles.role` plus
 `is_active`. Only active `staff` and active `admin` profiles can reach the CMS
 dashboard.
 
+The dashboard segment provides a shared application shell (sidebar/mobile nav,
+breadcrumbs, account/logout, loading/empty/error/confirmation primitives) plus
+placeholder routes for categories, brands, products, and inventory. Catalog CRUD
+arrives in later CMS tasks.
+
 There is no CMS self-signup flow. Before first use, a trusted operator must
 manually create or promote the initial active admin profile in Supabase.
 

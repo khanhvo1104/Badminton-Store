@@ -103,6 +103,24 @@ Feature modules own their UI, validation, queries, mutations, DTOs, and tests.
 Shared Supabase clients and authorization helpers live in `lib/`; feature code
 must not instantiate ad-hoc clients or read secrets directly.
 
+### Dashboard shell
+
+The protected dashboard segment lives under `cms/src/app/dashboard/`:
+
+- `layout.tsx` authorizes with `authorizeCmsRequest`, stays
+  `force-dynamic`, and renders the shared shell with only serializable profile
+  fields (`fullName`, `role`).
+- Client Components are limited to navigation interactions, pathname-derived
+  UI, logout pending state, confirmation dialogs, and error-boundary reset.
+- Typed routes in `cms/src/lib/navigation/dashboard-routes.ts` drive primary
+  navigation and breadcrumbs. Unknown descendants use a stable safe label and
+  must not echo attacker-controlled path text.
+- Shared page-state primitives live in `cms/src/components/ui/` and are reused
+  by dashboard `loading.tsx` / `error.tsx` plus upcoming catalog screens.
+
+Catalog CRUD pages should plug into this shell rather than inventing a second
+application chrome or client-side authorization path.
+
 ## Catalog data flow
 
 ### Read
