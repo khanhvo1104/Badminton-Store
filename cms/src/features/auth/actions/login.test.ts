@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { INITIAL_LOGIN_FORM_STATE } from "@/features/auth/login-form-state";
+
 const redirect = vi.hoisted(() => vi.fn());
 const createSupabaseServerClient = vi.hoisted(() => vi.fn());
 
@@ -13,9 +15,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 describe("login action", () => {
   it("rejects empty trimmed credentials without calling Supabase", async () => {
-    const { INITIAL_LOGIN_FORM_STATE, login } = await import(
-      "@/features/auth/actions/login"
-    );
+    const { login } = await import("@/features/auth/actions/login");
 
     const formData = new FormData();
     formData.set("email", "   ");
@@ -39,9 +39,7 @@ describe("login action", () => {
       },
     });
 
-    const { INITIAL_LOGIN_FORM_STATE, login } = await import(
-      "@/features/auth/actions/login"
-    );
+    const { login } = await import("@/features/auth/actions/login");
 
     const formData = new FormData();
     formData.set("email", " staff@example.com ");
@@ -72,9 +70,7 @@ describe("login action", () => {
       throw new Error("NEXT_REDIRECT:/dashboard");
     });
 
-    const { INITIAL_LOGIN_FORM_STATE, login } = await import(
-      "@/features/auth/actions/login"
-    );
+    const { login } = await import("@/features/auth/actions/login");
 
     const formData = new FormData();
     formData.set("email", "admin@example.com");

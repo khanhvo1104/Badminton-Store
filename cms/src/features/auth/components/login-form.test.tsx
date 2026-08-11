@@ -23,9 +23,6 @@ vi.mock("react-dom", async () => {
 });
 
 vi.mock("@/features/auth/actions/login", () => ({
-  INITIAL_LOGIN_FORM_STATE: {
-    errorMessage: null,
-  },
   login: vi.fn(),
 }));
 
