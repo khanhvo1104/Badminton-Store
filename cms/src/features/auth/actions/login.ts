@@ -2,19 +2,12 @@
 
 import { redirect } from "next/navigation";
 
+import type { LoginFormState } from "@/features/auth/login-form-state";
 import {
   AUTH_FAILURE_MESSAGE,
   CMS_DASHBOARD_PATH,
 } from "@/lib/auth/authorization";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-export type LoginFormState = {
-  errorMessage: string | null;
-};
-
-export const INITIAL_LOGIN_FORM_STATE: LoginFormState = {
-  errorMessage: null,
-};
 
 export async function login(
   _previousState: LoginFormState,
