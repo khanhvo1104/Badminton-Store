@@ -13,6 +13,7 @@ import 'package:base_project/features/home/presentation/views/home_page.dart';
 import 'package:base_project/features/home/presentation/widgets/featured_product_card.dart';
 import 'package:base_project/shared/providers/current_user_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -199,6 +200,54 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('home_featured_item_prod-1')));
+    await tester.pumpAndSettle();
+    expect(find.text('product-prod-1'), findsOneWidget);
+  });
+
+  testWidgets('featured item activates from keyboard focus', (tester) async {
+    when(
+      () => repository.getDashboardItems(),
+    ).thenAnswer((_) async => const Success([_itemA]));
+
+    await pumpHome(tester);
+    await tester.pumpAndSettle();
+
+    final cardFinder = find.byKey(const Key('home_featured_item_prod-1'));
+    expect(
+      find.descendant(
+        of: cardFinder,
+        matching: find.byType(FocusableActionDetector),
+      ),
+      findsOneWidget,
+    );
+
+    FocusNode cardFocus() {
+      return Focus.of(
+        tester.element(
+          find.descendant(
+            of: cardFinder,
+            matching: find.byType(GestureDetector),
+          ),
+        ),
+      );
+    }
+
+    final enterFocus = cardFocus()..requestFocus();
+    await tester.pump();
+    expect(enterFocus.hasFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('product-prod-1'), findsOneWidget);
+
+    router.go(AppRoutes.home);
+    await tester.pumpAndSettle();
+
+    final spaceFocus = cardFocus()..requestFocus();
+    await tester.pump();
+    expect(spaceFocus.hasFocus, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
     await tester.pumpAndSettle();
     expect(find.text('product-prod-1'), findsOneWidget);
   });

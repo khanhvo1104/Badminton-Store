@@ -34,39 +34,58 @@ class FeaturedProductCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: semanticsLabel,
-      child: GlassCard(
-        variant: GlassCardVariant.interactive,
-        onTap: onTap,
-        margin: EdgeInsets.zero,
-        child: Row(
-          children: [
-            ExcludeSemantics(
-              child: CircleAvatar(
-                backgroundColor: theme.colorScheme.primaryContainer,
-                foregroundColor: theme.colorScheme.onPrimaryContainer,
-                child: Icon(_icon),
+      child: FocusableActionDetector(
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              onTap();
+              return null;
+            },
+          ),
+        },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: GlassCard(
+              variant: GlassCardVariant.interactive,
+              margin: EdgeInsets.zero,
+              child: Row(
+                children: [
+                  ExcludeSemantics(
+                    child: CircleAvatar(
+                      backgroundColor: theme.colorScheme.primaryContainer,
+                      foregroundColor: theme.colorScheme.onPrimaryContainer,
+                      child: Icon(_icon),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ExcludeSemantics(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(item.title, style: theme.textTheme.titleMedium),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.subtitle,
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  ExcludeSemantics(
+                    child: Icon(
+                      Icons.chevron_right,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: ExcludeSemantics(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item.title, style: theme.textTheme.titleMedium),
-                    const SizedBox(height: 4),
-                    Text(item.subtitle, style: theme.textTheme.bodyMedium),
-                  ],
-                ),
-              ),
-            ),
-            ExcludeSemantics(
-              child: Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
