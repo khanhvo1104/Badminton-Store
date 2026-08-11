@@ -126,6 +126,13 @@
       "task_file": ".automation/tasks/TASK-018-documentation-cleanup.md",
       "risk": "low",
       "status": "complete"
+    },
+    {
+      "id": "TASK-019",
+      "title": "Build least-privilege notifications backend",
+      "task_file": ".automation/tasks/TASK-019-notifications-backend.md",
+      "risk": "high",
+      "status": "ready"
     }
   ]
 }
