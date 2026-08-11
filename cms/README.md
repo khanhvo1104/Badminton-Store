@@ -47,6 +47,21 @@ is_active` for the signed-in subject, and allows only active `staff` or active
 - Customer accounts, inactive profiles, missing profiles, and unsupported roles
   all receive the same sanitized unauthorized experience.
 
+## Dashboard shell
+
+Protected routes under `/dashboard` share one authorized layout shell with:
+
+- desktop sidebar and mobile open/close navigation;
+- skip link, breadcrumbs, and `aria-current` page treatment from typed routes;
+- safe account display plus POST logout with pending state;
+- overview cards that link only to placeholder catalog areas;
+- shared loading, empty, error/retry, and confirmation primitives.
+
+Add new dashboard areas by extending
+`src/lib/navigation/dashboard-routes.ts` and placing pages under
+`src/app/dashboard/`. Do not trust client state or URL text for roles or
+breadcrumb labels.
+
 ## Notes
 
 - The CMS uses only `NEXT_PUBLIC_SUPABASE_URL` and

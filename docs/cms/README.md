@@ -72,3 +72,28 @@ authenticated cases receive the same sanitized `/unauthorized` response.
 There is no self-signup or staff-management flow in this milestone. A trusted
 operator must manually create or promote the first active admin before the CMS
 can be used.
+
+## Dashboard shell
+
+Authenticated staff land in `/dashboard`, which is wrapped by a protected App
+Router layout. The shell provides:
+
+- desktop sidebar and labelled mobile navigation;
+- skip link to a single `main` landmark;
+- breadcrumbs and current-page treatment from a typed route map;
+- safe display-name and trusted role context with POST logout;
+- reusable loading, empty, sanitized error/retry, and confirmation primitives.
+
+Placeholder routes under `/dashboard/categories`, `/dashboard/brands`,
+`/dashboard/products`, and `/dashboard/inventory` keep primary navigation
+functional before their CRUD tasks. Navigation labels never come from raw URL
+segments or query parameters. Layout and navigation are not a substitute for
+authorization inside future Server Actions or Route Handlers.
+
+Extension points for later catalog tasks:
+
+- add a typed entry to `cms/src/lib/navigation/dashboard-routes.ts`;
+- place feature UI under `cms/src/features/<area>/` and a matching App Router
+  page under `cms/src/app/dashboard/<area>/`;
+- reuse `LoadingState`, `EmptyState`, `ErrorState`, and `ConfirmationDialog`
+  instead of inventing page-local status patterns.
