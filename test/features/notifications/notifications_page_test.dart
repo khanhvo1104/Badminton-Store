@@ -173,7 +173,15 @@ void main() {
       find.byKey(const Key('notifications_item_timestamp_unread-1')),
       findsOneWidget,
     );
-    expect(find.text(formatNotificationTimestamp(createdAt)), findsWidgets);
+    final listContext = tester.element(
+      find.byKey(const Key('notifications_list')),
+    );
+    final expectedTimestamp = formatNotificationTimestamp(
+      createdAt,
+      localizations: MaterialLocalizations.of(listContext),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(listContext),
+    );
+    expect(find.text(expectedTimestamp), findsWidgets);
     expect(
       find.byKey(const Key('notifications_mark_all_read')),
       findsOneWidget,
@@ -248,6 +256,65 @@ void main() {
     );
   });
 
+  test('formatNotificationTimestamp adapts to MaterialLocalizations', () {
+    final createdAt = DateTime(2026, 8, 10, 15, 30);
+    final english = formatNotificationTimestamp(
+      createdAt,
+      localizations: const DefaultMaterialLocalizations(),
+      alwaysUse24HourFormat: true,
+    );
+    final custom = formatNotificationTimestamp(
+      createdAt,
+      localizations: const _YmdMaterialLocalizations(),
+      alwaysUse24HourFormat: true,
+    );
+
+    expect(english, 'Aug 10, 2026 15:30');
+    expect(custom, '2026-08-10 15:30');
+    expect(english, isNot(equals(custom)));
+  });
+
+  testWidgets('list timestamp follows active MaterialLocalizations', (
+    tester,
+  ) async {
+    final createdAt = DateTime(2026, 8, 10, 15, 30);
+    when(
+      () => repository.list(
+        page: any(named: 'page'),
+        pageSize: any(named: 'pageSize'),
+      ),
+    ).thenAnswer(
+      (_) async => Success([_notification(id: 'n1', createdAt: createdAt)]),
+    );
+
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notificationRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          locale: const Locale('en', 'US'),
+          localizationsDelegates: const [
+            _YmdMaterialLocalizationsDelegate(),
+            DefaultWidgetsLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en', 'US')],
+          home: const NotificationsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026-08-10 3:30 PM'), findsOneWidget);
+    expect(find.text('Aug 10, 2026 3:30 PM'), findsNothing);
+  });
+
   testWidgets('refresh failure keeps list and shows snackbar feedback', (
     tester,
   ) async {
@@ -279,4 +346,32 @@ void main() {
     expect(find.text(NotificationsUiMessages.refreshFailed), findsOneWidget);
     expect(find.textContaining('boom'), findsNothing);
   });
+}
+
+/// Material localizations with year-month-day compact dates for locale tests.
+class _YmdMaterialLocalizations extends DefaultMaterialLocalizations {
+  const _YmdMaterialLocalizations();
+
+  @override
+  String formatShortDate(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
+}
+
+class _YmdMaterialLocalizationsDelegate
+    extends LocalizationsDelegate<MaterialLocalizations> {
+  const _YmdMaterialLocalizationsDelegate();
+
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<MaterialLocalizations> load(Locale locale) async {
+    return const _YmdMaterialLocalizations();
+  }
+
+  @override
+  bool shouldReload(_YmdMaterialLocalizationsDelegate old) => false;
 }

@@ -2,19 +2,25 @@ import 'package:base_project/app/theme/app_spacing.dart';
 import 'package:base_project/features/notifications/domain/entities/notification.dart';
 import 'package:flutter/material.dart';
 
-/// Formats a notification timestamp as localized `dd/MM/yyyy HH:mm`.
-String formatNotificationTimestamp(DateTime? createdAt) {
+/// Formats a notification timestamp with the active Material locale.
+///
+/// Uses [MaterialLocalizations] so date/time order and separators follow the
+/// app/context locale rather than a hard-coded pattern.
+String formatNotificationTimestamp(
+  DateTime? createdAt, {
+  required MaterialLocalizations localizations,
+  bool alwaysUse24HourFormat = false,
+}) {
   if (createdAt == null) {
     return '';
   }
   final local = createdAt.toLocal();
-  final day = local.day.toString().padLeft(2, '0');
-  final month = local.month.toString().padLeft(2, '0');
-  final year = local.year.toString();
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  // Localized display using DateFormats.displayDateTime (dd/MM/yyyy HH:mm).
-  return '$day/$month/$year $hour:$minute';
+  final date = localizations.formatShortDate(local);
+  final time = localizations.formatTimeOfDay(
+    TimeOfDay.fromDateTime(local),
+    alwaysUse24HourFormat: alwaysUse24HourFormat,
+  );
+  return '$date $time';
 }
 
 IconData notificationTypeIcon(NotificationType type) {
@@ -51,7 +57,11 @@ class NotificationListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final unread = !notification.isRead;
-    final timestamp = formatNotificationTimestamp(notification.createdAt);
+    final timestamp = formatNotificationTimestamp(
+      notification.createdAt,
+      localizations: MaterialLocalizations.of(context),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+    );
 
     return Material(
       key: Key('notifications_item_${notification.id}'),
