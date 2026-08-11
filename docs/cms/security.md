@@ -73,18 +73,35 @@ outside the CMS before staff can sign in successfully.
 - Storage object operations go through the Storage API; the `storage` schema is
   not modified directly.
 
-## Known prerequisite: variant cost price
+## Variant cost price contract
 
-`product_variants.cost_price` is intentionally not selectable by the shared
+`product_variants.cost_price` remains intentionally not selectable by the shared
 `authenticated` database role. Granting that column broadly would expose it to
-customers who also authenticate with that role. Product variant management must
-therefore wait for a dedicated staff/admin read contract, such as a narrowly
-scoped RPC or protected projection with executable authorization tests.
+customers who also authenticate with that role.
 
-The solution must not weaken the existing column privilege and must not expose a
-generic security-definer endpoint. If privileged code is necessary, it must
-check the caller, fix its `search_path`, revoke default `PUBLIC` execution, grant
-only intended roles, and receive advisor and regression coverage.
+Staff and admin CMS sessions read costs through the narrowly scoped RPC
+`public.get_staff_variant_costs(p_product_id uuid)`:
+
+- Returns only `variant_id` and nullable `cost_price` for the requested product,
+  ordered by `sort_order, id`.
+- `SECURITY DEFINER` with empty `search_path`, trusted-profile authorization via
+  `auth.uid()` + active `profiles.role IN ('staff', 'admin')`, and EXECUTE
+  granted only to `authenticated` (revoked from `PUBLIC`, `anon`, and
+  `service_role`).
+- Customers, inactive staff, missing/unsupported profiles, and forged JWT
+  metadata receive the same generic authorization failure.
+
+### How later CMS product management should combine reads
+
+1. Load normal safe variant fields (sku, price, attributes, activity, and so on)
+   through the signed-in user-scoped Supabase client under existing RLS and
+   column grants — never select `cost_price` directly.
+2. Call `get_staff_variant_costs(product_id)` with the same user-scoped session.
+3. Merge the two result sets by `variant_id` in application code.
+
+The authenticated session remains subject to the RPC’s trusted-profile check, so
+a service-role browser or server client is unnecessary for cost reads. Do not
+cache cost responses across users or weaken the column grant matrix.
 
 ## Inventory and state transitions
 
@@ -106,11 +123,11 @@ changes require explicit transition rules enforced server-side.
 
 | Actor | Catalog read | Catalog write | Cost price | Inventory write | Asset write |
 | --- | --- | --- | --- | --- | --- |
-| Anonymous | Public active projection only | Denied | Denied | Denied | Denied |
-| Customer | Public active projection only | Denied | Denied | Denied | Denied |
-| Inactive staff | Denied from CMS operations | Denied | Denied | Denied | Denied |
-| Active staff | Authorized scope | Authorized scope | Dedicated contract | Authorized RPC/policy | Catalog buckets |
-| Active admin | Authorized scope | Authorized scope | Dedicated contract | Authorized RPC/policy | Catalog buckets |
+| Anonymous | Public active projection only | Denied | Denied (no RPC EXECUTE; no column SELECT) | Denied | Denied |
+| Customer | Public active projection only | Denied | Denied (`get_staff_variant_costs` authz failure; no column SELECT) | Denied | Denied |
+| Inactive staff | Denied from CMS operations | Denied | Denied (same authz failure) | Denied | Denied |
+| Active staff | Authorized scope | Authorized scope | `get_staff_variant_costs` only | Authorized RPC/policy | Catalog buckets |
+| Active admin | Authorized scope | Authorized scope | `get_staff_variant_costs` only | Authorized RPC/policy | Catalog buckets |
 
 Executable tests must cover positive and negative cases. A UI test that hides a
 button does not satisfy an RLS or privilege acceptance criterion.

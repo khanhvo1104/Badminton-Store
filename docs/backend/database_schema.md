@@ -68,6 +68,12 @@ Order number `BDM-YYYYMMDD-XXXXXX`; grand_total math check; shipping_address jso
 - `product_catalog` (security_invoker)
 - `inventory_availability` (staff-oriented; public uses RPC)
 - `get_variant_availability(uuid)`
+- `get_staff_variant_costs(p_product_id uuid)` → `(variant_id uuid, cost_price numeric(14,2))`
+  - STABLE SECURITY DEFINER, `SET search_path = ''`
+  - Returns every variant for that product only, ordered by `sort_order, id`
+  - Authorizes active trusted `profiles.role` in (`staff`, `admin`) via `auth.uid()`
+  - EXECUTE: `authenticated` only (revoked from `PUBLIC`, `anon`, `service_role`)
+  - Does not change variant RLS or grant `SELECT(cost_price)` to public API roles
 - `search_products(text, int)`
 - `generate_order_number()`
 - `is_staff_or_admin()` / `is_admin()`

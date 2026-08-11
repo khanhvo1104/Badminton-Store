@@ -181,7 +181,7 @@
       "title": "Add the CMS database security contract",
       "task_file": ".automation/tasks/TASK-026-cms-database-security-contract.md",
       "risk": "high",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
