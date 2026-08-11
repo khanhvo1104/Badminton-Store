@@ -3,7 +3,8 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { INITIAL_LOGIN_FORM_STATE, login } from "@/features/auth/actions/login";
+import { login } from "@/features/auth/actions/login";
+import { INITIAL_LOGIN_FORM_STATE } from "@/features/auth/login-form-state";
 
 export function LoginForm() {
   const [state, formAction] = useActionState(login, INITIAL_LOGIN_FORM_STATE);
