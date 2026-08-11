@@ -182,6 +182,13 @@
       "task_file": ".automation/tasks/TASK-026-cms-database-security-contract.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-027",
+      "title": "Build the CMS dashboard shell",
+      "task_file": ".automation/tasks/TASK-027-cms-dashboard-shell.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
