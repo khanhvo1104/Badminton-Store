@@ -1,7 +1,7 @@
 import 'package:base_project/core/result/result.dart';
 import 'package:base_project/features/orders/domain/entities/order.dart';
 
-/// Order history and placement. Implementations arrive in a later milestone.
+/// Order history (read). Wired via SupabaseOrderRepository.
 abstract interface class OrderRepository {
   Future<Result<List<Order>>> list({int page = 1, int pageSize = 20});
 

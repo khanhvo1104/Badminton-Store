@@ -1,7 +1,7 @@
 import 'package:base_project/core/result/result.dart';
 import 'package:base_project/features/catalog/domain/entities/category.dart';
 
-/// Product category taxonomy. Implementations arrive in a later milestone.
+/// Product category taxonomy. Wired via SupabaseCategoryRepository.
 abstract interface class CategoryRepository {
   Future<Result<List<Category>>> list();
 

@@ -19,8 +19,9 @@
 - Don't add one-liner use cases for every CRUD method (see ADR 003).
 - Don't invent a second auth session or router.
 - Don't Freezed UI state; use sealed classes like `LoginState`.
-- Don't commit real `SUPABASE_ANON_KEY` / secrets to git.
-- Don't add fake shop repositories in foundation milestones unless asked.
+- Don't commit real `SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_ANON_KEY` / secrets to git.
+- Don't embed a Supabase `service_role` or other secret key in Flutter.
+- Don't trust client-calculated checkout totals, inventory, or privileged order transitions — those stay server-side (RLS / `checkout_cod`).
 
 ## Naming
 
@@ -29,14 +30,20 @@
 | Page | `FooPage` / `foo_page.dart` |
 | ViewModel | `FooViewModel` + `FooState` |
 | Repository interface | `FooRepository` |
-| Repository impl | `FooRepositoryImpl` |
+| Repository impl | `FooRepositoryImpl` / `SupabaseFooRepository` |
 | Remote DS | `FooRemoteDataSource` |
 | Model | `FooModel` (`@freezed`) |
 | Provider file | `foo_providers.dart` |
 
 ## Money
 
-- Store amounts as `int` minor units on entities (`priceAmount`, `totalAmount`).
+- **PostgreSQL `numeric` is authoritative** for prices, line totals, and order
+  amounts (see migrations and `checkout_cod`).
+- **Dart domain snapshots currently use `double`** for whole VND values used in
+  UI/display (e.g. `ProductVariant.price`, cart/order amount fields). This is a
+  presentation/snapshot convention, not a license to do accounting in the client.
+- **Clients must not calculate trusted checkout or accounting totals.** Cart and
+  checkout UI amounts are estimates; the server re-prices and persists totals.
 - Default display currency is VND (`CurrencyConstants`).
 - Format only in UI helpers such as `PriceLabel`.
 
@@ -53,7 +60,10 @@ Map infrastructure failures at the data boundary:
 
 - Feature ViewModels: `StateNotifierProvider.autoDispose`.
 - Session / appearance: long-lived providers.
-- Unwired shop repositories may throw `UnimplementedError` until adapters exist.
+- Commerce feature repositories are wired to Supabase implementations via
+  `di/*_providers.dart`. **Notifications** and the generic
+  `supabaseDatabaseProvider` / `supabaseStorageProvider` facades remain
+  unimplemented and throw if read.
 - Override providers in tests via `createTestContainer` helpers.
 
 ## Analysis
