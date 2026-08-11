@@ -167,7 +167,7 @@
       "title": "Scaffold the Next.js CMS",
       "task_file": ".automation/tasks/TASK-024-nextjs-cms-scaffold.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
