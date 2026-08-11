@@ -110,6 +110,12 @@ If URL/key configuration is incomplete, bootstrap shows `ConfigurationErrorApp` 
 flutter pub get
 ```
 
+CMS dependencies:
+
+```bash
+cd cms && npm ci
+```
+
 Codegen (Freezed / json_serializable) when models change:
 
 ```bash
@@ -132,6 +138,35 @@ flutter analyze
 flutter test
 python3 scripts/automation.py policy-check
 ```
+
+CMS quality:
+
+```bash
+cd cms && npm run format:check
+cd cms && npm run lint
+cd cms && npm run typecheck
+cd cms && npm test -- --run
+cd cms && npm run build
+```
+
+### CMS environment and development
+
+Copy `cms/.env.example` to `cms/.env.local` for local work. The scaffold accepts
+only these public values:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+```
+
+Start the CMS locally with:
+
+```bash
+cd cms && npm run dev
+```
+
+The CMS scaffold validates those public values at startup, but it does not yet
+create a Supabase client, authenticate users, or call the network.
 
 ### Local Supabase database regressions
 

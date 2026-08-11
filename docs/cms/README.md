@@ -22,3 +22,36 @@ the catalog workflow is stable.
 The Flutter app remains the customer storefront. The CMS must not import Flutter
 code or introduce a second source of truth for database types or authorization.
 Supabase migrations remain the database source of truth.
+
+## Local application
+
+The runnable CMS application lives in `cms/` and is installed independently
+from the Flutter storefront.
+
+### Setup
+
+```bash
+cd cms && npm ci
+cp .env.example .env.local
+```
+
+Required public placeholders or local values:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+```
+
+### Commands
+
+```bash
+cd cms && npm run dev
+cd cms && npm run format:check
+cd cms && npm run lint
+cd cms && npm run typecheck
+cd cms && npm test -- --run
+cd cms && npm run build
+```
+
+This scaffold validates public configuration at startup and exposes no live
+Supabase client, auth session, or catalog operation yet.
