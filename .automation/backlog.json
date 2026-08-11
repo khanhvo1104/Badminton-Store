@@ -175,6 +175,13 @@
       "task_file": ".automation/tasks/TASK-025-cms-supabase-ssr-auth.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-026",
+      "title": "Add the CMS database security contract",
+      "task_file": ".automation/tasks/TASK-026-cms-database-security-contract.md",
+      "risk": "high",
+      "status": "ready"
     }
   ]
 }
