@@ -111,7 +111,7 @@
       "title": "Replace the demo address action with a validated form flow",
       "task_file": ".automation/tasks/TASK-016-address-form-flow.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
