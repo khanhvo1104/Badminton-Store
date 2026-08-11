@@ -133,6 +133,13 @@
       "task_file": ".automation/tasks/TASK-019-notifications-backend.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-020",
+      "title": "Wire the Flutter notifications repository",
+      "task_file": ".automation/tasks/TASK-020-notifications-repository.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
