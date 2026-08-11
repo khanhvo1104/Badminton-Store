@@ -119,6 +119,13 @@
       "task_file": ".automation/tasks/TASK-017-route-guard-navigation-tests.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-018",
+      "title": "Refresh project, architecture, and Supabase documentation",
+      "task_file": ".automation/tasks/TASK-018-documentation-cleanup.md",
+      "risk": "low",
+      "status": "ready"
     }
   ]
 }
