@@ -161,6 +161,13 @@
       "task_file": ".automation/tasks/TASK-023-home-storefront-polish.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-024",
+      "title": "Scaffold the Next.js CMS",
+      "task_file": ".automation/tasks/TASK-024-nextjs-cms-scaffold.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
