@@ -19,6 +19,18 @@ Role decisions use the trusted `profiles.role` contract and existing database
 helpers. User-editable metadata must never grant authorization. Deactivated
 profiles must be denied even when an old access token remains valid.
 
+For the CMS SSR app specifically:
+
+- Identity verification for protected requests uses
+  `supabase.auth.getClaims()`.
+- Proxy refreshes sessions optimistically, but every protected page, Server
+  Action, and Route Handler must still enforce authorization independently.
+- Authorization reads only `id, full_name, role, is_active` from the caller's
+  own `public.profiles` row and allows only active `staff` or active `admin`
+  profiles.
+- Customer, inactive, missing, malformed, unsupported-role, and query-failure
+  cases must all collapse to the same sanitized unauthorized experience.
+
 ## Required checks
 
 Protected routes, Server Actions, and Route Handlers must independently:
@@ -42,6 +54,14 @@ entry points. Database enforcement is mandatory even when server checks exist.
 - Logs, tests, screenshots, fixtures, PR descriptions, and automation artifacts
   must not contain credentials or session cookies.
 - A service-role client must not be created as part of the CMS scaffold.
+- The CMS must not introduce shared caching or ISR for authenticated pages or
+  responses that can refresh/set auth cookies.
+
+## First admin prerequisite
+
+The CMS does not include self-signup, invitations, or role-editing tools. The
+first active `admin` must be created or promoted manually by a trusted operator
+outside the CMS before staff can sign in successfully.
 
 ## Existing controls to preserve
 

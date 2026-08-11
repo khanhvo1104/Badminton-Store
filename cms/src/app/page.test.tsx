@@ -1,47 +1,51 @@
-import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+const redirect = vi.hoisted(() => vi.fn());
+const createSupabaseServerClient = vi.hoisted(() => vi.fn());
 
-import { PublicEnvironmentError } from "@/lib/errors/public-environment-error";
+vi.mock("next/navigation", () => ({
+  redirect,
+}));
 
-const getPublicEnvironment = vi.fn();
-
-vi.mock("@/lib/env/public-env", () => ({
-  getPublicEnvironment,
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient,
 }));
 
 describe("Home route", () => {
-  it("renders the landing shell when public configuration is valid", async () => {
-    getPublicEnvironment.mockReturnValue({
-      supabaseUrl: "https://demo-project.supabase.co/",
-      supabasePublishableKey: "public-demo-key",
+  it("routes anonymous requests to login", async () => {
+    createSupabaseServerClient.mockResolvedValue({
+      auth: {
+        getClaims: vi.fn().mockResolvedValue({
+          data: { claims: null },
+          error: null,
+        }),
+      },
+    });
+    redirect.mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT:/login");
     });
 
     const { default: Home } = await import("@/app/page");
 
-    render(<Home />);
-
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Badminton Store CMS" }),
-    ).toBeInTheDocument();
+    await expect(Home()).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(redirect).toHaveBeenCalledWith("/login");
   });
 
-  it("renders sanitized configuration guidance on route startup failure", async () => {
-    getPublicEnvironment.mockImplementation(() => {
-      throw new PublicEnvironmentError("missing-url");
+  it("routes verified identities to the dashboard", async () => {
+    createSupabaseServerClient.mockResolvedValue({
+      auth: {
+        getClaims: vi.fn().mockResolvedValue({
+          data: { claims: { sub: "staff-1" } },
+          error: null,
+        }),
+      },
+    });
+    redirect.mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT:/dashboard");
     });
 
     const { default: Home } = await import("@/app/page");
 
-    render(<Home />);
-
-    expect(
-      screen.getByRole("heading", { name: "Configuration unavailable" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/public configuration is set correctly/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/NEXT_PUBLIC_SUPABASE_URL|secret|token/i),
-    ).not.toBeInTheDocument();
+    await expect(Home()).rejects.toThrow("NEXT_REDIRECT:/dashboard");
+    expect(redirect).toHaveBeenCalledWith("/dashboard");
   });
 });

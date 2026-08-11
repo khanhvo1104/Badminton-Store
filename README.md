@@ -165,8 +165,20 @@ Start the CMS locally with:
 cd cms && npm run dev
 ```
 
-The CMS scaffold validates those public values at startup, but it does not yet
-create a Supabase client, authenticate users, or call the network.
+The CMS now uses cookie-based Supabase SSR authentication with three distinct
+boundaries:
+
+- `cms/src/lib/supabase/browser.ts` for browser auth UI work
+- `cms/src/lib/supabase/server.ts` for request-scoped server reads/actions
+- `cms/src/proxy.ts` for optimistic session refresh and cookie forwarding
+
+Protected CMS access validates identity with `supabase.auth.getClaims()` and
+authorizes only from the caller's trusted `public.profiles.role` plus
+`is_active`. Only active `staff` and active `admin` profiles can reach the CMS
+dashboard.
+
+There is no CMS self-signup flow. Before first use, a trusted operator must
+manually create or promote the initial active admin profile in Supabase.
 
 ### Local Supabase database regressions
 

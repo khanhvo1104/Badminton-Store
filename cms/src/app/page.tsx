@@ -1,18 +1,18 @@
-import { CmsLandingShell } from "@/features/landing/components/cms-landing-shell";
-import { ConfigurationUnavailableShell } from "@/features/landing/components/configuration-unavailable-shell";
-import { getPublicEnvironment } from "@/lib/env/public-env";
-import { isPublicEnvironmentError } from "@/lib/errors/public-environment-error";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  try {
-    getPublicEnvironment();
-  } catch (error) {
-    if (isPublicEnvironmentError(error)) {
-      return <ConfigurationUnavailableShell />;
-    }
+import { CMS_DASHBOARD_PATH, CMS_LOGIN_PATH } from "@/lib/auth/authorization";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-    throw error;
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.getClaims();
+  const subject = data?.claims?.sub;
+
+  if (!error && typeof subject === "string" && subject.trim()) {
+    redirect(CMS_DASHBOARD_PATH);
   }
 
-  return <CmsLandingShell />;
+  redirect(CMS_LOGIN_PATH);
 }
