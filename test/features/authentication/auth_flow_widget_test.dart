@@ -96,6 +96,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('login_email_field')), findsOneWidget);
+      expect(find.byKey(const Key('logout_button')), findsNothing);
+      expect(find.text('Settings'), findsNothing);
+      expect(find.byKey(const Key('home_greeting')), findsNothing);
     },
   );
 }

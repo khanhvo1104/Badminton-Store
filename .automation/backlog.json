@@ -118,7 +118,7 @@
       "title": "Add route-guard and authenticated navigation regressions",
       "task_file": ".automation/tasks/TASK-017-route-guard-navigation-tests.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
