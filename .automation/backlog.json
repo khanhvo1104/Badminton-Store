@@ -146,7 +146,7 @@
       "title": "Build the in-app notifications screen",
       "task_file": ".automation/tasks/TASK-021-notifications-screen.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
