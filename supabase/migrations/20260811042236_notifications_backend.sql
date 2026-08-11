@@ -41,9 +41,9 @@ comment on column public.notifications.is_read is
 create index notifications_user_created_id_idx
   on public.notifications (user_id, created_at desc, id desc);
 
--- Efficient unread lookups / counts per owner.
+-- Efficient unread lookups / counts per owner (newest-first, stable id).
 create index notifications_user_unread_idx
-  on public.notifications (user_id)
+  on public.notifications (user_id, created_at desc, id desc)
   where is_read = false;
 
 alter table public.notifications enable row level security;

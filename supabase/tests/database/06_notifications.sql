@@ -226,6 +226,58 @@ insert into public.notifications (
   );
 
 -- ---------------------------------------------------------------------------
+-- Index definitions (ordered columns + unread partial predicate)
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_history text;
+  v_unread text;
+begin
+  select indexdef into v_history
+  from pg_indexes
+  where schemaname = 'public'
+    and tablename = 'notifications'
+    and indexname = 'notifications_user_created_id_idx';
+
+  if v_history is null then
+    raise exception 'FAIL: notifications_user_created_id_idx missing';
+  end if;
+  if position(
+    '(user_id, created_at DESC, id DESC)' in v_history
+  ) = 0 then
+    raise exception
+      'FAIL: history index columns/directions: %', v_history;
+  end if;
+  if position('WHERE' in upper(v_history)) > 0 then
+    raise exception
+      'FAIL: history index must not be partial: %', v_history;
+  end if;
+
+  select indexdef into v_unread
+  from pg_indexes
+  where schemaname = 'public'
+    and tablename = 'notifications'
+    and indexname = 'notifications_user_unread_idx';
+
+  if v_unread is null then
+    raise exception 'FAIL: notifications_user_unread_idx missing';
+  end if;
+  if position(
+    '(user_id, created_at DESC, id DESC)' in v_unread
+  ) = 0 then
+    raise exception
+      'FAIL: unread index columns/directions: %', v_unread;
+  end if;
+  if position('WHERE (is_read = false)' in v_unread) = 0
+     and position('WHERE ((is_read = false))' in v_unread) = 0 then
+    raise exception
+      'FAIL: unread index predicate is_read = false: %', v_unread;
+  end if;
+
+  raise notice 'OK: notifications index definitions';
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Schema / constraint proofs (trusted context)
 -- ---------------------------------------------------------------------------
 do $$
