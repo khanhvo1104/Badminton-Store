@@ -11,9 +11,17 @@ class AddressesPage extends ConsumerWidget {
   const AddressesPage({super.key});
 
   Future<void> _openForm(BuildContext context, {Address? existing}) async {
-    await Navigator.of(context).push<bool>(
+    final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => AddressFormPage(existing: existing)),
     );
+    if ((saved ?? false) && context.mounted) {
+      final message = existing == null
+          ? AddressesActionsUiMessages.createSuccess
+          : AddressesActionsUiMessages.updateSuccess;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   Future<void> _confirmDelete(
@@ -54,6 +62,18 @@ class AddressesPage extends ConsumerWidget {
         .delete(address.id);
   }
 
+  String _sanitizedListErrorMessage(Object error) {
+    final raw = error is Exception
+        ? error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '')
+        : '';
+    if (raw == AddressesActionsUiMessages.unauthenticated ||
+        raw == AddressesActionsUiMessages.network ||
+        raw == AddressesActionsUiMessages.loadFailed) {
+      return raw;
+    }
+    return AddressesActionsUiMessages.loadFailed;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final addressesAsync = ref.watch(addressesProvider);
@@ -64,12 +84,21 @@ class AddressesPage extends ConsumerWidget {
       previous,
       next,
     ) {
-      if (next is AddressesActionsFailure && context.mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(next.message)));
-        ref.read(addressesActionsViewModelProvider.notifier).clearFailure();
+      if (!context.mounted) {
+        return;
       }
+      final message = switch (next) {
+        AddressesActionsFailure(:final message) => message,
+        AddressesActionsSuccess(:final message) => message,
+        _ => null,
+      };
+      if (message == null) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+      ref.read(addressesActionsViewModelProvider.notifier).clearFeedback();
     });
 
     return Scaffold(
@@ -89,6 +118,7 @@ class AddressesPage extends ConsumerWidget {
           data: (addresses) {
             if (addresses.isEmpty) {
               return ListView(
+                key: const Key('addresses_empty_list'),
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: AppSpacing.page,
                 children: const [
@@ -127,11 +157,17 @@ class AddressesPage extends ConsumerWidget {
             ],
           ),
           error: (error, _) => ListView(
+            key: const Key('addresses_error_list'),
             physics: const AlwaysScrollableScrollPhysics(),
             padding: AppSpacing.page,
             children: [
               const SizedBox(height: 120),
-              Center(child: Text('Không tải được địa chỉ: $error')),
+              Center(
+                child: Text(
+                  _sanitizedListErrorMessage(error),
+                  key: const Key('addresses_list_error'),
+                ),
+              ),
             ],
           ),
         ),

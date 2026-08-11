@@ -30,7 +30,9 @@ class AddressesActionsViewModel extends StateNotifier<AddressesActionsState> {
     switch (result) {
       case Success():
         _ref.invalidate(addressesProvider);
-        state = const AddressesActionsIdle();
+        state = const AddressesActionsSuccess(
+          AddressesActionsUiMessages.deleteSuccess,
+        );
         return true;
       case Failure(error: final error):
         state = AddressesActionsFailure(mapDeleteFailure(error));
@@ -58,7 +60,9 @@ class AddressesActionsViewModel extends StateNotifier<AddressesActionsState> {
     switch (result) {
       case Success():
         _ref.invalidate(addressesProvider);
-        state = const AddressesActionsIdle();
+        state = const AddressesActionsSuccess(
+          AddressesActionsUiMessages.setDefaultSuccess,
+        );
         return true;
       case Failure(error: final error):
         state = AddressesActionsFailure(mapSetDefaultFailure(error));
@@ -66,31 +70,23 @@ class AddressesActionsViewModel extends StateNotifier<AddressesActionsState> {
     }
   }
 
-  void clearFailure() {
-    if (state is AddressesActionsFailure) {
+  void clearFeedback() {
+    if (state is AddressesActionsFailure || state is AddressesActionsSuccess) {
       state = const AddressesActionsIdle();
     }
   }
 
   @visibleForTesting
-  static String mapDeleteFailure(AppException error) {
-    return switch (error) {
-      UnauthorizedException() ||
-      AuthenticationException() => AddressesActionsUiMessages.unauthenticated,
-      NetworkException() => AddressesActionsUiMessages.network,
-      _ => AddressesActionsUiMessages.deleteFailed,
-    };
-  }
+  static String mapDeleteFailure(AppException error) =>
+      AddressesActionsFailureMapper.mapDeleteFailure(error);
 
   @visibleForTesting
-  static String mapSetDefaultFailure(AppException error) {
-    return switch (error) {
-      UnauthorizedException() ||
-      AuthenticationException() => AddressesActionsUiMessages.unauthenticated,
-      NetworkException() => AddressesActionsUiMessages.network,
-      _ => AddressesActionsUiMessages.setDefaultFailed,
-    };
-  }
+  static String mapSetDefaultFailure(AppException error) =>
+      AddressesActionsFailureMapper.mapSetDefaultFailure(error);
+
+  @visibleForTesting
+  static String mapListFailure(AppException error) =>
+      AddressesActionsFailureMapper.mapListFailure(error);
 }
 
 final addressesActionsViewModelProvider =

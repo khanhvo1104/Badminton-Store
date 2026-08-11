@@ -35,7 +35,7 @@ void main() {
     repository = _MockAddressRepository();
   });
 
-  test('delete success invalidates list and returns to idle', () async {
+  test('delete success invalidates list and emits success feedback', () async {
     when(
       () => repository.delete('addr-1'),
     ).thenAnswer((_) async => const Success(null));
@@ -64,9 +64,11 @@ void main() {
         .delete('addr-1');
 
     expect(ok, isTrue);
+    final state = container.read(addressesActionsViewModelProvider);
+    expect(state, isA<AddressesActionsSuccess>());
     expect(
-      container.read(addressesActionsViewModelProvider),
-      isA<AddressesActionsIdle>(),
+      (state as AddressesActionsSuccess).message,
+      AddressesActionsUiMessages.deleteSuccess,
     );
     verify(() => repository.delete('addr-1')).called(1);
     await container.read(addressesProvider.future);
@@ -108,40 +110,64 @@ void main() {
     },
   );
 
-  test('setDefault success refreshes list after mutation', () async {
-    when(
-      () => repository.setDefault('addr-2'),
-    ).thenAnswer((_) async => const Success(null));
-    when(() => repository.list()).thenAnswer(
-      (_) async => Success([_address(id: 'addr-2', isDefault: true)]),
-    );
+  test(
+    'setDefault success refreshes list and emits success feedback',
+    () async {
+      when(
+        () => repository.setDefault('addr-2'),
+      ).thenAnswer((_) async => const Success(null));
+      when(() => repository.list()).thenAnswer(
+        (_) async => Success([_address(id: 'addr-2', isDefault: true)]),
+      );
 
-    final container = await createTestContainer(
-      overrides: [addressRepositoryProvider.overrideWithValue(repository)],
-    );
-    addTearDown(container.dispose);
+      final container = await createTestContainer(
+        overrides: [addressRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
 
-    final actionsSub = container.listen(
-      addressesActionsViewModelProvider,
-      (_, __) {},
-      fireImmediately: true,
-    );
-    addTearDown(actionsSub.close);
-    final listSub = container.listen(
-      addressesProvider,
-      (_, __) {},
-      fireImmediately: true,
-    );
-    addTearDown(listSub.close);
+      final actionsSub = container.listen(
+        addressesActionsViewModelProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(actionsSub.close);
+      final listSub = container.listen(
+        addressesProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(listSub.close);
 
-    final ok = await container
-        .read(addressesActionsViewModelProvider.notifier)
-        .setDefault('addr-2');
+      final ok = await container
+          .read(addressesActionsViewModelProvider.notifier)
+          .setDefault('addr-2');
 
-    expect(ok, isTrue);
-    verify(() => repository.setDefault('addr-2')).called(1);
-    await container.read(addressesProvider.future);
-    verify(() => repository.list()).called(greaterThanOrEqualTo(1));
+      expect(ok, isTrue);
+      final state = container.read(addressesActionsViewModelProvider);
+      expect(state, isA<AddressesActionsSuccess>());
+      expect(
+        (state as AddressesActionsSuccess).message,
+        AddressesActionsUiMessages.setDefaultSuccess,
+      );
+      verify(() => repository.setDefault('addr-2')).called(1);
+      await container.read(addressesProvider.future);
+      verify(() => repository.list()).called(greaterThanOrEqualTo(1));
+    },
+  );
+
+  test('mapListFailure never exposes backend details', () {
+    expect(
+      AddressesActionsViewModel.mapListFailure(
+        const DatabaseException('permission denied for table addresses'),
+      ),
+      AddressesActionsUiMessages.loadFailed,
+    );
+    expect(
+      AddressesActionsViewModel.mapListFailure(
+        const DatabaseException('permission denied for table addresses'),
+      ),
+      isNot(contains('permission denied')),
+    );
   });
 
   test('duplicate delete/setDefault is blocked while busy', () async {

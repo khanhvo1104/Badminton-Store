@@ -6,6 +6,7 @@ import 'package:base_project/core/result/result.dart';
 import 'package:base_project/features/addresses/di/addresses_providers.dart';
 import 'package:base_project/features/addresses/domain/entities/address.dart';
 import 'package:base_project/features/addresses/domain/repositories/address_repository.dart';
+import 'package:base_project/features/addresses/presentation/view_models/addresses_actions_state.dart';
 import 'package:base_project/features/addresses/presentation/views/addresses_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -111,7 +112,9 @@ void main() {
     verifyNever(() => repository.create(any()));
   });
 
-  testWidgets('create success closes form and refreshes list', (tester) async {
+  testWidgets('create success closes form, shows feedback, refreshes list', (
+    tester,
+  ) async {
     var listed = false;
     when(() => repository.list()).thenAnswer((_) async {
       if (!listed) {
@@ -159,66 +162,134 @@ void main() {
 
     expect(find.byKey(const Key('address_form_recipient')), findsNothing);
     expect(find.text('Tran Van B'), findsOneWidget);
+    expect(find.text(AddressesActionsUiMessages.createSuccess), findsOneWidget);
     verify(() => repository.create(any())).called(1);
   });
 
-  testWidgets('delete cancel performs no mutation; confirm deletes', (
+  testWidgets('empty state ListView is always-scrollable for pull-to-refresh', (
     tester,
   ) async {
-    when(
-      () => repository.list(),
-    ).thenAnswer((_) async => Success([_address()]));
-    when(
-      () => repository.delete('addr-1'),
-    ).thenAnswer((_) async => const Success(null));
+    when(() => repository.list()).thenAnswer((_) async => const Success([]));
 
     await pumpAddresses(tester);
 
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Xóa'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('address_delete_cancel')));
-    await tester.pumpAndSettle();
-    verifyNever(() => repository.delete(any()));
-
-    await tester.tap(find.byType(PopupMenuButton<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Xóa'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('address_delete_confirm')));
-    await tester.pumpAndSettle();
-
-    verify(() => repository.delete('addr-1')).called(1);
+    final list = tester.widget<ListView>(
+      find.byKey(const Key('addresses_empty_list')),
+    );
+    expect(list.physics, isA<AlwaysScrollableScrollPhysics>());
+    expect(find.text('Chưa có địa chỉ nào'), findsOneWidget);
   });
 
-  testWidgets('set default shows progress and refreshes only after success', (
+  testWidgets('list load failure shows sanitized Vietnamese copy only', (
     tester,
   ) async {
-    final completer = Completer<Result<void>>();
     when(() => repository.list()).thenAnswer(
-      (_) async => Success([
-        _address(id: 'addr-1', isDefault: true),
-        _address(id: 'addr-2', name: 'Other'),
-      ]),
+      (_) async => const Failure(
+        DatabaseException('permission denied for table addresses'),
+      ),
     );
-    when(
-      () => repository.setDefault('addr-2'),
-    ).thenAnswer((_) => completer.future);
 
     await pumpAddresses(tester);
 
-    await tester.tap(find.byType(PopupMenuButton<String>).last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Đặt mặc định'));
-    await tester.pump();
+    expect(find.byKey(const Key('addresses_list_error')), findsOneWidget);
+    expect(find.text(AddressesActionsUiMessages.loadFailed), findsOneWidget);
+    expect(find.textContaining('permission denied'), findsNothing);
+    expect(find.textContaining('table addresses'), findsNothing);
+  });
 
-    expect(find.byKey(const Key('address_action_progress')), findsOneWidget);
+  testWidgets(
+    'delete cancel performs no mutation; confirm deletes with feedback',
+    (tester) async {
+      when(
+        () => repository.list(),
+      ).thenAnswer((_) async => Success([_address()]));
+      when(
+        () => repository.delete('addr-1'),
+      ).thenAnswer((_) async => const Success(null));
 
-    completer.complete(const Success(null));
+      await pumpAddresses(tester);
+
+      await tester.tap(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Xóa'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('address_delete_cancel')));
+      await tester.pumpAndSettle();
+      verifyNever(() => repository.delete(any()));
+
+      await tester.tap(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Xóa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('address_delete_confirm')));
+      await tester.pumpAndSettle();
+
+      verify(() => repository.delete('addr-1')).called(1);
+      expect(
+        find.text(AddressesActionsUiMessages.deleteSuccess),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'set default shows progress, success feedback, refreshes after success',
+    (tester) async {
+      final completer = Completer<Result<void>>();
+      when(() => repository.list()).thenAnswer(
+        (_) async => Success([
+          _address(id: 'addr-1', isDefault: true),
+          _address(id: 'addr-2', name: 'Other'),
+        ]),
+      );
+      when(
+        () => repository.setDefault('addr-2'),
+      ).thenAnswer((_) => completer.future);
+
+      await pumpAddresses(tester);
+
+      await tester.tap(find.byType(PopupMenuButton<String>).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Đặt mặc định'));
+      await tester.pump();
+
+      expect(find.byKey(const Key('address_action_progress')), findsOneWidget);
+
+      completer.complete(const Success(null));
+      await tester.pumpAndSettle();
+      verify(() => repository.setDefault('addr-2')).called(1);
+      expect(
+        find.text(AddressesActionsUiMessages.setDefaultSuccess),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('edit success shows update feedback', (tester) async {
+    when(
+      () => repository.list(),
+    ).thenAnswer((_) async => Success([_address(isDefault: true)]));
+    when(
+      () => repository.update(any()),
+    ).thenAnswer((_) async => Success(_address(name: 'Nguyen Van A Updated')));
+
+    await pumpAddresses(tester);
+
+    await tester.tap(find.byType(PopupMenuButton<String>));
     await tester.pumpAndSettle();
-    verify(() => repository.setDefault('addr-2')).called(1);
+    await tester.tap(find.text('Chỉnh sửa'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('address_form_recipient')),
+      'Nguyen Van A Updated',
+    );
+    await tester.tap(find.byKey(const Key('address_form_submit')));
+    await tester.pumpAndSettle();
+
+    expect(find.text(AddressesActionsUiMessages.updateSuccess), findsOneWidget);
+    verify(() => repository.update(any())).called(1);
   });
 
   testWidgets('create failure keeps form open with sanitized error', (
