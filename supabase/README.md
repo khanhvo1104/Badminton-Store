@@ -83,6 +83,7 @@ bash supabase/tests/database/03_trusted_cod_checkout_concurrency.sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/04_trigger_function_execute.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/05_explicit_data_api_grants.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/06_notifications.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/07_cms_security_contract.sql
 ```
 
 ### RLS / Storage / RPC suite (TASK-006)
@@ -141,6 +142,31 @@ insert/read/delete.
 customers (`is_read` is the only writable column); RLS `USING`/`WITH CHECK`
 require a non-null `auth.uid()` matching `user_id`. See
 `docs/backend/notifications_security.md`.
+
+### CMS variant cost contract (TASK-026)
+
+`07_cms_security_contract.sql` is a transaction-wrapped (`BEGIN`/`ROLLBACK`)
+regression for `public.get_staff_variant_costs(p_product_id uuid)`.
+
+Contract summary:
+
+- **Caller:** PostgreSQL role `authenticated` only (EXECUTE revoked from
+  `PUBLIC`, `anon`, and `service_role`). Customers still share
+  `authenticated`, so EXECUTE alone is not authority.
+- **Authorization:** every call requires non-null `auth.uid()` mapped to an
+  active trusted `public.profiles` row with `role IN ('staff', 'admin')`.
+  Missing, inactive, customer, unsupported-role, and forged JWT metadata
+  cases receive the same generic authorization failure.
+- **Output:** only `variant_id` and nullable `cost_price numeric(14,2)` for
+  variants of the requested product, ordered by `sort_order, id`. No full
+  variant rows, product fields, or public catalog projection of cost.
+- **Column boundary unchanged:** `anon` / `authenticated` still lack
+  table-wide SELECT and `SELECT(cost_price)` on `public.product_variants`.
+  Trusted backend/`service_role` direct table access is unchanged and does
+  not use this RPC.
+
+The suite also re-checks representative staff/admin catalog and catalog-bucket
+Storage write capabilities and customer denial of those mutations.
 
 ### Trigger-helper EXECUTE contract (TASK-007)
 
