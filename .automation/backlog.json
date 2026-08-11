@@ -153,6 +153,13 @@
       "title": "Surface notifications and unread count in Profile",
       "task_file": ".automation/tasks/TASK-022-notifications-profile-entry.md",
       "risk": "medium",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-023",
+      "title": "Turn Home into a navigable storefront",
+      "task_file": ".automation/tasks/TASK-023-home-storefront-polish.md",
+      "risk": "medium",
       "status": "ready"
     }
   ]
