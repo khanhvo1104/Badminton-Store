@@ -105,6 +105,13 @@
       "task_file": ".automation/tasks/TASK-015-order-repository-tests.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-016",
+      "title": "Replace the demo address action with a validated form flow",
+      "task_file": ".automation/tasks/TASK-016-address-form-flow.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
