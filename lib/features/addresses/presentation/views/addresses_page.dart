@@ -4,6 +4,7 @@ import 'package:base_project/features/addresses/domain/entities/address.dart';
 import 'package:base_project/features/addresses/presentation/view_models/addresses_actions_state.dart';
 import 'package:base_project/features/addresses/presentation/view_models/addresses_actions_view_model.dart';
 import 'package:base_project/features/addresses/presentation/views/address_form_page.dart';
+import 'package:base_project/shared/widgets/shop_page_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -101,7 +102,7 @@ class AddressesPage extends ConsumerWidget {
       ref.read(addressesActionsViewModelProvider.notifier).clearFeedback();
     });
 
-    return Scaffold(
+    return ShopPageScaffold(
       appBar: AppBar(title: const Text('Addresses')),
       floatingActionButton: FloatingActionButton.extended(
         key: const Key('addresses_add_fab'),

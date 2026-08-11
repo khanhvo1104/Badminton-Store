@@ -3,6 +3,7 @@ import 'package:base_project/app/theme/app_spacing.dart';
 import 'package:base_project/features/product/domain/entities/product.dart';
 import 'package:base_project/features/search/di/search_providers.dart';
 import 'package:base_project/shared/widgets/shop/product_card.dart';
+import 'package:base_project/shared/widgets/shop_page_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -50,7 +51,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final recentAsync = ref.watch(recentQueriesProvider);
     final resultsAsync = ref.watch(searchResultsProvider(_query));
 
-    return Scaffold(
+    return ShopPageScaffold(
       appBar: AppBar(title: const Text('Search')),
       body: ListView(
         padding: AppSpacing.page,

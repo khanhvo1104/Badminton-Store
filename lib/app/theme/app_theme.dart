@@ -31,17 +31,11 @@ abstract final class AppTheme {
     );
   }
 
+  /// The storefront is deliberately light. Host dark appearance (and the
+  /// settings "dark" preference) must not switch child screens onto black
+  /// scaffolds or dark-on-black text.
   static ThemeData dark({GlassQuality quality = GlassQuality.medium}) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.seedDark,
-      brightness: Brightness.dark,
-      surface: AppColors.surfaceTintDark,
-    );
-    return _base(
-      colorScheme,
-      Brightness.dark,
-      GlassThemeData.dark(quality: quality),
-    );
+    return light(quality: quality);
   }
 
   static ThemeData _base(
@@ -56,7 +50,10 @@ abstract final class AppTheme {
       brightness: brightness,
       colorScheme: colorScheme,
       textTheme: textTheme,
-      scaffoldBackgroundColor: Colors.transparent,
+      // Solid mint/off-white fallback for routes that are not wrapped in
+      // [GlassBackground]. Shell pages that want the ambient gradient still
+      // set Scaffold.backgroundColor to Colors.transparent explicitly.
+      scaffoldBackgroundColor: colorScheme.surface,
       extensions: [glass],
       appBarTheme: AppBarTheme(
         centerTitle: false,
@@ -64,6 +61,15 @@ abstract final class AppTheme {
         foregroundColor: colorScheme.onSurface,
         elevation: 0,
         scrolledUnderElevation: 0,
+      ),
+      cardTheme: CardThemeData(
+        color: glass.elevatedSurfaceColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(glass.cardRadius),
+          side: BorderSide(color: glass.borderColor),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -85,14 +91,14 @@ abstract final class AppTheme {
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.transparent,
+        backgroundColor: glass.elevatedSurfaceColor,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(glass.cardRadius),
         ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: Colors.transparent,
+        backgroundColor: glass.elevatedSurfaceColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(glass.cardRadius),

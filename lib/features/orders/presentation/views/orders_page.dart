@@ -2,6 +2,7 @@ import 'package:base_project/app/theme/app_spacing.dart';
 import 'package:base_project/features/orders/di/orders_providers.dart';
 import 'package:base_project/features/orders/domain/entities/order.dart';
 import 'package:base_project/shared/widgets/shop/price_label.dart';
+import 'package:base_project/shared/widgets/shop_page_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -20,7 +21,7 @@ class OrdersPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(ordersProvider);
 
-    return Scaffold(
+    return ShopPageScaffold(
       appBar: AppBar(title: const Text('Orders')),
       body: RefreshIndicator(
         onRefresh: () async {

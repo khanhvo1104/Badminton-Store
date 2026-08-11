@@ -7,6 +7,7 @@ import 'package:base_project/features/product/domain/entities/product_variant.da
 import 'package:base_project/shared/widgets/shop/favorite_button.dart';
 import 'package:base_project/shared/widgets/shop/price_label.dart';
 import 'package:base_project/shared/widgets/shop/stock_indicator.dart';
+import 'package:base_project/shared/widgets/shop_page_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -46,7 +47,7 @@ class _ProductDetailPageState extends ConsumerState<ProductDetailPage> {
     final productAsync = ref.watch(productDetailProvider(widget.productId));
     final favoriteAsync = ref.watch(favoriteStateProvider(widget.productId));
 
-    return Scaffold(
+    return ShopPageScaffold(
       appBar: AppBar(
         title: const Text('Product'),
         actions: [
