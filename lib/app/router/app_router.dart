@@ -1,4 +1,5 @@
 import 'package:base_project/app/router/app_routes.dart';
+import 'package:base_project/app/router/auth_redirect_policy.dart';
 import 'package:base_project/app/router/route_refresh_notifier.dart';
 import 'package:base_project/features/addresses/presentation/views/addresses_page.dart';
 import 'package:base_project/features/authentication/presentation/views/login_page.dart';
@@ -40,34 +41,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.splash,
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
-      final session = ref.read(authSessionProvider);
-      final location = state.matchedLocation;
-      final isSplash = location == AppRoutes.splash;
-      final isLoginRoute = location == AppRoutes.login;
-      final isDesignSystem = location == AppRoutes.designSystem;
-      final isRoot = location == AppRoutes.root;
-
-      if (session is AuthSessionInitial ||
-          session is AuthSessionLoading ||
-          session is AuthSessionError) {
-        return isSplash ? null : AppRoutes.splash;
-      }
-
-      final isAuthenticated = session is AuthSessionAuthenticated;
-
-      if (!isAuthenticated && !isLoginRoute) {
-        return AppRoutes.login;
-      }
-
-      if (isDesignSystem && (!kDebugMode || !isAuthenticated)) {
-        return AppRoutes.home;
-      }
-
-      if (isAuthenticated && (isLoginRoute || isSplash || isRoot)) {
-        return AppRoutes.home;
-      }
-
-      return null;
+      return resolveAuthRedirect(
+        session: ref.read(authSessionProvider),
+        matchedLocation: state.matchedLocation,
+        isDesignSystemRouteAvailable: kDebugMode,
+      );
     },
     routes: [
       GoRoute(
