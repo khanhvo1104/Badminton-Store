@@ -17,6 +17,8 @@ import 'package:base_project/core/storage/storage_providers.dart';
 import 'package:base_project/features/authentication/data/data_sources/fake_auth_remote_data_source.dart';
 import 'package:base_project/features/authentication/di/auth_providers.dart';
 import 'package:base_project/features/authentication/domain/entities/user.dart';
+import 'package:base_project/features/notifications/di/notifications_providers.dart';
+import 'package:base_project/features/notifications/domain/repositories/notification_repository.dart';
 import 'package:base_project/features/profile/di/profile_providers.dart';
 import 'package:base_project/features/profile/domain/repositories/profile_repository.dart';
 import 'package:base_project/features/profile/domain/use_cases/update_profile_use_case.dart';
@@ -30,6 +32,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class _MockProfileRepository extends Mock implements ProfileRepository {}
 
+class _MockNotificationRepository extends Mock
+    implements NotificationRepository {}
+
 const _user = User(
   id: 'user-1',
   email: 'demo@example.com',
@@ -38,10 +43,15 @@ const _user = User(
 
 void main() {
   late _MockProfileRepository repository;
+  late _MockNotificationRepository notificationRepository;
   late GoRouter router;
 
   setUp(() {
     repository = _MockProfileRepository();
+    notificationRepository = _MockNotificationRepository();
+    when(
+      () => notificationRepository.unreadCount(),
+    ).thenAnswer((_) async => const Success(0));
   });
 
   Future<List<Override>> overrides() async {
@@ -69,6 +79,7 @@ void main() {
         FakeAuthRemoteDataSource(delay: Duration.zero),
       ),
       profileRepositoryProvider.overrideWithValue(repository),
+      notificationRepositoryProvider.overrideWithValue(notificationRepository),
       updateProfileUseCaseProvider.overrideWithValue(
         UpdateProfileUseCase(repository),
       ),
@@ -130,6 +141,10 @@ void main() {
         GoRoute(
           path: AppRoutes.settings,
           builder: (_, __) => const Scaffold(body: Text('settings-page')),
+        ),
+        GoRoute(
+          path: AppRoutes.notifications,
+          builder: (_, __) => const Scaffold(body: Text('notifications-page')),
         ),
       ],
     );
@@ -211,6 +226,18 @@ void main() {
       expect(find.text('settings-page'), findsOneWidget);
     });
 
+    testWidgets('Notifications tap reaches AppRoutes.notifications', (
+      tester,
+    ) async {
+      await settleLoadedProfile(tester);
+
+      await tester.tap(find.byKey(const Key('profile_account_notifications')));
+      await tester.pumpAndSettle();
+
+      expect(router.state.uri.toString(), AppRoutes.notifications);
+      expect(find.text('notifications-page'), findsOneWidget);
+    });
+
     testWidgets(
       'back from each destination restores Profile shell and unsaved draft',
       (tester) async {
@@ -233,6 +260,11 @@ void main() {
             const Key('profile_account_addresses'),
             AppRoutes.addresses,
             'addresses-page',
+          ),
+          (
+            const Key('profile_account_notifications'),
+            AppRoutes.notifications,
+            'notifications-page',
           ),
           (
             const Key('profile_account_settings'),
@@ -314,14 +346,155 @@ void main() {
       },
     );
 
-    testWidgets('does not expose a notifications link', (tester) async {
-      await settleLoadedProfile(tester);
+    testWidgets('loading unread count omits the badge', (tester) async {
+      final unreadCompleter = Completer<Result<int>>();
+      when(
+        () => notificationRepository.unreadCount(),
+      ).thenAnswer((_) => unreadCompleter.future);
 
-      expect(find.textContaining('Notification'), findsNothing);
+      await pumpProfile(tester);
+      await tester.pump();
+      await tester.pump();
+
       expect(
         find.byKey(const Key('profile_account_notifications')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('profile_notifications_badge')),
         findsNothing,
       );
+    });
+
+    testWidgets('zero unread count omits the badge', (tester) async {
+      when(
+        () => notificationRepository.unreadCount(),
+      ).thenAnswer((_) async => const Success(0));
+
+      await settleLoadedProfile(tester);
+
+      expect(
+        find.byKey(const Key('profile_account_notifications')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('profile_notifications_badge')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('positive unread count shows accessible badge', (tester) async {
+      when(
+        () => notificationRepository.unreadCount(),
+      ).thenAnswer((_) async => const Success(4));
+
+      await settleLoadedProfile(tester);
+
+      final semantics = tester.ensureSemantics();
+      try {
+        expect(
+          find.byKey(const Key('profile_notifications_badge')),
+          findsOneWidget,
+        );
+        expect(find.text('4'), findsOneWidget);
+        expect(
+          tester
+              .getSemantics(
+                find.byKey(const Key('profile_notifications_badge')),
+              )
+              .label,
+          '4 unread notifications',
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets('large unread count shows 99+ and keeps full semantics', (
+      tester,
+    ) async {
+      when(
+        () => notificationRepository.unreadCount(),
+      ).thenAnswer((_) async => const Success(120));
+
+      await settleLoadedProfile(tester);
+
+      final semantics = tester.ensureSemantics();
+      try {
+        expect(
+          find.byKey(const Key('profile_notifications_badge')),
+          findsOneWidget,
+        );
+        expect(find.text('99+'), findsOneWidget);
+        expect(
+          tester
+              .getSemantics(
+                find.byKey(const Key('profile_notifications_badge')),
+              )
+              .label,
+          '120 unread notifications',
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets(
+      'unread count failure stays sanitized and keeps entry enabled',
+      (tester) async {
+        when(() => notificationRepository.unreadCount()).thenAnswer(
+          (_) async =>
+              const Failure(DatabaseException('raw backend select count(*)')),
+        );
+
+        await settleLoadedProfile(tester);
+
+        expect(
+          find.byKey(const Key('profile_account_notifications')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('profile_notifications_badge')),
+          findsNothing,
+        );
+        expect(find.textContaining('backend'), findsNothing);
+        expect(find.textContaining('select'), findsNothing);
+      },
+    );
+
+    testWidgets('returning from Notifications refreshes unread count', (
+      tester,
+    ) async {
+      var unreadCount = 4;
+      when(
+        () => notificationRepository.unreadCount(),
+      ).thenAnswer((_) async => Success(unreadCount));
+
+      await settleLoadedProfile(tester);
+      expect(find.text('4'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('profile_account_notifications')));
+      await tester.pumpAndSettle();
+
+      expect(router.state.uri.toString(), AppRoutes.notifications);
+      expect(find.text('notifications-page'), findsOneWidget);
+
+      unreadCount = 0;
+      router.pop();
+      await tester.pumpAndSettle();
+
+      expect(router.state.uri.toString(), AppRoutes.profile);
+      expect(
+        find.byKey(const Key('profile_account_notifications')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('profile_notifications_badge')),
+        findsNothing,
+      );
+      verify(
+        () => notificationRepository.unreadCount(),
+      ).called(greaterThanOrEqualTo(2));
     });
   });
 
@@ -339,6 +512,10 @@ void main() {
       expect(find.text('Account'), findsNothing);
       expect(find.byKey(const Key('profile_account_orders')), findsNothing);
       expect(find.byKey(const Key('profile_account_addresses')), findsNothing);
+      expect(
+        find.byKey(const Key('profile_account_notifications')),
+        findsNothing,
+      );
       expect(find.byKey(const Key('profile_account_settings')), findsNothing);
 
       profileCompleter.complete(const Success(_user));
@@ -357,6 +534,10 @@ void main() {
       expect(find.text('Account'), findsNothing);
       expect(find.byKey(const Key('profile_account_orders')), findsNothing);
       expect(find.byKey(const Key('profile_account_addresses')), findsNothing);
+      expect(
+        find.byKey(const Key('profile_account_notifications')),
+        findsNothing,
+      );
       expect(find.byKey(const Key('profile_account_settings')), findsNothing);
     });
   });
