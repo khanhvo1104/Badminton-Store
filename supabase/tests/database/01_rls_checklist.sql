@@ -283,7 +283,8 @@ declare
   app_tables text[] := array[
     'profiles', 'addresses', 'categories', 'brands', 'products',
     'product_variants', 'product_images', 'inventory', 'favorites',
-    'carts', 'cart_items', 'orders', 'order_items', 'order_status_history'
+    'carts', 'cart_items', 'orders', 'order_items', 'order_status_history',
+    'notifications'
   ];
   t text;
   v_rls boolean;
@@ -328,16 +329,20 @@ declare
     'profiles', 'addresses', 'categories', 'brands', 'products',
     'product_variants', 'product_images', 'inventory', 'favorites',
     'carts', 'cart_items', 'orders', 'order_items', 'order_status_history',
-    'product_catalog', 'inventory_availability'
+    'notifications', 'product_catalog', 'inventory_availability'
   ];
   t text;
   priv text;
   table_select_grantee text;
+  table_update_grantee text;
   safe_cols text[] := array[
     'id', 'product_id', 'sku', 'name', 'color_name', 'color_hex',
     'racket_weight_class', 'grip_size', 'shoe_size', 'clothing_size',
     'unit', 'price', 'compare_at_price', 'attributes', 'is_default',
     'is_active', 'sort_order'
+  ];
+  notification_immutable_cols text[] := array[
+    'id', 'user_id', 'type', 'title', 'body', 'payload', 'created_at'
   ];
   col text;
 begin
@@ -366,6 +371,9 @@ begin
   perform pg_temp.assert_siud('anon', 'inventory', false, false, false, false);
   perform pg_temp.assert_siud(
     'anon', 'inventory_availability', false, false, false, false
+  );
+  perform pg_temp.assert_siud(
+    'anon', 'notifications', false, false, false, false
   );
 
   for table_select_grantee in
@@ -450,6 +458,45 @@ begin
   perform pg_temp.assert_siud(
     'authenticated', 'inventory_availability', false, false, false, false
   );
+
+  -- Notifications: table SELECT; column UPDATE(is_read) only — not table-wide
+  -- UPDATE. Do not use assert_siud for UPDATE (column grants make
+  -- has_table_privilege('UPDATE') true).
+  perform pg_temp.assert_table_priv(
+    'authenticated', 'public', 'notifications', 'SELECT', true
+  );
+  perform pg_temp.assert_table_priv(
+    'authenticated', 'public', 'notifications', 'INSERT', false
+  );
+  perform pg_temp.assert_table_priv(
+    'authenticated', 'public', 'notifications', 'DELETE', false
+  );
+  for table_update_grantee in
+    select grantee
+    from information_schema.role_table_grants
+    where table_schema = 'public'
+      and table_name = 'notifications'
+      and privilege_type = 'UPDATE'
+      and grantee in ('PUBLIC', 'anon', 'authenticated')
+  loop
+    raise exception
+      'FAIL: % still has table-wide UPDATE on notifications',
+      table_update_grantee;
+  end loop;
+  if not has_column_privilege(
+    'authenticated', 'public.notifications', 'is_read', 'UPDATE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing UPDATE on notifications.is_read';
+  end if;
+  foreach col in array notification_immutable_cols loop
+    if has_column_privilege(
+      'authenticated', 'public.notifications', col, 'UPDATE'
+    ) then
+      raise exception
+        'FAIL: authenticated can UPDATE notifications.%', col;
+    end if;
+  end loop;
 
   perform pg_temp.assert_table_priv(
     'authenticated', 'public', 'product_variants', 'INSERT', true
