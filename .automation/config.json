@@ -10,7 +10,7 @@
   "codex_cli": "/Applications/ChatGPT.app/Contents/Resources/codex",
   "flutter_sdk": "/Users/khanhvo/.local/share/flutter",
   "cursor_model": null,
-  "codex_planner_risks": ["high"],
+  "codex_planner_risks": [],
   "max_fix_attempts": 2,
   "review_diff_context_lines": 5,
   "auto_push": true,
