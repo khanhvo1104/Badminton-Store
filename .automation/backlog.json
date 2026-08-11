@@ -140,6 +140,13 @@
       "task_file": ".automation/tasks/TASK-020-notifications-repository.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-021",
+      "title": "Build the in-app notifications screen",
+      "task_file": ".automation/tasks/TASK-021-notifications-screen.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
