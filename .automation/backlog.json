@@ -104,7 +104,7 @@
       "title": "Add order repository regression tests",
       "task_file": ".automation/tasks/TASK-015-order-repository-tests.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }
