@@ -8,28 +8,39 @@ import {
 
 function createSupabaseDouble(options: {
   claimsError?: unknown;
+  claimsReject?: unknown;
   claimsSub?: unknown;
   profileData?: unknown;
   profileError?: unknown;
+  profileReject?: unknown;
 }) {
-  const maybeSingle = vi.fn().mockResolvedValue({
-    data: options.profileData ?? null,
-    error: options.profileError ?? null,
-  });
+  const maybeSingle =
+    options.profileReject === undefined
+      ? vi.fn().mockResolvedValue({
+          data: options.profileData ?? null,
+          error: options.profileError ?? null,
+        })
+      : vi.fn().mockRejectedValue(options.profileReject);
+
   const eq = vi.fn().mockReturnValue({ maybeSingle });
   const select = vi.fn().mockReturnValue({ eq });
   const from = vi.fn().mockReturnValue({ select });
 
-  return {
-    client: {
-      auth: {
-        getClaims: vi.fn().mockResolvedValue({
+  const getClaims =
+    options.claimsReject === undefined
+      ? vi.fn().mockResolvedValue({
           data:
             options.claimsError === undefined
               ? { claims: { sub: options.claimsSub } }
               : null,
           error: options.claimsError ?? null,
-        }),
+        })
+      : vi.fn().mockRejectedValue(options.claimsReject);
+
+  return {
+    client: {
+      auth: {
+        getClaims,
       },
       from,
     },
@@ -52,6 +63,14 @@ describe("getVerifiedSubject", () => {
   it("returns null when claims fail verification", async () => {
     const { client } = createSupabaseDouble({
       claimsError: new Error("expired token"),
+    });
+
+    await expect(getVerifiedSubject(client)).resolves.toBeNull();
+  });
+
+  it("returns null when getClaims rejects", async () => {
+    const { client } = createSupabaseDouble({
+      claimsReject: new Error("network down: secrets leaked would be bad"),
     });
 
     await expect(getVerifiedSubject(client)).resolves.toBeNull();
@@ -131,6 +150,22 @@ describe("authorizeCmsRequest", () => {
     });
   });
 
+  it("collapses unsupported roles to unauthorized", async () => {
+    const { client } = createSupabaseDouble({
+      claimsSub: "contractor-1",
+      profileData: {
+        id: "contractor-1",
+        full_name: "Vendor",
+        role: "contractor",
+        is_active: true,
+      },
+    });
+
+    await expect(authorizeCmsRequest(client)).resolves.toEqual({
+      kind: "unauthorized",
+    });
+  });
+
   it("collapses inactive profiles to unauthorized", async () => {
     const { client } = createSupabaseDouble({
       claimsSub: "staff-2",
@@ -178,6 +213,28 @@ describe("authorizeCmsRequest", () => {
     const { client } = createSupabaseDouble({
       claimsSub: "staff-4",
       profileError: new Error("db unavailable"),
+    });
+
+    await expect(authorizeCmsRequest(client)).resolves.toEqual({
+      kind: "unauthorized",
+    });
+  });
+
+  it("collapses rejected getClaims to anonymous", async () => {
+    const { client, spies } = createSupabaseDouble({
+      claimsReject: new Error("JWT verification exploded"),
+    });
+
+    await expect(authorizeCmsRequest(client)).resolves.toEqual({
+      kind: "anonymous",
+    });
+    expect(spies.from).not.toHaveBeenCalled();
+  });
+
+  it("collapses rejected profile queries to unauthorized", async () => {
+    const { client } = createSupabaseDouble({
+      claimsSub: "staff-5",
+      profileReject: new Error("connection reset: internal host details"),
     });
 
     await expect(authorizeCmsRequest(client)).resolves.toEqual({

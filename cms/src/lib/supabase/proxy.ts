@@ -37,7 +37,12 @@ export async function refreshSupabaseSession(
     });
   }
 
-  await client.auth.getClaims();
+  try {
+    await client.auth.getClaims();
+  } catch {
+    // Proxy only refreshes sessions. Claims failures must not throw or
+    // leak details; protected routes enforce authorization independently.
+  }
 
   return response;
 }

@@ -61,14 +61,18 @@ export type AuthorizationSupabaseClient = {
 export async function getVerifiedSubject(
   supabase: Pick<AuthorizationSupabaseClient, "auth">,
 ): Promise<string | null> {
-  const { data, error } = await supabase.auth.getClaims();
+  try {
+    const { data, error } = await supabase.auth.getClaims();
 
-  if (error) {
+    if (error) {
+      return null;
+    }
+
+    const subject = data?.claims?.sub;
+    return typeof subject === "string" && subject.trim() ? subject : null;
+  } catch {
     return null;
   }
-
-  const subject = data?.claims?.sub;
-  return typeof subject === "string" && subject.trim() ? subject : null;
 }
 
 export async function authorizeCmsRequest(
@@ -80,11 +84,18 @@ export async function authorizeCmsRequest(
     return { kind: "anonymous" };
   }
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(CMS_PROFILE_COLUMNS)
-    .eq("id", subject)
-    .maybeSingle();
+  let data: unknown;
+  let error: unknown;
+
+  try {
+    ({ data, error } = await supabase
+      .from("profiles")
+      .select(CMS_PROFILE_COLUMNS)
+      .eq("id", subject)
+      .maybeSingle());
+  } catch {
+    return { kind: "unauthorized" };
+  }
 
   if (error) {
     return { kind: "unauthorized" };
