@@ -147,6 +147,13 @@
       "task_file": ".automation/tasks/TASK-021-notifications-screen.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-022",
+      "title": "Surface notifications and unread count in Profile",
+      "task_file": ".automation/tasks/TASK-022-notifications-profile-entry.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
