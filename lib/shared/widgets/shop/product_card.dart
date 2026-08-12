@@ -87,45 +87,37 @@ class ProductCard extends StatelessWidget {
       variant: GlassCardVariant.interactive,
       onTap: onTap,
       padding: AppSpacing.card,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final tightHeight =
-              constraints.hasBoundedHeight &&
-              (constraints.maxHeight - constraints.minHeight).abs() < 0.5;
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (tightHeight)
-                Expanded(child: image)
-              else
-                AspectRatio(aspectRatio: 1, child: image),
-              const SizedBox(height: AppSpacing.sm),
-              Semantics(
-                label: title,
-                child: ExcludeSemantics(
-                  child: Text(
-                    title,
-                    maxLines: ProductCardLayout.titleMaxLines,
-                    overflow: TextOverflow.ellipsis,
-                    style: ProductCardLayout.titleStyle(theme.textTheme),
-                  ),
-                ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: ProductCardLayout.mediaAspectRatio,
+            child: image,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Semantics(
+            label: title,
+            child: ExcludeSemantics(
+              child: Text(
+                title,
+                maxLines: ProductCardLayout.titleMaxLines,
+                overflow: TextOverflow.ellipsis,
+                style: ProductCardLayout.titleStyle(theme.textTheme),
               ),
-              const SizedBox(height: AppSpacing.xs),
-              PriceLabel(
-                amount: priceAmount,
-                compareAtAmount: compareAtAmount,
-                currencyCode: currencyCode,
-                wrap: true,
-              ),
-              if (stockQuantity != null) ...[
-                const SizedBox(height: AppSpacing.xs),
-                StockIndicator(quantity: stockQuantity!),
-              ],
-            ],
-          );
-        },
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          PriceLabel(
+            amount: priceAmount,
+            compareAtAmount: compareAtAmount,
+            currencyCode: currencyCode,
+            wrap: true,
+          ),
+          if (stockQuantity != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            StockIndicator(quantity: stockQuantity!),
+          ],
+        ],
       ),
     );
   }

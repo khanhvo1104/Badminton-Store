@@ -11,7 +11,7 @@ abstract final class ProductCardLayout {
   static const double gridSpacing = 12;
   static const int gridCrossAxisCount = 2;
   static const double priceRunSpacing = 2;
-  static const double extentSafetyGap = 48;
+  static const double mediaAspectRatio = 1;
   static const double titleLineHeight = 1.43;
   static const double priceLineHeight = 1.4;
   static const double stockLineHeight = 1.45;
@@ -69,8 +69,8 @@ abstract final class ProductCardLayout {
     return painter.height;
   }
 
-  /// Vertical space a card needs for image, 2-line title, wrapped price,
-  /// optional compare-at, and optional stock at the current text scale.
+  /// Vertical space a card needs for a square image plus measured 2-line
+  /// title, wrapped price/compare-at, and wrapping stock at the current scale.
   static double mainAxisExtent({
     required double cardWidth,
     required TextScaler textScaler,
@@ -92,14 +92,14 @@ abstract final class ProductCardLayout {
       style: priceStyle(textTheme, compact: false),
       textScaler: textScaler,
       maxWidth: contentWidth,
-      maxLines: 1,
+      maxLines: priceMaxLines,
     );
     final compareHeight = paintedHeight(
       text: '12.345.678₫',
       style: compareAtStyle(textTheme),
       textScaler: textScaler,
       maxWidth: contentWidth,
-      maxLines: 1,
+      maxLines: priceMaxLines,
     );
     final stockHeight = paintedHeight(
       text: 'Only 99 left',
@@ -111,11 +111,12 @@ abstract final class ProductCardLayout {
       ),
       textScaler: textScaler,
       maxWidth: contentWidth,
-      maxLines: 1,
     );
 
+    final mediaExtent = contentWidth / mediaAspectRatio;
+
     return resolved.vertical +
-        contentWidth +
+        mediaExtent +
         AppSpacing.sm +
         titleHeight +
         AppSpacing.xs +
@@ -123,7 +124,6 @@ abstract final class ProductCardLayout {
         priceRunSpacing +
         compareHeight +
         AppSpacing.xs +
-        stockHeight +
-        extentSafetyGap;
+        stockHeight;
   }
 }

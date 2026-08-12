@@ -77,6 +77,25 @@ void main() {
       expectCardSemanticsContains(tester, longVietnameseProductName);
 
       expectWidgetFits(tester, titleFinder, cards.at(0));
+
+      final mediaFinders = find.descendant(
+        of: cards,
+        matching: find.byType(AspectRatio),
+      );
+      expect(mediaFinders, findsNWidgets(2));
+      for (var i = 0; i < 2; i++) {
+        final media = tester.widget<AspectRatio>(mediaFinders.at(i));
+        final mediaSize = tester.getSize(mediaFinders.at(i));
+        final cardSize = tester.getSize(cards.at(i));
+        expect(media.aspectRatio, ProductCardLayout.mediaAspectRatio);
+        expect(mediaSize.width, greaterThan(0));
+        expect(mediaSize.width, closeTo(mediaSize.height, 0.5));
+        expect(
+          mediaSize.width,
+          closeTo(cardSize.width - AppSpacing.card.horizontal, 0.5),
+        );
+      }
+
       expect(find.byType(PriceLabel), findsNWidgets(2));
       expect(find.byType(StockIndicator), findsNWidgets(2));
       expect(find.text('Only 3 left'), findsNWidgets(2));
