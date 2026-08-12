@@ -4,6 +4,7 @@ import 'package:base_project/features/favorites/di/favorites_providers.dart';
 import 'package:base_project/features/product/di/product_providers.dart';
 import 'package:base_project/features/product/domain/entities/product.dart';
 import 'package:base_project/shared/widgets/shop/product_card.dart';
+import 'package:base_project/shared/widgets/shop/product_card_grid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,15 +61,9 @@ class FavoritesPage extends ConsumerWidget {
                 ],
               );
             }
-            return GridView.builder(
+            return ProductCardGridView(
               padding: AppSpacing.page,
               itemCount: products.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.58,
-              ),
               itemBuilder: (context, index) {
                 final product = products[index];
                 final variant = product.defaultVariant;
