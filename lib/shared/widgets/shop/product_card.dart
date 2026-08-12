@@ -4,6 +4,7 @@ import 'package:base_project/core/ui/glass/glass_card.dart';
 import 'package:base_project/shared/widgets/shop/discount_badge.dart';
 import 'package:base_project/shared/widgets/shop/favorite_button.dart';
 import 'package:base_project/shared/widgets/shop/price_label.dart';
+import 'package:base_project/shared/widgets/shop/product_card_layout.dart';
 import 'package:base_project/shared/widgets/shop/stock_indicator.dart';
 import 'package:flutter/material.dart';
 
@@ -41,70 +42,90 @@ class ProductCard extends StatelessWidget {
         imageUrl != null &&
         (imageUrl!.startsWith('http://') || imageUrl!.startsWith('https://'));
 
+    final image = Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.35,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: !hasRenderableImage
+              ? Center(
+                  child: FittedBox(
+                    child: Icon(
+                      Icons.sports_tennis,
+                      size: ImageSizes.thumbnail,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              : const SizedBox.expand(),
+        ),
+        if (hasDiscount)
+          const Positioned(
+            top: AppSpacing.xs,
+            left: AppSpacing.xs,
+            child: DiscountBadge(label: 'Sale'),
+          ),
+        Positioned(
+          top: AppSpacing.xs,
+          right: AppSpacing.xs,
+          child: FavoriteButton(
+            isFavorite: isFavorite,
+            onPressed: onFavoritePressed == null
+                ? null
+                : () => onFavoritePressed!(!isFavorite),
+          ),
+        ),
+      ],
+    );
+
     return GlassCard(
       variant: GlassCardVariant.interactive,
       onTap: onTap,
       padding: AppSpacing.card,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 1,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest
-                          .withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: !hasRenderableImage
-                        ? Icon(
-                            Icons.sports_tennis,
-                            size: ImageSizes.thumbnail,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          )
-                        : const SizedBox.expand(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tightHeight =
+              constraints.hasBoundedHeight &&
+              (constraints.maxHeight - constraints.minHeight).abs() < 0.5;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (tightHeight)
+                Expanded(child: image)
+              else
+                AspectRatio(aspectRatio: 1, child: image),
+              const SizedBox(height: AppSpacing.sm),
+              Semantics(
+                label: title,
+                child: ExcludeSemantics(
+                  child: Text(
+                    title,
+                    maxLines: ProductCardLayout.titleMaxLines,
+                    overflow: TextOverflow.ellipsis,
+                    style: ProductCardLayout.titleStyle(theme.textTheme),
                   ),
                 ),
-                if (hasDiscount)
-                  const Positioned(
-                    top: AppSpacing.xs,
-                    left: AppSpacing.xs,
-                    child: DiscountBadge(label: 'Sale'),
-                  ),
-                Positioned(
-                  top: AppSpacing.xs,
-                  right: AppSpacing.xs,
-                  child: FavoriteButton(
-                    isFavorite: isFavorite,
-                    onPressed: onFavoritePressed == null
-                        ? null
-                        : () => onFavoritePressed!(!isFavorite),
-                  ),
-                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              PriceLabel(
+                amount: priceAmount,
+                compareAtAmount: compareAtAmount,
+                currencyCode: currencyCode,
+                wrap: true,
+              ),
+              if (stockQuantity != null) ...[
+                const SizedBox(height: AppSpacing.xs),
+                StockIndicator(quantity: stockQuantity!),
               ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          PriceLabel(
-            amount: priceAmount,
-            compareAtAmount: compareAtAmount,
-            currencyCode: currencyCode,
-          ),
-          if (stockQuantity != null) ...[
-            const SizedBox(height: AppSpacing.xs),
-            StockIndicator(quantity: stockQuantity!),
-          ],
-        ],
+            ],
+          );
+        },
       ),
     );
   }
