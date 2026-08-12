@@ -196,6 +196,13 @@
       "task_file": ".automation/tasks/TASK-028-light-child-screen-contrast.md",
       "risk": "medium",
       "status": "complete"
+    },
+    {
+      "id": "TASK-029",
+      "title": "Prevent ProductCard overflow for long product names",
+      "task_file": ".automation/tasks/TASK-029-product-card-long-title-layout.md",
+      "risk": "low",
+      "status": "ready"
     }
   ]
 }
