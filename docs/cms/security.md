@@ -81,9 +81,13 @@ in the dashboard.
 - `/auth/callback` exchanges only a PKCE `code`, validates `next` against an
   internal allow-list (`/update-password`), and never reflects an external URL,
   token, or provider error.
-- `/update-password` requires a verified recovery session (`amr` method
-  `recovery`). Changing the password signs that session out and returns to
-  login. Recovery does not bypass staff/admin authorization for `/dashboard`.
+- `/update-password` requires a verified recovery session. GoTrue PKCE
+  `resetPasswordForEmail` writes JWT `amr` as `{ method: "recovery", timestamp }`
+  (`models.Recovery.String()` / jwt-fields). GoTrue `Session.IsRecovery()` also
+  treats `otp` and `magiclink`. Sign-out after a password change is required;
+  a returned or thrown `signOut` error is a failure and must not report success.
+- `/dashboard` authorization rejects recovery sessions even for active staff or
+  admin profiles. CMS access requires a later password sign-in.
 - Passwords, recovery codes, and provider errors must not be logged or placed
   in URLs.
 

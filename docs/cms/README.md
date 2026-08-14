@@ -95,8 +95,9 @@ https://cms.example.com/auth/callback
 Use the deployed CMS origin in place of `https://cms.example.com`. Local
 development may set `CMS_SITE_URL=http://localhost:3000` and allow-list
 `http://localhost:3000/auth/callback`. After the user chooses a new password,
-the recovery session is cleared and `/dashboard` still requires an active
-staff or admin profile.
+the recovery session must be signed out (sign-out errors are failures) and
+`/dashboard` still requires an active staff or admin profile signed in with a
+password. A recovery session does not authorize the dashboard.
 
 ## Dashboard shell
 

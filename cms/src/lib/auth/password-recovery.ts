@@ -4,6 +4,8 @@ import {
   CMS_UPDATE_PASSWORD_PATH,
 } from "@/lib/auth/authorization";
 
+export { isVerifiedRecoverySession } from "@/lib/auth/authorization";
+
 export const PASSWORD_RECOVERY_ACKNOWLEDGEMENT =
   "If an account exists for that email, we sent password recovery instructions.";
 
@@ -108,35 +110,4 @@ export function validateNewPassword(
   }
 
   return null;
-}
-
-export function isVerifiedRecoverySession(claims: unknown): boolean {
-  if (!isRecord(claims)) {
-    return false;
-  }
-
-  const subject = claims.sub;
-  if (typeof subject !== "string" || !subject.trim()) {
-    return false;
-  }
-
-  return amrIncludesRecovery(claims.amr);
-}
-
-function amrIncludesRecovery(amr: unknown): boolean {
-  if (!Array.isArray(amr)) {
-    return false;
-  }
-
-  return amr.some((entry) => {
-    if (entry === "recovery") {
-      return true;
-    }
-
-    return isRecord(entry) && entry.method === "recovery";
-  });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

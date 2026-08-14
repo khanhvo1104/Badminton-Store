@@ -61,9 +61,12 @@ Replace `https://cms.example.com` with the production CMS origin stored in
 implicit-grant token URLs.
 
 The callback exchanges only a PKCE `code`, then `/update-password` requires a
-verified recovery session. After a successful password change the recovery
-session is signed out and the user returns to `/login`. Recovery alone does not
-grant `/dashboard` access.
+verified recovery session. GoTrue records PKCE recovery as JWT `amr` method
+`recovery` (`{ method, timestamp }`). After a successful password change the
+recovery session must be signed out; sign-out errors are treated as failure and
+do not report success. Recovery sessions cannot open `/dashboard`, including
+for active staff or admin profiles, until the user signs in with the new
+password.
 
 ## Access prerequisites
 

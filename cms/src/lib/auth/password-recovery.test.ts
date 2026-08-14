@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { GOTRUE_RECOVERY_AMR_METHODS } from "@/lib/auth/authorization";
 import {
   getLoginRedirectPath,
   getPasswordRecoveryRedirectTo,
@@ -122,11 +123,16 @@ describe("validateNewPassword", () => {
 });
 
 describe("isVerifiedRecoverySession", () => {
-  it("requires a subject and a recovery authenticator", () => {
+  it("accepts GoTrue recovery AMR object and RFC-8176 string claims", () => {
+    expect(GOTRUE_RECOVERY_AMR_METHODS).toEqual([
+      "recovery",
+      "otp",
+      "magiclink",
+    ]);
     expect(
       isVerifiedRecoverySession({
         sub: "user-1",
-        amr: [{ method: "recovery", timestamp: 1 }],
+        amr: [{ method: "recovery", timestamp: 1715766000 }],
       }),
     ).toBe(true);
     expect(
@@ -135,19 +141,31 @@ describe("isVerifiedRecoverySession", () => {
         amr: ["recovery"],
       }),
     ).toBe(true);
+    expect(
+      isVerifiedRecoverySession({
+        sub: "user-1",
+        amr: [{ method: "otp", timestamp: 1715766000 }],
+      }),
+    ).toBe(true);
+    expect(
+      isVerifiedRecoverySession({
+        sub: "user-1",
+        amr: [{ method: "magiclink", timestamp: 1715766000 }],
+      }),
+    ).toBe(true);
   });
 
   it("does not treat a password session as recovery", () => {
     expect(
       isVerifiedRecoverySession({
         sub: "user-1",
-        amr: [{ method: "password", timestamp: 1 }],
+        amr: [{ method: "password", timestamp: 1715766000 }],
       }),
     ).toBe(false);
     expect(isVerifiedRecoverySession({ sub: "user-1" })).toBe(false);
     expect(
       isVerifiedRecoverySession({
-        amr: [{ method: "recovery", timestamp: 1 }],
+        amr: [{ method: "recovery", timestamp: 1715766000 }],
       }),
     ).toBe(false);
   });

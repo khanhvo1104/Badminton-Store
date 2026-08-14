@@ -43,9 +43,17 @@ export async function updatePassword(
   }
 
   try {
-    await supabase.auth.signOut();
+    const { error: signOutError } = await supabase.auth.signOut();
+
+    if (signOutError) {
+      return {
+        errorMessage: PASSWORD_UPDATE_FAILED_MESSAGE,
+      };
+    }
   } catch {
-    // Session cleanup is best-effort after the password has already changed.
+    return {
+      errorMessage: PASSWORD_UPDATE_FAILED_MESSAGE,
+    };
   }
 
   redirect(getLoginRedirectPath(LOGIN_STATUS_PASSWORD_UPDATED));

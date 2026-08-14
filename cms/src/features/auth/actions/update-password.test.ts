@@ -159,4 +159,84 @@ describe("updatePassword action", () => {
       /token|password=|leak|sql/i,
     );
   });
+
+  it("does not report success when sign-out returns an error", async () => {
+    const updateUser = vi.fn().mockResolvedValue({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    const signOut = vi.fn().mockResolvedValue({
+      error: new Error("session revoke failed: internal host"),
+    });
+    createSupabaseServerClient.mockResolvedValue({
+      auth: {
+        getClaims: vi.fn().mockResolvedValue({
+          data: {
+            claims: {
+              sub: "user-1",
+              amr: [{ method: "recovery", timestamp: 1 }],
+            },
+          },
+          error: null,
+        }),
+        updateUser,
+        signOut,
+      },
+    });
+
+    const { updatePassword } = await import(
+      "@/features/auth/actions/update-password"
+    );
+    const formData = new FormData();
+    formData.set("password", "long-enough-password");
+    formData.set("confirmPassword", "long-enough-password");
+
+    await expect(
+      updatePassword(INITIAL_UPDATE_PASSWORD_FORM_STATE, formData),
+    ).resolves.toEqual({
+      errorMessage: "We couldn't update your password. Try again.",
+    });
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("does not report success when sign-out throws", async () => {
+    const updateUser = vi.fn().mockResolvedValue({
+      data: { user: { id: "user-1" } },
+      error: null,
+    });
+    const signOut = vi
+      .fn()
+      .mockRejectedValue(new Error("cookie store unavailable"));
+    createSupabaseServerClient.mockResolvedValue({
+      auth: {
+        getClaims: vi.fn().mockResolvedValue({
+          data: {
+            claims: {
+              sub: "user-1",
+              amr: [{ method: "recovery", timestamp: 1 }],
+            },
+          },
+          error: null,
+        }),
+        updateUser,
+        signOut,
+      },
+    });
+
+    const { updatePassword } = await import(
+      "@/features/auth/actions/update-password"
+    );
+    const formData = new FormData();
+    formData.set("password", "long-enough-password");
+    formData.set("confirmPassword", "long-enough-password");
+
+    await expect(
+      updatePassword(INITIAL_UPDATE_PASSWORD_FORM_STATE, formData),
+    ).resolves.toEqual({
+      errorMessage: "We couldn't update your password. Try again.",
+    });
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(redirect).not.toHaveBeenCalled();
+  });
 });
