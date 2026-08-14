@@ -202,6 +202,13 @@
       "title": "Prevent ProductCard overflow for long product names",
       "task_file": ".automation/tasks/TASK-029-product-card-long-title-layout.md",
       "risk": "low",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-030",
+      "title": "Add secure CMS password recovery",
+      "task_file": ".automation/tasks/TASK-030-cms-password-recovery.md",
+      "risk": "high",
       "status": "ready"
     }
   ]
