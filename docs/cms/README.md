@@ -40,6 +40,7 @@ Required public placeholders or local values:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+CMS_SITE_URL=http://localhost:3000
 ```
 
 ### Commands
@@ -72,6 +73,30 @@ authenticated cases receive the same sanitized `/unauthorized` response.
 There is no self-signup or staff-management flow in this milestone. A trusted
 operator must manually create or promote the first active admin before the CMS
 can be used.
+
+## Password recovery
+
+The CMS login page includes a “Forgot password?” flow. Recovery emails use a
+callback derived from server-only `CMS_SITE_URL` and never fall back to
+`localhost` in production.
+
+Production origin (example):
+
+```text
+CMS_SITE_URL=https://cms.example.com
+```
+
+Required Supabase Auth redirect allow-list entry:
+
+```text
+https://cms.example.com/auth/callback
+```
+
+Use the deployed CMS origin in place of `https://cms.example.com`. Local
+development may set `CMS_SITE_URL=http://localhost:3000` and allow-list
+`http://localhost:3000/auth/callback`. After the user chooses a new password,
+the recovery session is cleared and `/dashboard` still requires an active
+staff or admin profile.
 
 ## Dashboard shell
 

@@ -1,57 +1,54 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { login } from "@/features/auth/actions/login";
-import { INITIAL_LOGIN_FORM_STATE } from "@/features/auth/login-form-state";
-import { CMS_FORGOT_PASSWORD_PATH } from "@/lib/auth/authorization";
+import { updatePassword } from "@/features/auth/actions/update-password";
+import { INITIAL_UPDATE_PASSWORD_FORM_STATE } from "@/features/auth/update-password-form-state";
 
-export function LoginForm() {
-  const [state, formAction] = useActionState(login, INITIAL_LOGIN_FORM_STATE);
+export function UpdatePasswordForm() {
+  const [state, formAction] = useActionState(
+    updatePassword,
+    INITIAL_UPDATE_PASSWORD_FORM_STATE,
+  );
 
   return (
     <form action={formAction} className="mt-8 space-y-6" noValidate>
       <div className="space-y-2">
-        <label htmlFor="email" className="text-sm font-medium text-slate-100">
-          Email
+        <label
+          htmlFor="password"
+          className="text-sm font-medium text-slate-100"
+        >
+          New password
         </label>
         <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
           required
+          minLength={12}
           className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-base text-white outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-300/30"
         />
       </div>
 
       <div className="space-y-2">
         <label
-          htmlFor="password"
+          htmlFor="confirmPassword"
           className="text-sm font-medium text-slate-100"
         >
-          Password
+          Confirm password
         </label>
         <input
-          id="password"
-          name="password"
+          id="confirmPassword"
+          name="confirmPassword"
           type="password"
-          autoComplete="current-password"
+          autoComplete="new-password"
           required
+          minLength={12}
           className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-base text-white outline-none transition placeholder:text-slate-400 focus:border-emerald-300 focus:ring-2 focus:ring-emerald-300/30"
         />
       </div>
-
-      <p className="text-right text-sm text-slate-300">
-        <Link
-          href={CMS_FORGOT_PASSWORD_PATH}
-          className="font-semibold text-emerald-200 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
-        >
-          Forgot password?
-        </Link>
-      </p>
 
       <p
         aria-live="polite"
@@ -61,12 +58,12 @@ export function LoginForm() {
         {state.errorMessage}
       </p>
 
-      <LoginSubmitButton />
+      <UpdatePasswordSubmitButton />
     </form>
   );
 }
 
-function LoginSubmitButton() {
+function UpdatePasswordSubmitButton() {
   const { pending } = useFormStatus();
 
   return (
@@ -76,7 +73,7 @@ function LoginSubmitButton() {
       aria-disabled={pending}
       className="inline-flex w-full items-center justify-center rounded-full bg-emerald-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200 disabled:cursor-not-allowed disabled:opacity-70"
     >
-      {pending ? "Signing in..." : "Sign in"}
+      {pending ? "Updating password..." : "Update password"}
     </button>
   );
 }

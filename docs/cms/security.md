@@ -63,6 +63,30 @@ The CMS does not include self-signup, invitations, or role-editing tools. The
 first active `admin` must be created or promoted manually by a trusted operator
 outside the CMS before staff can sign in successfully.
 
+## Password recovery
+
+Forgotten passwords are recovered through the CMS, not by assigning a password
+in the dashboard.
+
+- `CMS_SITE_URL` is required server configuration. Production must be an HTTPS
+  origin such as `https://cms.example.com`. `localhost` is accepted only when
+  `NODE_ENV` is `development` or `test`. Missing or invalid values fail closed
+  and never default to `localhost` in production.
+- `resetPasswordForEmail` is called with
+  `{CMS_SITE_URL origin}/auth/callback?next=/update-password`.
+- Add the exact callback path to the Supabase Auth redirect allow-list:
+  `https://cms.example.com/auth/callback`.
+- Valid emails always receive the same acknowledgement, whether or not the
+  account exists. Provider errors are not shown.
+- `/auth/callback` exchanges only a PKCE `code`, validates `next` against an
+  internal allow-list (`/update-password`), and never reflects an external URL,
+  token, or provider error.
+- `/update-password` requires a verified recovery session (`amr` method
+  `recovery`). Changing the password signs that session out and returns to
+  login. Recovery does not bypass staff/admin authorization for `/dashboard`.
+- Passwords, recovery codes, and provider errors must not be logged or placed
+  in URLs.
+
 ## Existing controls to preserve
 
 - RLS is enabled for exposed catalog and inventory tables.

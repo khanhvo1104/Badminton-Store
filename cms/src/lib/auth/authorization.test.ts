@@ -10,6 +10,7 @@ function createSupabaseDouble(options: {
   claimsError?: unknown;
   claimsReject?: unknown;
   claimsSub?: unknown;
+  claimsAmr?: unknown;
   profileData?: unknown;
   profileError?: unknown;
   profileReject?: unknown;
@@ -31,7 +32,14 @@ function createSupabaseDouble(options: {
       ? vi.fn().mockResolvedValue({
           data:
             options.claimsError === undefined
-              ? { claims: { sub: options.claimsSub } }
+              ? {
+                  claims: {
+                    sub: options.claimsSub,
+                    ...(options.claimsAmr === undefined
+                      ? {}
+                      : { amr: options.claimsAmr }),
+                  },
+                }
               : null,
           error: options.claimsError ?? null,
         })
@@ -137,6 +145,23 @@ describe("authorizeCmsRequest", () => {
   it("collapses customer profiles to unauthorized", async () => {
     const { client } = createSupabaseDouble({
       claimsSub: "customer-1",
+      profileData: {
+        id: "customer-1",
+        full_name: "Customer",
+        role: "customer",
+        is_active: true,
+      },
+    });
+
+    await expect(authorizeCmsRequest(client)).resolves.toEqual({
+      kind: "unauthorized",
+    });
+  });
+
+  it("does not treat a recovery session as CMS dashboard authorization", async () => {
+    const { client } = createSupabaseDouble({
+      claimsSub: "customer-1",
+      claimsAmr: [{ method: "recovery", timestamp: 1 }],
       profileData: {
         id: "customer-1",
         full_name: "Customer",

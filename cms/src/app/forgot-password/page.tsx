@@ -1,25 +1,16 @@
 import { SiteShell } from "@/components/layout/site-shell";
-import { LoginForm } from "@/features/auth/components/login-form";
+import { ForgotPasswordForm } from "@/features/auth/components/forgot-password-form";
 import { ConfigurationUnavailableShell } from "@/features/landing/components/configuration-unavailable-shell";
-import {
-  LOGIN_STATUS_PASSWORD_UPDATED,
-  LOGIN_STATUS_RECOVERY_FAILED,
-  PASSWORD_RECOVERY_FAILED_MESSAGE,
-  PASSWORD_UPDATED_MESSAGE,
-  readLoginStatus,
-} from "@/lib/auth/password-recovery";
+import { getCmsSiteUrl } from "@/lib/env/cms-site-url";
 import { getPublicEnvironment } from "@/lib/env/public-env";
 import { isPublicEnvironmentError } from "@/lib/errors/public-environment-error";
 
-type LoginPageProps = {
-  searchParams: Promise<{ status?: string | string[] }>;
-};
-
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+export default function ForgotPasswordPage() {
   try {
     getPublicEnvironment();
+    getCmsSiteUrl();
   } catch (error) {
     if (isPublicEnvironmentError(error)) {
       return <ConfigurationUnavailableShell />;
@@ -27,15 +18,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
     throw error;
   }
-
-  const params = await searchParams;
-  const status = readLoginStatus(params.status);
-  const statusMessage =
-    status === LOGIN_STATUS_PASSWORD_UPDATED
-      ? PASSWORD_UPDATED_MESSAGE
-      : status === LOGIN_STATUS_RECOVERY_FAILED
-        ? PASSWORD_RECOVERY_FAILED_MESSAGE
-        : null;
 
   return (
     <SiteShell>
@@ -49,30 +31,20 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               Badminton Store
             </p>
             <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-              CMS sign in
+              Forgot password
             </h1>
             <p className="max-w-2xl text-lg leading-8 text-slate-200">
-              Sign in with an approved staff account to access the protected CMS
-              dashboard.
+              Request a recovery email for an existing staff account. We will
+              not say whether that email is registered.
             </p>
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/30">
-            <h2 className="text-xl font-semibold text-white">
-              Email and password
-            </h2>
+            <h2 className="text-xl font-semibold text-white">Email recovery</h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              Access is limited to active staff and admin profiles.
+              Enter the email address for your CMS account.
             </p>
-            {statusMessage ? (
-              <p
-                role="status"
-                className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-sm leading-6 text-emerald-100"
-              >
-                {statusMessage}
-              </p>
-            ) : null}
-            <LoginForm />
+            <ForgotPasswordForm />
           </div>
         </section>
       </main>

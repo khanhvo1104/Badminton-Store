@@ -22,63 +22,64 @@ vi.mock("react-dom", async () => {
   };
 });
 
-vi.mock("@/features/auth/actions/login", () => ({
-  login: vi.fn(),
+vi.mock("@/features/auth/actions/update-password", () => ({
+  updatePassword: vi.fn(),
 }));
 
-describe("LoginForm", () => {
-  it("renders labeled email/password controls with safe defaults", async () => {
+describe("UpdatePasswordForm", () => {
+  it("renders labeled password controls with safe defaults", async () => {
     useActionState.mockReturnValue([{ errorMessage: null }, vi.fn()]);
     useFormStatus.mockReturnValue({ pending: false });
 
-    const { LoginForm } = await import("@/features/auth/components/login-form");
-
-    render(<LoginForm />);
-
-    expect(screen.getByLabelText("Email")).toHaveAttribute(
-      "autocomplete",
-      "email",
+    const { UpdatePasswordForm } = await import(
+      "@/features/auth/components/update-password-form"
     );
-    expect(screen.getByLabelText("Password")).toHaveAttribute(
+
+    render(<UpdatePasswordForm />);
+
+    expect(screen.getByLabelText("New password")).toHaveAttribute(
       "autocomplete",
-      "current-password",
+      "new-password",
     );
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
-    expect(screen.getByRole("status")).toHaveTextContent("");
+    expect(screen.getByLabelText("Confirm password")).toHaveAttribute(
+      "autocomplete",
+      "new-password",
+    );
     expect(
-      screen.getByRole("link", { name: "Forgot password?" }),
-    ).toHaveAttribute("href", "/forgot-password");
+      screen.getByRole("button", { name: "Update password" }),
+    ).toBeEnabled();
   });
 
   it("shows a disabled pending state during submission", async () => {
     useActionState.mockReturnValue([{ errorMessage: null }, vi.fn()]);
     useFormStatus.mockReturnValue({ pending: true });
 
-    const { LoginForm } = await import("@/features/auth/components/login-form");
+    const { UpdatePasswordForm } = await import(
+      "@/features/auth/components/update-password-form"
+    );
 
-    render(<LoginForm />);
+    render(<UpdatePasswordForm />);
 
     expect(
-      screen.getByRole("button", { name: "Signing in..." }),
+      screen.getByRole("button", { name: "Updating password..." }),
     ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Signing in..." }),
-    ).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("announces sanitized errors", async () => {
+  it("announces sanitized update failures", async () => {
     useActionState.mockReturnValue([
-      { errorMessage: "We couldn't sign you in with those credentials." },
+      { errorMessage: "We couldn't update your password. Try again." },
       vi.fn(),
     ]);
     useFormStatus.mockReturnValue({ pending: false });
 
-    const { LoginForm } = await import("@/features/auth/components/login-form");
+    const { UpdatePasswordForm } = await import(
+      "@/features/auth/components/update-password-form"
+    );
 
-    render(<LoginForm />);
+    render(<UpdatePasswordForm />);
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "We couldn't sign you in with those credentials.",
+      "We couldn't update your password. Try again.",
     );
     expect(
       screen.queryByText(/token|sql|stack|secret/i),

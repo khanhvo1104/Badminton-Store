@@ -1,6 +1,9 @@
 export const CMS_DASHBOARD_PATH = "/dashboard";
 export const CMS_LOGIN_PATH = "/login";
 export const CMS_UNAUTHORIZED_PATH = "/unauthorized";
+export const CMS_FORGOT_PASSWORD_PATH = "/forgot-password";
+export const CMS_UPDATE_PASSWORD_PATH = "/update-password";
+export const CMS_AUTH_CALLBACK_PATH = "/auth/callback";
 export const CMS_PROFILE_COLUMNS = "id, full_name, role, is_active";
 
 export const AUTH_FAILURE_MESSAGE =
