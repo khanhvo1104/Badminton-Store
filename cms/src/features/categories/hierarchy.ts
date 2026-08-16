@@ -19,6 +19,14 @@ export type HierarchyClient = {
   };
 };
 
+export type DescendantCollectionResult =
+  | { ok: true; descendants: Set<string> }
+  | { ok: false; reason: "truncated" };
+
+export type HierarchyLoadResult =
+  | { ok: true; nodes: HierarchyNode[] }
+  | { ok: false; reason: "error" | "truncated" };
+
 export function clampCategoryGraphLimit(limit = CATEGORY_GRAPH_FETCH_LIMIT) {
   if (!Number.isFinite(limit) || limit < 1) {
     return CATEGORY_GRAPH_FETCH_LIMIT;
@@ -26,10 +34,16 @@ export function clampCategoryGraphLimit(limit = CATEGORY_GRAPH_FETCH_LIMIT) {
   return Math.min(Math.floor(limit), CATEGORY_GRAPH_FETCH_LIMIT);
 }
 
+/**
+ * Collects descendants with a hard inspection bound.
+ * Returns truncated instead of a partial set when the bound is exceeded.
+ */
 export function collectDescendantIds(
   nodes: readonly HierarchyNode[],
   rootId: string,
-): Set<string> {
+  options: { maxNodes?: number } = {},
+): DescendantCollectionResult {
+  const maxNodes = options.maxNodes ?? CATEGORY_HIERARCHY_MAX_NODES;
   const childrenByParent = new Map<string, string[]>();
   for (const node of nodes) {
     if (!node.parentId) {
@@ -47,8 +61,8 @@ export function collectDescendantIds(
 
   while (queue.length > 0) {
     inspected += 1;
-    if (inspected > CATEGORY_HIERARCHY_MAX_NODES) {
-      break;
+    if (inspected > maxNodes) {
+      return { ok: false, reason: "truncated" };
     }
     const current = queue.shift();
     if (!current || visited.has(current)) {
@@ -63,15 +77,16 @@ export function collectDescendantIds(
     }
   }
 
-  return descendants;
+  return { ok: true, descendants };
 }
 
 export function validateParentAssignment(input: {
   categoryId?: string | null;
   parentId: string | null;
   nodes: readonly HierarchyNode[];
+  maxTraversalNodes?: number;
 }): { ok: true } | { ok: false; message: string } {
-  const { categoryId = null, parentId, nodes } = input;
+  const { categoryId = null, parentId, nodes, maxTraversalNodes } = input;
 
   if (parentId === null) {
     return { ok: true };
@@ -94,7 +109,15 @@ export function validateParentAssignment(input: {
     return { ok: true };
   }
 
-  if (collectDescendantIds(nodes, categoryId).has(parentId)) {
+  const collected = collectDescendantIds(nodes, categoryId, {
+    maxNodes: maxTraversalNodes,
+  });
+  if (!collected.ok) {
+    // Fail closed: incomplete traversal cannot prove cycle-freedom.
+    return { ok: false, message: CATEGORY_PARENT_INVALID_MESSAGE };
+  }
+
+  if (collected.descendants.has(parentId)) {
     return { ok: false, message: CATEGORY_PARENT_CYCLE_MESSAGE };
   }
 
@@ -105,13 +128,19 @@ export function validateCategoryParentSelection(input: {
   categoryId?: string;
   parentId: string | null;
   nodes: readonly HierarchyNode[];
+  maxTraversalNodes?: number;
 }):
   | { ok: true }
   | {
       ok: false;
-      reason: "self" | "descendant" | "unknown-parent" | "invalid";
+      reason:
+        | "self"
+        | "descendant"
+        | "unknown-parent"
+        | "invalid"
+        | "truncated";
     } {
-  const { categoryId, parentId, nodes } = input;
+  const { categoryId, parentId, nodes, maxTraversalNodes } = input;
 
   if (parentId === null) {
     return { ok: true };
@@ -134,7 +163,14 @@ export function validateCategoryParentSelection(input: {
     return { ok: true };
   }
 
-  if (collectDescendantIds(nodes, categoryId).has(parentId)) {
+  const collected = collectDescendantIds(nodes, categoryId, {
+    maxNodes: maxTraversalNodes,
+  });
+  if (!collected.ok) {
+    return { ok: false, reason: "truncated" };
+  }
+
+  if (collected.descendants.has(parentId)) {
     return { ok: false, reason: "descendant" };
   }
 
@@ -143,15 +179,23 @@ export function validateCategoryParentSelection(input: {
 
 export async function loadHierarchyNodes(
   client: HierarchyClient,
-): Promise<HierarchyNode[] | null> {
+  options: { limit?: number } = {},
+): Promise<HierarchyLoadResult> {
+  const safeLimit = clampCategoryGraphLimit(options.limit);
+
   try {
     const { data, error } = await client
       .from("categories")
       .select("id, parent_id")
-      .limit(clampCategoryGraphLimit());
+      .limit(safeLimit);
 
     if (error || !Array.isArray(data)) {
-      return null;
+      return { ok: false, reason: "error" };
+    }
+
+    // Hitting the fetch cap means the graph may be incomplete — fail closed.
+    if (data.length >= safeLimit) {
+      return { ok: false, reason: "truncated" };
     }
 
     const nodes: HierarchyNode[] = [];
@@ -170,9 +214,9 @@ export async function loadHierarchyNodes(
       }
       nodes.push({ id: row.id, parentId: row.parent_id });
     }
-    return nodes;
+    return { ok: true, nodes };
   } catch {
-    return null;
+    return { ok: false, reason: "error" };
   }
 }
 
@@ -183,6 +227,8 @@ export async function assertSafeCategoryParent(
   options: {
     categoryId?: string | null;
     parentId: string | null;
+    graphFetchLimit?: number;
+    maxTraversalNodes?: number;
   },
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const { categoryId = null, parentId } = options;
@@ -199,12 +245,19 @@ export async function assertSafeCategoryParent(
     return { ok: false, message: CATEGORY_PARENT_CYCLE_MESSAGE };
   }
 
-  const nodes = await loadHierarchyNodes(client);
-  if (!nodes) {
+  const loaded = await loadHierarchyNodes(client, {
+    limit: options.graphFetchLimit,
+  });
+  if (!loaded.ok) {
     return { ok: false, message: CATEGORY_PARENT_INVALID_MESSAGE };
   }
 
-  return validateParentAssignment({ categoryId, parentId, nodes });
+  return validateParentAssignment({
+    categoryId,
+    parentId,
+    nodes: loaded.nodes,
+    maxTraversalNodes: options.maxTraversalNodes,
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
