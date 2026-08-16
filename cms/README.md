@@ -83,8 +83,21 @@ Protected routes under `/dashboard` share one authorized layout shell with:
 - desktop sidebar and mobile open/close navigation;
 - skip link, breadcrumbs, and `aria-current` page treatment from typed routes;
 - safe account display plus POST logout with pending state;
-- overview cards that link only to placeholder catalog areas;
+- overview cards that link to catalog areas;
 - shared loading, empty, error/retry, and confirmation primitives.
+
+### Category management
+
+`/dashboard/categories` lists categories with deterministic ordering, clamped
+pagination, status, parent name, sort order, and image preview. Staff can create
+and edit categories at `/dashboard/categories/new` and
+`/dashboard/categories/[categoryId]/edit`.
+
+Server Actions re-authorize active staff/admin before every mutation, validate
+hierarchy (no self/descendant parents), sanitize slug conflicts and provider
+failures, and upload optional images to the public `category-assets` bucket with
+compensation for partial failures. Reads and writes use the cookie-backed SSR
+client only; there is no client-side Supabase access for categories.
 
 Add new dashboard areas by extending
 `src/lib/navigation/dashboard-routes.ts` and placing pages under

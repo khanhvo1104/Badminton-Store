@@ -33,7 +33,7 @@ empty, error, and confirmation patterns, plus a lightweight dashboard.
 ### TASK-028 — Category management
 
 Paginated category listing, create/edit, hierarchy validation, activation, and
-category asset handling.
+category asset handling. Delivered as TASK-032 in the automation backlog.
 
 ### TASK-029 — Brand management
 

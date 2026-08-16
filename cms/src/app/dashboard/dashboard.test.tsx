@@ -122,10 +122,7 @@ describe("DashboardOverviewPage", () => {
 });
 
 describe("dashboard placeholder pages", () => {
-  it("renders category, brand, product, and inventory placeholders", async () => {
-    const { default: CategoriesPage } = await import(
-      "@/app/dashboard/categories/page"
-    );
+  it("renders brand, product, and inventory placeholders", async () => {
     const { default: BrandsPage } = await import("@/app/dashboard/brands/page");
     const { default: ProductsPage } = await import(
       "@/app/dashboard/products/page"
@@ -135,11 +132,6 @@ describe("dashboard placeholder pages", () => {
     );
 
     const cases = [
-      {
-        page: <CategoriesPage />,
-        heading: "Categories",
-        emptyTitle: "Category management comes next",
-      },
       {
         page: <BrandsPage />,
         heading: "Brands",
