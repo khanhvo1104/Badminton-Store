@@ -51,6 +51,8 @@ describe("auth server action export boundary", () => {
     expect(modules.map((filePath) => path.basename(filePath)).sort()).toEqual([
       "login.ts",
       "logout.ts",
+      "request-password-reset.ts",
+      "update-password.ts",
     ]);
 
     for (const filePath of modules) {
@@ -72,5 +74,30 @@ describe("auth server action export boundary", () => {
       errorMessage: null,
     });
     expect("INITIAL_LOGIN_FORM_STATE" in loginModule).toBe(false);
+  });
+
+  it("keeps recovery form state outside the use server modules", async () => {
+    const requestModule = await import(
+      "@/features/auth/actions/request-password-reset"
+    );
+    const updateModule = await import(
+      "@/features/auth/actions/update-password"
+    );
+    const forgotState = await import(
+      "@/features/auth/forgot-password-form-state"
+    );
+    const updateState = await import(
+      "@/features/auth/update-password-form-state"
+    );
+
+    expect(Object.keys(requestModule).sort()).toEqual(["requestPasswordReset"]);
+    expect(Object.keys(updateModule).sort()).toEqual(["updatePassword"]);
+    expect(forgotState.INITIAL_FORGOT_PASSWORD_FORM_STATE).toEqual({
+      errorMessage: null,
+      acknowledgement: null,
+    });
+    expect(updateState.INITIAL_UPDATE_PASSWORD_FORM_STATE).toEqual({
+      errorMessage: null,
+    });
   });
 });

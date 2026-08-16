@@ -1,6 +1,9 @@
 export const CMS_DASHBOARD_PATH = "/dashboard";
 export const CMS_LOGIN_PATH = "/login";
 export const CMS_UNAUTHORIZED_PATH = "/unauthorized";
+export const CMS_FORGOT_PASSWORD_PATH = "/forgot-password";
+export const CMS_UPDATE_PASSWORD_PATH = "/update-password";
+export const CMS_AUTH_CALLBACK_PATH = "/auth/callback";
 export const CMS_PROFILE_COLUMNS = "id, full_name, role, is_active";
 
 export const AUTH_FAILURE_MESSAGE =
@@ -23,6 +26,7 @@ type ClaimsResponse = {
   data: {
     claims?: {
       sub?: unknown;
+      amr?: unknown;
     } | null;
   } | null;
   error: unknown;
@@ -58,6 +62,25 @@ export type AuthorizationSupabaseClient = {
   };
 };
 
+/**
+ * Authentication methods GoTrue treats as recovery sessions.
+ *
+ * PKCE `resetPasswordForEmail` stores flow state as `models.Recovery`, whose
+ * String() value is `recovery` and is copied into JWT `amr[].method`.
+ * `Session.IsRecovery()` / `AuthenticationMethod.IsRecovery()` also return true
+ * for `otp` and `magiclink`.
+ *
+ * Claim objects use `{ method, timestamp }` per Supabase jwt-fields and
+ * `@supabase/auth-js` `AMREntry`. `JwtPayload.amr` also allows RFC-8176 strings.
+ */
+export const GOTRUE_RECOVERY_AMR_METHODS = [
+  "recovery",
+  "otp",
+  "magiclink",
+] as const;
+
+const RECOVERY_AMR_METHOD_SET = new Set<string>(GOTRUE_RECOVERY_AMR_METHODS);
+
 export async function getVerifiedSubject(
   supabase: Pick<AuthorizationSupabaseClient, "auth">,
 ): Promise<string | null> {
@@ -68,20 +91,45 @@ export async function getVerifiedSubject(
       return null;
     }
 
-    const subject = data?.claims?.sub;
-    return typeof subject === "string" && subject.trim() ? subject : null;
+    return readVerifiedSubject(data?.claims);
   } catch {
     return null;
   }
 }
 
+export function isVerifiedRecoverySession(claims: unknown): boolean {
+  if (!readVerifiedSubject(claims)) {
+    return false;
+  }
+
+  return isRecord(claims) && amrIncludesRecovery(claims.amr);
+}
+
 export async function authorizeCmsRequest(
   supabase: AuthorizationSupabaseClient,
 ): Promise<CmsAuthorizationResult> {
-  const subject = await getVerifiedSubject(supabase);
+  let claims: unknown;
+
+  try {
+    const { data, error } = await supabase.auth.getClaims();
+
+    if (error) {
+      return { kind: "anonymous" };
+    }
+
+    claims = data?.claims;
+  } catch {
+    return { kind: "anonymous" };
+  }
+
+  const subject = readVerifiedSubject(claims);
 
   if (!subject) {
     return { kind: "anonymous" };
+  }
+
+  if (isVerifiedRecoverySession(claims)) {
+    return { kind: "unauthorized" };
   }
 
   let data: unknown;
@@ -147,6 +195,33 @@ function parseAuthorizedProfile(
     role: role as "staff" | "admin",
     isActive,
   };
+}
+
+function readVerifiedSubject(claims: unknown): string | null {
+  if (!isRecord(claims)) {
+    return null;
+  }
+
+  const subject = claims.sub;
+  return typeof subject === "string" && subject.trim() ? subject : null;
+}
+
+function amrIncludesRecovery(amr: unknown): boolean {
+  if (!Array.isArray(amr)) {
+    return false;
+  }
+
+  return amr.some((entry) => {
+    if (typeof entry === "string") {
+      return RECOVERY_AMR_METHOD_SET.has(entry);
+    }
+
+    return isRecord(entry) && isRecoveryAmrMethod(entry.method);
+  });
+}
+
+function isRecoveryAmrMethod(method: unknown): boolean {
+  return typeof method === "string" && RECOVERY_AMR_METHOD_SET.has(method);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

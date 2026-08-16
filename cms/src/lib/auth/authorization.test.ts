@@ -10,6 +10,7 @@ function createSupabaseDouble(options: {
   claimsError?: unknown;
   claimsReject?: unknown;
   claimsSub?: unknown;
+  claimsAmr?: unknown;
   profileData?: unknown;
   profileError?: unknown;
   profileReject?: unknown;
@@ -31,7 +32,14 @@ function createSupabaseDouble(options: {
       ? vi.fn().mockResolvedValue({
           data:
             options.claimsError === undefined
-              ? { claims: { sub: options.claimsSub } }
+              ? {
+                  claims: {
+                    sub: options.claimsSub,
+                    ...(options.claimsAmr === undefined
+                      ? {}
+                      : { amr: options.claimsAmr }),
+                  },
+                }
               : null,
           error: options.claimsError ?? null,
         })
@@ -148,6 +156,59 @@ describe("authorizeCmsRequest", () => {
     await expect(authorizeCmsRequest(client)).resolves.toEqual({
       kind: "unauthorized",
     });
+  });
+
+  it("does not treat a recovery session as CMS dashboard authorization", async () => {
+    const { client } = createSupabaseDouble({
+      claimsSub: "customer-1",
+      claimsAmr: [{ method: "recovery", timestamp: 1 }],
+      profileData: {
+        id: "customer-1",
+        full_name: "Customer",
+        role: "customer",
+        is_active: true,
+      },
+    });
+
+    await expect(authorizeCmsRequest(client)).resolves.toEqual({
+      kind: "unauthorized",
+    });
+  });
+
+  it("rejects an active staff recovery session until a normal sign-in", async () => {
+    const { client, spies } = createSupabaseDouble({
+      claimsSub: "staff-1",
+      claimsAmr: [{ method: "recovery", timestamp: 1 }],
+      profileData: {
+        id: "staff-1",
+        full_name: "Alex Coach",
+        role: "staff",
+        is_active: true,
+      },
+    });
+
+    await expect(authorizeCmsRequest(client)).resolves.toEqual({
+      kind: "unauthorized",
+    });
+    expect(spies.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects an active admin recovery session until a normal sign-in", async () => {
+    const { client, spies } = createSupabaseDouble({
+      claimsSub: "admin-1",
+      claimsAmr: [{ method: "recovery", timestamp: 1715766000 }],
+      profileData: {
+        id: "admin-1",
+        full_name: null,
+        role: "admin",
+        is_active: true,
+      },
+    });
+
+    await expect(authorizeCmsRequest(client)).resolves.toEqual({
+      kind: "unauthorized",
+    });
+    expect(spies.from).not.toHaveBeenCalled();
   });
 
   it("collapses unsupported roles to unauthorized", async () => {
