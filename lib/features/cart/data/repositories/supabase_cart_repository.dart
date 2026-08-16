@@ -321,7 +321,7 @@ final class SupabaseCartRepository implements CartRepository {
           },
         );
       }
-      return getCart();
+      return await getCart();
     } on PostgrestException catch (error, stackTrace) {
       return Failure(
         DatabaseException(
@@ -397,7 +397,7 @@ final class SupabaseCartRepository implements CartRepository {
   Future<Result<Cart>> removeItem(String itemId) async {
     try {
       await _deleteCartItemById(table: 'cart_items', itemId: itemId);
-      return getCart();
+      return await getCart();
     } on PostgrestException catch (error, stackTrace) {
       return Failure(
         DatabaseException(
@@ -425,7 +425,7 @@ final class SupabaseCartRepository implements CartRepository {
           quantity: quantity,
         );
       }
-      return getCart();
+      return await getCart();
     } on PostgrestException catch (error, stackTrace) {
       return Failure(
         DatabaseException(
