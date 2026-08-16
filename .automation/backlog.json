@@ -223,7 +223,7 @@
       "title": "Build CMS category management",
       "task_file": ".automation/tasks/TASK-032-cms-category-management.md",
       "risk": "high",
-      "status": "ready"
+      "status": "in_progress"
     }
   ]
 }

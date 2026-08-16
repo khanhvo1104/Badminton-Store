@@ -121,6 +121,12 @@ The protected dashboard segment lives under `cms/src/app/dashboard/`:
 Catalog CRUD pages should plug into this shell rather than inventing a second
 application chrome or client-side authorization path.
 
+Category management lives under `cms/src/features/categories/` with App Router
+pages at `cms/src/app/dashboard/categories/`. List reads use explicit columns,
+clamped pagination, and deterministic `sort_order, name, id` ordering. Mutations
+are Server Actions that call `authorizeCmsRequest` again, validate hierarchy,
+and compensate Storage uploads against `category-assets`.
+
 ## Catalog data flow
 
 ### Read

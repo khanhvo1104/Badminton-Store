@@ -110,11 +110,16 @@ Router layout. The shell provides:
 - safe display-name and trusted role context with POST logout;
 - reusable loading, empty, sanitized error/retry, and confirmation primitives.
 
-Placeholder routes under `/dashboard/categories`, `/dashboard/brands`,
-`/dashboard/products`, and `/dashboard/inventory` keep primary navigation
-functional before their CRUD tasks. Navigation labels never come from raw URL
-segments or query parameters. Layout and navigation are not a substitute for
-authorization inside future Server Actions or Route Handlers.
+Placeholder routes under `/dashboard/brands`, `/dashboard/products`, and
+`/dashboard/inventory` keep primary navigation functional before their CRUD
+tasks. `/dashboard/categories` is a full management workflow: paginated listing,
+create/edit forms, hierarchy-safe parent selection, activation with
+confirmation, and optional `category-assets` image upload through Server Actions
+that re-authorize independently of the dashboard layout.
+
+Navigation labels never come from raw URL segments or query parameters. Layout
+and navigation are not a substitute for authorization inside Server Actions or
+Route Handlers.
 
 Extension points for later catalog tasks:
 
