@@ -209,13 +209,20 @@
       "title": "Add secure CMS password recovery",
       "task_file": ".automation/tasks/TASK-030-cms-password-recovery.md",
       "risk": "high",
-      "status": "ready"
+      "status": "complete"
     },
     {
       "id": "TASK-031",
       "title": "Restore Flutter analyze after the async lint upgrade",
       "task_file": ".automation/tasks/TASK-031-fix-unawaited-futures.md",
       "risk": "low",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-032",
+      "title": "Build CMS category management",
+      "task_file": ".automation/tasks/TASK-032-cms-category-management.md",
+      "risk": "high",
       "status": "ready"
     }
   ]
