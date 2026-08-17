@@ -38,12 +38,13 @@ category asset handling. Delivered as TASK-032 in the automation backlog.
 ### TASK-029 — Brand management
 
 Paginated brand listing, create/edit, activation, uniqueness validation, and
-logo handling.
+logo handling. Delivered as TASK-033 in the automation backlog.
 
 ### TASK-030 — Product explorer
 
 Server-side pagination, search, filters, sorting, status visibility, price range,
-and inventory summary without unbounded table reads.
+and inventory summary without unbounded table reads. Delivered as TASK-034 in the
+automation backlog.
 
 ### TASK-031 — Product editor
 
