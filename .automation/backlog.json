@@ -230,6 +230,13 @@
       "title": "Build CMS brand management",
       "task_file": ".automation/tasks/TASK-033-cms-brand-management.md",
       "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-034",
+      "title": "Build CMS product explorer",
+      "task_file": ".automation/tasks/TASK-034-cms-product-explorer.md",
+      "risk": "high",
       "status": "ready"
     }
   ]
