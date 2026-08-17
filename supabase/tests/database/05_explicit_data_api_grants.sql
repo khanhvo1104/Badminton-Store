@@ -505,6 +505,35 @@ begin
     raise exception 'FAIL: service_role missing EXECUTE on checkout_cod';
   end if;
 
+  if has_function_privilege(
+    'public',
+    'public.list_cms_products(text, uuid, uuid, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on list_cms_products';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.list_cms_products(text, uuid, uuid, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on list_cms_products';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.list_cms_products(text, uuid, uuid, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: authenticated missing EXECUTE on list_cms_products';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.list_cms_products(text, uuid, uuid, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role missing EXECUTE on list_cms_products';
+  end if;
+
   -- Policy helpers remain executable by Data API roles.
   foreach grantee in array array['anon', 'authenticated', 'service_role'] loop
     if not has_function_privilege(

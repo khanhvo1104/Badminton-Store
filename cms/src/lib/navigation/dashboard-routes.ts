@@ -38,7 +38,8 @@ export const DASHBOARD_NAV_ITEMS: readonly DashboardNavItem[] = [
     id: "products",
     href: `${DASHBOARD_ROOT_PATH}/products`,
     label: "Products",
-    description: "Product explorer and editor arrive in later catalog tasks.",
+    description:
+      "Read-only product explorer with search, filters, and inventory summaries.",
   },
   {
     id: "inventory",

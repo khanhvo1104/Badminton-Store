@@ -1026,6 +1026,260 @@ exception
     raise;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- list_cms_products: definition, grants, denial, count, and sort/filter pages
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_sig text :=
+    'public.list_cms_products(text, uuid, uuid, text, text, text, integer, integer)';
+  v_volatile "char";
+  v_secdef boolean;
+  v_config text[];
+  v_out_names text[];
+  v_call text :=
+    'select id from public.list_cms_products('''', null, null, null, ''all'', ''updated_desc'', 0, 20)';
+  v_protected text[] := array[
+    'cost_price', 'barcode', 'email', 'user_id', 'phone_number',
+    'quantity_on_hand', 'quantity_reserved', 'reorder_level'
+  ];
+begin
+  select p.provolatile, p.prosecdef, p.proconfig
+  into v_volatile, v_secdef, v_config
+  from pg_proc p
+  where p.oid = v_sig::regprocedure;
+
+  if v_volatile is distinct from 's' then
+    raise exception 'FAIL: list_cms_products is not STABLE';
+  end if;
+  if v_secdef is not false then
+    raise exception 'FAIL: list_cms_products is not SECURITY INVOKER';
+  end if;
+  if v_config is null
+     or not exists (
+       select 1
+       from unnest(v_config) as cfg(val)
+       where cfg.val in ('search_path=', 'search_path=""')
+     )
+  then
+    raise exception 'FAIL: list_cms_products search_path is not empty';
+  end if;
+
+  select coalesce(
+    array_agg(x.argname order by x.ord) filter (where x.mode = 't'),
+    array[]::text[]
+  )
+  into v_out_names
+  from (
+    select t.ord, t.argname, t.mode
+    from (
+      select
+        ordinality as ord,
+        argname,
+        mode
+      from pg_proc p
+      cross join lateral unnest(
+        p.proargnames,
+        p.proargmodes
+      ) with ordinality as u(argname, mode, ordinality)
+      where p.oid = v_sig::regprocedure
+    ) as t
+  ) as x;
+
+  if v_out_names && v_protected then
+    raise exception 'FAIL: list_cms_products return columns include protected names';
+  end if;
+  if not ('filtered_count' = any (v_out_names)) then
+    raise exception 'FAIL: list_cms_products missing filtered_count';
+  end if;
+
+  if has_function_privilege('public', v_sig, 'EXECUTE') then
+    raise exception 'FAIL: PUBLIC has EXECUTE on list_cms_products';
+  end if;
+  if has_function_privilege('anon', v_sig, 'EXECUTE') then
+    raise exception 'FAIL: anon has EXECUTE on list_cms_products';
+  end if;
+  if not has_function_privilege('authenticated', v_sig, 'EXECUTE') then
+    raise exception 'FAIL: authenticated missing EXECUTE on list_cms_products';
+  end if;
+  if not has_function_privilege('service_role', v_sig, 'EXECUTE') then
+    raise exception 'FAIL: service_role missing EXECUTE on list_cms_products';
+  end if;
+
+  perform pg_temp.cms_set_anon();
+  perform pg_temp.cms_assert_execute_denied('anon list_cms_products EXECUTE', v_call);
+  perform pg_temp.cms_clear_auth();
+
+  perform pg_temp.cms_set_auth('a2600000-0000-4000-8000-000000000001');
+  perform pg_temp.cms_assert_authz_denied('customer list_cms_products', v_call);
+  perform pg_temp.cms_clear_auth();
+
+  perform pg_temp.cms_set_auth('a2600000-0000-4000-8000-000000000004');
+  perform pg_temp.cms_assert_authz_denied('inactive staff list_cms_products', v_call);
+  perform pg_temp.cms_clear_auth();
+
+  perform pg_temp.cms_set_auth_forged_staff(
+    'a2600000-0000-4000-8000-000000000007'
+  );
+  perform pg_temp.cms_assert_authz_denied('forged metadata list_cms_products', v_call);
+  perform pg_temp.cms_clear_auth();
+
+  raise notice 'OK: list_cms_products definition + denial matrix';
+end $$;
+
+do $$
+declare
+  v_category uuid := 'a2640000-0000-4000-8000-000000000001';
+  v_p_low uuid := 'a2641000-0000-4000-8000-000000000001';
+  v_p_mid uuid := 'a2641000-0000-4000-8000-000000000002';
+  v_p_high uuid := 'a2641000-0000-4000-8000-000000000003';
+  v_p_none uuid := 'a2641000-0000-4000-8000-000000000004';
+  v_p_miss uuid := 'a2641000-0000-4000-8000-000000000005';
+  v_ids uuid[];
+  v_count integer;
+  v_actor uuid;
+  v_page1 uuid[];
+  v_page2 uuid[];
+begin
+  insert into public.categories (id, name, slug, sort_order, is_active)
+  values (v_category, 'CMS Explorer Category', 'cms-explorer-category', 264, true);
+
+  insert into public.products (
+    id, category_id, name, slug, status, is_featured, published_at
+  ) values
+    (v_p_low, v_category, 'Explorer Low', 'explorer-low', 'active', false, timezone('utc', now())),
+    (v_p_mid, v_category, 'Explorer Mid', 'explorer-mid', 'active', false, timezone('utc', now())),
+    (v_p_high, v_category, 'Explorer High', 'explorer-high', 'active', false, timezone('utc', now())),
+    (v_p_none, v_category, 'Explorer None', 'explorer-none', 'draft', false, null),
+    (v_p_miss, v_category, 'Explorer Missing', 'explorer-missing', 'inactive', false, null);
+
+  insert into public.product_variants (
+    id, product_id, sku, price, is_active, is_default, sort_order
+  ) values
+    ('a2642000-0000-4000-8000-000000000001', v_p_low, 'CMS-EXP-LOW', 50, true, true, 0),
+    ('a2642000-0000-4000-8000-000000000002', v_p_mid, 'CMS-EXP-MID', 100, true, true, 0),
+    ('a2642000-0000-4000-8000-000000000003', v_p_high, 'CMS-EXP-HIGH', 200, true, true, 0),
+    ('a2642000-0000-4000-8000-000000000004', v_p_miss, 'CMS-EXP-MISS', 150, true, true, 0);
+
+  insert into public.inventory (
+    variant_id, quantity_on_hand, quantity_reserved, reorder_level
+  ) values
+    ('a2642000-0000-4000-8000-000000000001', 0, 0, 2),
+    ('a2642000-0000-4000-8000-000000000002', 3, 0, 5),
+    ('a2642000-0000-4000-8000-000000000003', 10, 0, 2);
+
+  foreach v_actor in array array[
+    'a2600000-0000-4000-8000-000000000002'::uuid,
+    'a2600000-0000-4000-8000-000000000003'::uuid
+  ] loop
+    perform pg_temp.cms_set_auth(v_actor);
+
+    select coalesce(array_agg(r.id order by r.ord), array[]::uuid[]), max(r.filtered_count)
+    into v_ids, v_count
+    from (
+      select q.id, q.filtered_count, row_number() over () as ord
+      from public.list_cms_products(
+        '', v_category, null, null, 'all', 'price_asc', 0, 50
+      ) as q
+      where q.id is not null
+    ) as r;
+
+    if v_count is distinct from 5 then
+      perform pg_temp.cms_clear_auth();
+      raise exception 'FAIL: actor % exact filtered count was not 5', v_actor;
+    end if;
+    if v_ids is distinct from array[v_p_low, v_p_mid, v_p_miss, v_p_high, v_p_none]
+    then
+      perform pg_temp.cms_clear_auth();
+      raise exception 'FAIL: actor % price_asc order mismatch', v_actor;
+    end if;
+
+    select coalesce(array_agg(r.id order by r.ord), array[]::uuid[])
+    into v_page1
+    from (
+      select q.id, row_number() over () as ord
+      from public.list_cms_products(
+        '', v_category, null, null, 'all', 'price_asc', 0, 2
+      ) as q
+      where q.id is not null
+    ) as r;
+
+    select coalesce(array_agg(r.id order by r.ord), array[]::uuid[]), max(r.filtered_count)
+    into v_page2, v_count
+    from (
+      select q.id, q.filtered_count, row_number() over () as ord
+      from public.list_cms_products(
+        '', v_category, null, null, 'all', 'price_asc', 2, 2
+      ) as q
+      where q.id is not null
+    ) as r;
+
+    if v_page1 is distinct from array[v_p_low, v_p_mid]
+      or v_page2 is distinct from array[v_p_miss, v_p_high]
+      or v_count is distinct from 5
+    then
+      perform pg_temp.cms_clear_auth();
+      raise exception 'FAIL: actor % cross-page price order mismatch', v_actor;
+    end if;
+
+    select coalesce(array_agg(r.id order by r.ord), array[]::uuid[]), max(r.filtered_count)
+    into v_ids, v_count
+    from (
+      select q.id, q.filtered_count, row_number() over () as ord
+      from public.list_cms_products(
+        '', v_category, null, null, 'in_stock', 'price_asc', 0, 1
+      ) as q
+      where q.id is not null
+    ) as r;
+    if v_ids is distinct from array[v_p_mid] or v_count is distinct from 2 then
+      perform pg_temp.cms_clear_auth();
+      raise exception 'FAIL: actor % in_stock page 1 mismatch', v_actor;
+    end if;
+
+    select coalesce(array_agg(r.id order by r.ord), array[]::uuid[]), max(r.filtered_count)
+    into v_ids, v_count
+    from (
+      select q.id, q.filtered_count, row_number() over () as ord
+      from public.list_cms_products(
+        '', v_category, null, null, 'in_stock', 'price_asc', 1, 1
+      ) as q
+      where q.id is not null
+    ) as r;
+    if v_ids is distinct from array[v_p_high] or v_count is distinct from 2 then
+      perform pg_temp.cms_clear_auth();
+      raise exception 'FAIL: actor % in_stock page 2 mismatch', v_actor;
+    end if;
+
+    select max(q.filtered_count) into v_count
+    from public.list_cms_products(
+      '', v_category, null, null, 'missing', 'updated_desc', 0, 20
+    ) as q;
+    if v_count is distinct from 1 then
+      perform pg_temp.cms_clear_auth();
+      raise exception 'FAIL: actor % missing stock count mismatch', v_actor;
+    end if;
+
+    if exists (
+      select 1
+      from public.list_cms_products(
+        '*),status.eq.active', v_category, null, null, 'all', 'updated_desc', 0, 20
+      ) as q
+      where q.id is not null
+    ) then
+      perform pg_temp.cms_clear_auth();
+      raise exception 'FAIL: actor % search operators altered the filter', v_actor;
+    end if;
+
+    perform pg_temp.cms_clear_auth();
+  end loop;
+
+  raise notice 'OK: list_cms_products staff/admin count and cross-page order';
+exception
+  when others then
+    perform pg_temp.cms_clear_auth();
+    raise;
+end $$;
+
 rollback;
 
 \echo '== done =='

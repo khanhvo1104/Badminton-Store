@@ -641,6 +641,35 @@ begin
     raise exception 'FAIL: service_role missing EXECUTE on checkout_cod';
   end if;
 
+  if has_function_privilege(
+    'public',
+    'public.list_cms_products(text, uuid, uuid, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on list_cms_products';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.list_cms_products(text, uuid, uuid, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on list_cms_products';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.list_cms_products(text, uuid, uuid, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: authenticated missing EXECUTE on list_cms_products';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.list_cms_products(text, uuid, uuid, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role missing EXECUTE on list_cms_products';
+  end if;
+
   foreach grantee in array array['anon', 'authenticated', 'service_role'] loop
     if not has_function_privilege(
       grantee, 'public.is_staff_or_admin()', 'EXECUTE'
@@ -724,6 +753,22 @@ begin
   ) then
     raise exception
       'FAIL: search_products exposes a protected column name';
+  end if;
+
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    join unnest(p.proargnames) as args(argname)
+      on true
+    where n.nspname = 'public'
+      and p.proname = 'list_cms_products'
+      and args.argname = any (
+        bad_cols || array['barcode', 'email', 'user_id', 'phone_number']
+      )
+  ) then
+    raise exception
+      'FAIL: list_cms_products exposes a protected column name';
   end if;
 
   raise notice 'OK: function EXECUTE + RPC schema contracts';
