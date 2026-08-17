@@ -119,9 +119,10 @@ access for brands.
 admins. It paginates on the server, searches name and slug with escaped literal
 input, and filters by category, brand, status, and stock. Each row shows
 identity, status, featured state, primary image, variant counts, selling-price
-range, and a staff-safe inventory summary. Cost price is never selected. Related
-variants, inventory, and primary images are loaded only for the current page of
-product IDs. The product editor is not available yet and is shown as a disabled
+range, and a staff-safe inventory summary. Cost price is never selected. Aggregation, stock filtering, price sorting,
+exact filtered counts, and pagination run in `public.list_cms_products` before
+offset/limit. Primary images for the current page are loaded through bounded
+related reads. The product editor is not available yet and is shown as a disabled
 affordance rather than a broken link.
 
 Reads use the cookie-backed SSR client and re-check `authorizeCmsRequest` before

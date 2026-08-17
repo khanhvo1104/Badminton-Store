@@ -88,6 +88,19 @@ export function getProductListOrder(sort: ProductSort) {
   return PRODUCT_LIST_ORDER[sort];
 }
 
+export function getProductExplorerRpcArgs(query: ProductExplorerQuery) {
+  return {
+    p_search: query.search,
+    p_category_id: query.categoryId,
+    p_brand_id: query.brandId,
+    p_status: query.status,
+    p_stock: query.stock,
+    p_sort: query.sort,
+    p_offset: query.pagination.from,
+    p_limit: query.pagination.pageSize,
+  };
+}
+
 export function productExplorerHref(
   query: Pick<
     ProductExplorerQuery,

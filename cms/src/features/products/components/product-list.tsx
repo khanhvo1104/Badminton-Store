@@ -19,7 +19,7 @@ type ProductListProps = {
 };
 
 export function ProductList({ result }: ProductListProps) {
-  if (result.totalCount === 0 && result.pagination.page > 1) {
+  if (result.items.length === 0 && result.pagination.page > 1) {
     return (
       <EmptyState
         title="No products on this page"

@@ -1,31 +1,25 @@
 import {
+  LIST_CMS_PRODUCTS_RPC,
   PRODUCT_AUTH_DENIED_MESSAGE,
   PRODUCT_FILTER_OPTION_COLUMNS,
   PRODUCT_FILTER_OPTION_LIMIT,
   PRODUCT_IMAGE_LIST_COLUMNS,
-  PRODUCT_INVENTORY_LIST_COLUMNS,
-  PRODUCT_LIST_COLUMNS,
   PRODUCT_LOAD_FAILURE_MESSAGE,
   PRODUCT_NAME_LOOKUP_COLUMNS,
   PRODUCT_RELATED_FETCH_LIMIT,
-  PRODUCT_VARIANT_LIST_COLUMNS,
+  PRODUCT_STATUS_LABELS,
 } from "@/features/products/constants";
 import { sanitizeProductProviderError } from "@/features/products/errors";
-import { productMatchesStockFilter } from "@/features/products/inventory";
+import { buildProductImagePublicUrl } from "@/features/products/image";
 import {
-  compareProductListItems,
+  inventorySummaryFromRpc,
+  mapCmsProductRpcRow,
   mapProductFilterOptionRow,
   mapProductImageRow,
-  mapProductInventoryRow,
-  mapProductListItem,
   mapProductNameRow,
-  mapProductRow,
-  mapProductVariantRow,
-  type ProductInventoryRow,
-  type ProductRow,
-  type ProductVariantRow,
+  type CmsProductRpcRow,
 } from "@/features/products/mappers";
-import { planProductSearch } from "@/features/products/search";
+import { formatPriceRange } from "@/features/products/money";
 import type {
   ProductExplorerLoadResult,
   ProductExplorerQuery,
@@ -33,7 +27,7 @@ import type {
   ProductListItem,
 } from "@/features/products/types";
 import {
-  getProductListOrder,
+  getProductExplorerRpcArgs,
   productExplorerHasActiveFilters,
 } from "@/features/products/validation";
 import {
@@ -64,8 +58,16 @@ export type ProductExplorerQueryBuilder = {
   range: (from: number, to: number) => PromiseLike<QueryResponse>;
 };
 
+export type ProductExplorerRpcArgs = ReturnType<
+  typeof getProductExplorerRpcArgs
+>;
+
 export type ProductExplorerQueryClient = {
   auth: AuthorizationSupabaseClient["auth"];
+  rpc: (
+    fn: typeof LIST_CMS_PRODUCTS_RPC,
+    args: ProductExplorerRpcArgs,
+  ) => PromiseLike<QueryResponse>;
   from: (
     table:
       | "products"
@@ -93,36 +95,8 @@ export async function listProducts(options: {
       return { ok: false, message: PRODUCT_AUTH_DENIED_MESSAGE };
     }
 
-    const searchPlan = planProductSearch(query.search);
-    let productQuery = supabase
-      .from("products")
-      .select(PRODUCT_LIST_COLUMNS, { count: "exact" });
-
-    if (query.categoryId) {
-      productQuery = productQuery.eq("category_id", query.categoryId);
-    }
-    if (query.brandId) {
-      productQuery = productQuery.eq("brand_id", query.brandId);
-    }
-    if (query.status) {
-      productQuery = productQuery.eq("status", query.status);
-    }
-    if (searchPlan.kind === "or") {
-      productQuery = productQuery.or(searchPlan.filter);
-    } else if (searchPlan.kind === "none-match") {
-      productQuery = productQuery.is("id", null);
-    }
-
-    for (const order of getProductListOrder(query.sort)) {
-      productQuery = productQuery.order(order.column, {
-        ascending: order.ascending,
-      });
-    }
-
-    const { data, error, count } = await productQuery.range(
-      query.pagination.from,
-      query.pagination.to,
-    );
+    const rpcArgs = getProductExplorerRpcArgs(query);
+    const { data, error } = await supabase.rpc(LIST_CMS_PRODUCTS_RPC, rpcArgs);
 
     if (error || !Array.isArray(data)) {
       return {
@@ -131,48 +105,51 @@ export async function listProducts(options: {
       };
     }
 
-    const productRows: ProductRow[] = [];
+    const rpcRows: CmsProductRpcRow[] = [];
     for (const row of data) {
-      const mapped = mapProductRow(row);
+      const mapped = mapCmsProductRpcRow(row);
       if (!mapped) {
         return { ok: false, message: PRODUCT_LOAD_FAILURE_MESSAGE };
       }
-      productRows.push(mapped);
+      rpcRows.push(mapped);
     }
 
-    const related = await loadRelatedProductData(supabase, productRows);
+    const totalCount = rpcRows[0]?.filtered_count ?? 0;
+    const productRows = rpcRows.filter(
+      (row): row is CmsProductRpcRow & { id: string } => row.id !== null,
+    );
+
+    const related = await loadRelatedProductData(
+      supabase,
+      productRows.map((row) => ({
+        id: row.id,
+        category_id: row.category_id ?? "",
+        brand_id: row.brand_id,
+      })),
+    );
     if (!related.ok) {
       return related;
     }
 
     const items: ProductListItem[] = [];
     for (const row of productRows) {
-      const mapped = mapProductListItem({
+      const mapped = mapRpcListItem({
         row,
-        categoryName: related.categoryNameById.get(row.category_id) ?? null,
+        categoryName: row.category_id
+          ? (related.categoryNameById.get(row.category_id) ?? null)
+          : null,
         brandName: row.brand_id
           ? (related.brandNameById.get(row.brand_id) ?? null)
           : null,
-        variants: related.variantsByProductId.get(row.id) ?? [],
-        inventoryByVariantId: related.inventoryByVariantId,
         primaryImagePath: related.primaryImageByProductId.get(row.id) ?? null,
         supabaseUrl,
       });
       if (!mapped) {
         return { ok: false, message: PRODUCT_LOAD_FAILURE_MESSAGE };
       }
-      if (productMatchesStockFilter(mapped.inventory, query.stock)) {
-        items.push(mapped);
-      }
+      items.push(mapped);
     }
 
-    if (query.sort === "price_asc" || query.sort === "price_desc") {
-      items.sort((left, right) =>
-        compareProductListItems(left, right, query.sort),
-      );
-    }
-
-    const totalCount = typeof count === "number" && count >= 0 ? count : 0;
     const totalPages =
       totalCount === 0 ? 0 : Math.ceil(totalCount / query.pagination.pageSize);
 
@@ -206,6 +183,73 @@ export async function listProductBrandOptions(options: {
   { ok: true; options: ProductFilterOption[] } | { ok: false; message: string }
 > {
   return listFilterOptions(options.supabase, "brands");
+}
+
+function mapRpcListItem(options: {
+  row: CmsProductRpcRow & { id: string };
+  categoryName: string | null;
+  brandName: string | null;
+  primaryImagePath: string | null;
+  supabaseUrl: string;
+}): ProductListItem | null {
+  const { row, categoryName, brandName, primaryImagePath, supabaseUrl } =
+    options;
+  if (
+    !row.category_id ||
+    !row.name ||
+    !row.slug ||
+    !row.status ||
+    typeof row.is_featured !== "boolean" ||
+    !row.updated_at ||
+    row.active_variant_count === null ||
+    row.total_variant_count === null
+  ) {
+    return null;
+  }
+
+  const inventory = inventorySummaryFromRpc(row);
+  if (!inventory) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    categoryId: row.category_id,
+    categoryName,
+    brandId: row.brand_id,
+    brandName,
+    status: row.status,
+    statusLabel: PRODUCT_STATUS_LABELS[row.status],
+    isFeatured: row.is_featured,
+    featuredLabel: row.is_featured ? "Featured" : "Not featured",
+    publishedAt: row.published_at,
+    publishedAtLabel: formatTimestamp(row.published_at),
+    updatedAt: row.updated_at,
+    updatedAtLabel: formatTimestamp(row.updated_at),
+    primaryImageUrl: buildProductImagePublicUrl(supabaseUrl, primaryImagePath),
+    activeVariantCount: row.active_variant_count,
+    totalVariantCount: row.total_variant_count,
+    priceRange: {
+      minAmount: row.min_price,
+      maxAmount: row.max_price,
+      label: formatPriceRange(row.min_price, row.max_price),
+    },
+    inventory,
+  };
+}
+
+function formatTimestamp(value: string | null): string {
+  if (!value) {
+    return "Not published";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(new Date(value));
 }
 
 async function listFilterOptions(
@@ -251,12 +295,10 @@ async function listFilterOptions(
 
 async function loadRelatedProductData(
   supabase: ProductExplorerQueryClient,
-  products: ProductRow[],
+  products: Array<{ id: string; category_id: string; brand_id: string | null }>,
 ): Promise<
   | {
       ok: true;
-      variantsByProductId: Map<string, ProductVariantRow[]>;
-      inventoryByVariantId: Map<string, ProductInventoryRow>;
       primaryImageByProductId: Map<string, string>;
       categoryNameById: Map<string, string>;
       brandNameById: Map<string, string>;
@@ -265,8 +307,6 @@ async function loadRelatedProductData(
 > {
   const empty = {
     ok: true as const,
-    variantsByProductId: new Map<string, ProductVariantRow[]>(),
-    inventoryByVariantId: new Map<string, ProductInventoryRow>(),
     primaryImageByProductId: new Map<string, string>(),
     categoryNameById: new Map<string, string>(),
     brandNameById: new Map<string, string>(),
@@ -284,74 +324,26 @@ async function loadRelatedProductData(
       .filter((value): value is string => typeof value === "string"),
   );
 
-  const variantsResult = await supabase
-    .from("product_variants")
-    .select(PRODUCT_VARIANT_LIST_COLUMNS)
-    .in("product_id", productIds)
-    .limit(PRODUCT_RELATED_FETCH_LIMIT);
+  const [imageResult, categoryResult, brandResult] = await Promise.all([
+    loadPrimaryImages(supabase, productIds),
+    loadBoundedRows(
+      supabase,
+      "categories",
+      PRODUCT_NAME_LOOKUP_COLUMNS,
+      "id",
+      categoryIds,
+    ),
+    loadBoundedRows(
+      supabase,
+      "brands",
+      PRODUCT_NAME_LOOKUP_COLUMNS,
+      "id",
+      brandIds,
+    ),
+  ]);
 
-  if (variantsResult.error || !Array.isArray(variantsResult.data)) {
+  if (!imageResult.ok || !categoryResult.ok || !brandResult.ok) {
     return { ok: false, message: PRODUCT_LOAD_FAILURE_MESSAGE };
-  }
-  if (variantsResult.data.length >= PRODUCT_RELATED_FETCH_LIMIT) {
-    return { ok: false, message: PRODUCT_LOAD_FAILURE_MESSAGE };
-  }
-
-  const variantsByProductId = new Map<string, ProductVariantRow[]>();
-  const variantIds: string[] = [];
-  for (const row of variantsResult.data) {
-    const mapped = mapProductVariantRow(row);
-    if (!mapped) {
-      return { ok: false, message: PRODUCT_LOAD_FAILURE_MESSAGE };
-    }
-    const current = variantsByProductId.get(mapped.product_id) ?? [];
-    current.push(mapped);
-    variantsByProductId.set(mapped.product_id, current);
-    variantIds.push(mapped.id);
-  }
-
-  const [inventoryResult, imageResult, categoryResult, brandResult] =
-    await Promise.all([
-      loadBoundedRows(
-        supabase,
-        "inventory",
-        PRODUCT_INVENTORY_LIST_COLUMNS,
-        "variant_id",
-        variantIds,
-      ),
-      loadPrimaryImages(supabase, productIds),
-      loadBoundedRows(
-        supabase,
-        "categories",
-        PRODUCT_NAME_LOOKUP_COLUMNS,
-        "id",
-        categoryIds,
-      ),
-      loadBoundedRows(
-        supabase,
-        "brands",
-        PRODUCT_NAME_LOOKUP_COLUMNS,
-        "id",
-        brandIds,
-      ),
-    ]);
-
-  if (
-    !inventoryResult.ok ||
-    !imageResult.ok ||
-    !categoryResult.ok ||
-    !brandResult.ok
-  ) {
-    return { ok: false, message: PRODUCT_LOAD_FAILURE_MESSAGE };
-  }
-
-  const inventoryByVariantId = new Map<string, ProductInventoryRow>();
-  for (const row of inventoryResult.rows) {
-    const mapped = mapProductInventoryRow(row);
-    if (!mapped) {
-      return { ok: false, message: PRODUCT_LOAD_FAILURE_MESSAGE };
-    }
-    inventoryByVariantId.set(mapped.variant_id, mapped);
   }
 
   const primaryImageByProductId = new Map<string, string>();
@@ -386,8 +378,6 @@ async function loadRelatedProductData(
 
   return {
     ok: true,
-    variantsByProductId,
-    inventoryByVariantId,
     primaryImageByProductId,
     categoryNameById,
     brandNameById,
@@ -423,9 +413,9 @@ async function loadPrimaryImages(
 
 async function loadBoundedRows(
   supabase: ProductExplorerQueryClient,
-  table: "inventory" | "categories" | "brands",
+  table: "categories" | "brands",
   columns: string,
-  column: "id" | "variant_id",
+  column: "id",
   ids: string[],
 ): Promise<{ ok: true; rows: unknown[] } | { ok: false }> {
   if (ids.length === 0) {

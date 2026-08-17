@@ -1,4 +1,8 @@
-import { PRODUCT_STATUS_LABELS } from "@/features/products/constants";
+import {
+  PRODUCT_NO_INVENTORY_LABEL,
+  PRODUCT_STATUS_LABELS,
+  PRODUCT_STOCK_LABELS,
+} from "@/features/products/constants";
 import { buildProductImagePublicUrl } from "@/features/products/image";
 import {
   aggregateInventory,
@@ -11,6 +15,7 @@ import {
   sellingPriceToCents,
 } from "@/features/products/money";
 import type {
+  ProductInventorySummary,
   ProductListItem,
   ProductSort,
   ProductStatus,
@@ -259,8 +264,185 @@ export function mapProductFilterOptionRow(
   return { id, name, is_active: isActive };
 }
 
-export function isProductRow(value: unknown): value is ProductRow {
-  return mapProductRow(value) !== null;
+export type CmsProductRpcRow = {
+  id: string | null;
+  category_id: string | null;
+  brand_id: string | null;
+  name: string | null;
+  slug: string | null;
+  status: ProductStatus | null;
+  is_featured: boolean | null;
+  published_at: string | null;
+  updated_at: string | null;
+  active_variant_count: number | null;
+  total_variant_count: number | null;
+  min_price: string | null;
+  max_price: string | null;
+  total_on_hand: number | null;
+  total_reserved: number | null;
+  total_available: number | null;
+  missing_inventory_count: number;
+  has_missing_inventory: boolean;
+  is_low_stock: boolean;
+  stock_state: Exclude<ProductInventorySummary["stockState"], never>;
+  filtered_count: number;
+};
+
+export function mapCmsProductRpcRow(value: unknown): CmsProductRpcRow | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const filteredCount = parseNonNegativeInt(value.filtered_count);
+  if (filteredCount === null) {
+    return null;
+  }
+
+  const id = value.id;
+  if (id === null) {
+    return {
+      id: null,
+      category_id: null,
+      brand_id: null,
+      name: null,
+      slug: null,
+      status: null,
+      is_featured: null,
+      published_at: null,
+      updated_at: null,
+      active_variant_count: null,
+      total_variant_count: null,
+      min_price: null,
+      max_price: null,
+      total_on_hand: null,
+      total_reserved: null,
+      total_available: null,
+      missing_inventory_count: 0,
+      has_missing_inventory: false,
+      is_low_stock: false,
+      stock_state: "out_of_stock",
+      filtered_count: filteredCount,
+    };
+  }
+
+  const product = mapProductRow({
+    id: value.id,
+    category_id: value.category_id,
+    brand_id: value.brand_id,
+    name: value.name,
+    slug: value.slug,
+    status: value.status,
+    is_featured: value.is_featured,
+    published_at: value.published_at,
+    updated_at: value.updated_at,
+  });
+  if (!product) {
+    return null;
+  }
+
+  const activeVariantCount = parseNonNegativeInt(value.active_variant_count);
+  const totalVariantCount = parseNonNegativeInt(value.total_variant_count);
+  const missingInventoryCount = parseNonNegativeInt(
+    value.missing_inventory_count,
+  );
+  if (
+    activeVariantCount === null ||
+    totalVariantCount === null ||
+    missingInventoryCount === null ||
+    activeVariantCount > totalVariantCount
+  ) {
+    return null;
+  }
+
+  const minPrice =
+    value.min_price === null || value.min_price === undefined
+      ? null
+      : parseSellingPrice(value.min_price);
+  const maxPrice =
+    value.max_price === null || value.max_price === undefined
+      ? null
+      : parseSellingPrice(value.max_price);
+  if (value.min_price != null && minPrice === null) {
+    return null;
+  }
+  if (value.max_price != null && maxPrice === null) {
+    return null;
+  }
+  if ((minPrice === null) !== (maxPrice === null)) {
+    return null;
+  }
+
+  if (typeof value.has_missing_inventory !== "boolean") {
+    return null;
+  }
+  if (typeof value.is_low_stock !== "boolean") {
+    return null;
+  }
+  const stockState = value.stock_state;
+  if (
+    typeof stockState !== "string" ||
+    !["in_stock", "low_stock", "out_of_stock", "missing"].includes(stockState)
+  ) {
+    return null;
+  }
+
+  const totalOnHand = parseNullableNonNegativeInt(value.total_on_hand);
+  const totalReserved = parseNullableNonNegativeInt(value.total_reserved);
+  const totalAvailable = parseNullableNonNegativeInt(value.total_available);
+  if (
+    totalOnHand === undefined ||
+    totalReserved === undefined ||
+    totalAvailable === undefined
+  ) {
+    return null;
+  }
+
+  return {
+    id: product.id,
+    category_id: product.category_id,
+    brand_id: product.brand_id,
+    name: product.name,
+    slug: product.slug,
+    status: product.status,
+    is_featured: product.is_featured,
+    published_at: product.published_at,
+    updated_at: product.updated_at,
+    active_variant_count: activeVariantCount,
+    total_variant_count: totalVariantCount,
+    min_price: minPrice,
+    max_price: maxPrice,
+    total_on_hand: totalOnHand,
+    total_reserved: totalReserved,
+    total_available: totalAvailable,
+    missing_inventory_count: missingInventoryCount,
+    has_missing_inventory: value.has_missing_inventory,
+    is_low_stock: value.is_low_stock,
+    stock_state: stockState as CmsProductRpcRow["stock_state"],
+    filtered_count: filteredCount,
+  };
+}
+
+export function inventorySummaryFromRpc(
+  row: CmsProductRpcRow,
+): ProductInventorySummary | null {
+  if (row.id === null) {
+    return null;
+  }
+
+  const stockLabel = row.has_missing_inventory
+    ? PRODUCT_NO_INVENTORY_LABEL
+    : PRODUCT_STOCK_LABELS[row.stock_state];
+
+  return {
+    totalOnHand: row.total_on_hand,
+    totalReserved: row.total_reserved,
+    totalAvailable: row.total_available,
+    missingInventoryCount: row.missing_inventory_count,
+    hasMissingInventory: row.has_missing_inventory,
+    isLowStock: row.is_low_stock,
+    stockState: row.stock_state,
+    stockLabel,
+  };
 }
 
 export function mapProductListItem(options: {
@@ -399,6 +581,16 @@ function parseNonNegativeInt(value: unknown): number | null {
     return null;
   }
   return value;
+}
+
+function parseNullableNonNegativeInt(
+  value: unknown,
+): number | null | undefined {
+  if (value === null) {
+    return null;
+  }
+  const parsed = parseNonNegativeInt(value);
+  return parsed === null ? undefined : parsed;
 }
 
 function isParsableDate(value: string): boolean {

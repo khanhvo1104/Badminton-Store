@@ -114,7 +114,8 @@ Placeholder routes under `/dashboard/inventory` keep primary navigation
 functional before the inventory-adjustment task. `/dashboard/products` is a
 read-only product explorer: server-side pagination, escaped name/slug search,
 category/brand/status/stock filters, selling-price range, variant counts, and
-staff-safe inventory summaries without selecting `cost_price`. Primary images
+staff-safe inventory summaries without selecting `cost_price`. Stock filtering
+and price sorting happen in `list_cms_products` before pagination. Primary images
 render through the public `product-images` object URL and are never inlined as
 SVG. `/dashboard/categories` is a full management workflow: paginated listing,
 create/edit forms, hierarchy-safe parent selection, activation with

@@ -1,14 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  LIST_CMS_PRODUCTS_RPC,
   PRODUCT_AUTH_DENIED_MESSAGE,
   PRODUCT_FILTER_OPTION_LIMIT,
-  PRODUCT_LIST_COLUMNS,
   PRODUCT_LOAD_FAILURE_MESSAGE,
   PRODUCT_PAGE_SIZE_DEFAULT,
   PRODUCT_PAGE_SIZE_MAX,
-  PRODUCT_RELATED_FETCH_LIMIT,
-  PRODUCT_VARIANT_LIST_COLUMNS,
 } from "@/features/products/constants";
 import { assertNoProviderLeak } from "@/features/products/errors";
 import { buildProductImagePublicUrl } from "@/features/products/image";
@@ -39,6 +37,7 @@ import {
 } from "@/features/products/search";
 import type { ProductExplorerQuery } from "@/features/products/types";
 import {
+  getProductExplorerRpcArgs,
   getProductListOrder,
   parseProductExplorerQuery,
   parseProductPagination,
@@ -168,6 +167,30 @@ describe("product explorer query parsing", () => {
         pagination: { page: 2, pageSize: 10 },
       }),
     ).toBe("/dashboard/products?pageSize=10&page=2");
+  });
+
+  it("sends validated offset/limit and filters to the explorer RPC", () => {
+    const query = parseProductExplorerQuery({
+      page: "3",
+      q: "aero,or(status.eq.archived)",
+      category: CATEGORY_ID,
+      brand: BRAND_ID,
+      status: "draft",
+      stock: "low_stock",
+      sort: "price_asc",
+      pageSize: "10",
+    });
+
+    expect(getProductExplorerRpcArgs(query)).toEqual({
+      p_search: "aero,or(status.eq.archived)",
+      p_category_id: CATEGORY_ID,
+      p_brand_id: BRAND_ID,
+      p_status: "draft",
+      p_stock: "low_stock",
+      p_sort: "price_asc",
+      p_offset: 20,
+      p_limit: 10,
+    });
   });
 
   it("uses id as the final sort tie-breaker for every sort contract", () => {
@@ -338,7 +361,7 @@ describe("price and inventory mapping", () => {
 });
 
 describe("product list query", () => {
-  it("authorizes before inventory reads and keeps related queries bounded", async () => {
+  it("authorizes before inventory reads and pages through list_cms_products", async () => {
     authorizeCmsRequest.mockResolvedValue({
       kind: "authorized",
       profile: {
@@ -349,49 +372,17 @@ describe("product list query", () => {
       },
     });
 
-    const calls: Array<{
-      table: string;
-      columns?: string;
-      eq: Array<[string, unknown]>;
-      is: Array<[string, unknown]>;
-      in: Array<[string, string[]]>;
-      or: string[];
-      order: Array<{ column: string; ascending?: boolean }>;
-      range?: [number, number];
-      limit?: number;
-    }> = [];
+    const calls: Array<Record<string, unknown>> = [];
 
     const listed = await listProducts({
       supabase: createExplorerClient(calls, {
-        products: [
-          {
-            id: PRODUCT_ID,
-            category_id: CATEGORY_ID,
+        rpcRows: [
+          rpcExplorerRow({
+            filtered_count: 21,
             brand_id: BRAND_ID,
-            name: "Aero Strike",
-            slug: "aero-strike",
             status: "draft",
-            is_featured: false,
             published_at: null,
-            updated_at: "2026-01-02T00:00:00.000Z",
-          },
-        ],
-        productCount: 21,
-        variants: [
-          {
-            id: VARIANT_ID,
-            product_id: PRODUCT_ID,
-            price: "1890000.00",
-            is_active: true,
-          },
-        ],
-        inventory: [
-          {
-            variant_id: VARIANT_ID,
-            quantity_on_hand: 4,
-            quantity_reserved: 1,
-            reorder_level: 2,
-          },
+          }),
         ],
         images: [
           {
@@ -414,40 +405,33 @@ describe("product list query", () => {
       supabaseUrl: "https://example.supabase.co",
     });
 
-    const productCall = calls.find((call) => call.table === "products");
-    expect(productCall?.columns).toBe(PRODUCT_LIST_COLUMNS);
-    expect(productCall?.columns).not.toContain("*");
-    expect(productCall?.eq).toEqual([
-      ["category_id", CATEGORY_ID],
-      ["brand_id", BRAND_ID],
-      ["status", "draft"],
-    ]);
-    expect(productCall?.or[0]).toBe(
-      buildProductSearchOrFilter(
-        sanitizeProductSearchLiteral("aero,or(status.eq.archived)"),
-      ),
-    );
-    expect(productCall?.order).toEqual([
-      { column: "updated_at", ascending: false },
-      { column: "id", ascending: true },
-    ]);
-    expect(productCall?.range).toEqual([20, 39]);
+    const rpcCall = calls.find((call) => call.type === "rpc");
+    expect(rpcCall).toEqual({
+      type: "rpc",
+      fn: LIST_CMS_PRODUCTS_RPC,
+      args: {
+        p_search: "aero,or(status.eq.archived)",
+        p_category_id: CATEGORY_ID,
+        p_brand_id: BRAND_ID,
+        p_status: "draft",
+        p_stock: "all",
+        p_sort: "updated_desc",
+        p_offset: 20,
+        p_limit: 20,
+      },
+    });
+    expect(JSON.stringify(rpcCall)).not.toMatch(/cost_price|barcode/i);
+    expect(JSON.stringify(rpcCall?.args)).not.toContain("name.ilike.");
 
-    const variantCall = calls.find((call) => call.table === "product_variants");
-    expect(variantCall?.columns).toBe(PRODUCT_VARIANT_LIST_COLUMNS);
-    expect(variantCall?.columns).not.toContain("cost_price");
-    expect(variantCall?.columns).not.toContain("barcode");
-    expect(variantCall?.in[0]?.[1]).toEqual([PRODUCT_ID]);
-    expect(variantCall?.limit).toBe(PRODUCT_RELATED_FETCH_LIMIT);
+    expect(calls.some((call) => call.table === "products")).toBe(false);
+    expect(calls.some((call) => call.table === "product_variants")).toBe(false);
+    expect(calls.some((call) => call.table === "inventory")).toBe(false);
 
-    const inventoryCall = calls.find((call) => call.table === "inventory");
-    expect(inventoryCall?.in[0]?.[1]).toEqual([VARIANT_ID]);
-    expect(inventoryCall?.limit).toBe(PRODUCT_RELATED_FETCH_LIMIT);
+    const imageCall = calls.find((call) => call.table === "product_images");
+    expect(imageCall?.in).toEqual([["product_id", [PRODUCT_ID]]]);
+    expect(imageCall?.limit).toBe(1);
+    expect(String(imageCall?.columns ?? "")).not.toContain("*");
 
-    expect(
-      calls.every((call) => !String(call.columns ?? "").includes("cost_price")),
-    ).toBe(true);
-    expect(calls.every((call) => call.columns !== "*")).toBe(true);
     expect(listed.ok).toBe(true);
     if (listed.ok) {
       expect(listed.result.totalCount).toBe(21);
@@ -457,7 +441,7 @@ describe("product list query", () => {
     }
   });
 
-  it("applies stock filters after bounded related reads and sorts missing prices last", async () => {
+  it("uses the RPC page as-is without a local stock filter or price sort", async () => {
     authorizeCmsRequest.mockResolvedValue({
       kind: "authorized",
       profile: {
@@ -468,48 +452,36 @@ describe("product list query", () => {
       },
     });
 
+    const calls: Array<Record<string, unknown>> = [];
     const listed = await listProducts({
-      supabase: createExplorerClient([], {
-        products: [
-          {
+      supabase: createExplorerClient(calls, {
+        rpcRows: [
+          rpcExplorerRow({
             id: PRODUCT_ID,
-            category_id: CATEGORY_ID,
-            brand_id: null,
             name: "Priced racket",
             slug: "priced-racket",
-            status: "active",
-            is_featured: false,
-            published_at: "2026-01-01T00:00:00.000Z",
-            updated_at: "2026-01-02T00:00:00.000Z",
-          },
-          {
+            min_price: "50.00",
+            max_price: "50.00",
+            stock_state: "out_of_stock",
+            total_on_hand: 0,
+            total_reserved: 0,
+            total_available: 0,
+            is_low_stock: true,
+            filtered_count: 2,
+          }),
+          rpcExplorerRow({
             id: PRODUCT_ID_B,
-            category_id: CATEGORY_ID,
-            brand_id: null,
             name: "No variants",
             slug: "no-variants",
             status: "draft",
-            is_featured: false,
             published_at: null,
-            updated_at: "2026-01-03T00:00:00.000Z",
-          },
-        ],
-        productCount: 2,
-        variants: [
-          {
-            id: VARIANT_ID,
-            product_id: PRODUCT_ID,
-            price: "50.00",
-            is_active: true,
-          },
-        ],
-        inventory: [
-          {
-            variant_id: VARIANT_ID,
-            quantity_on_hand: 0,
-            quantity_reserved: 0,
-            reorder_level: 2,
-          },
+            min_price: null,
+            max_price: null,
+            active_variant_count: 0,
+            total_variant_count: 0,
+            stock_state: "out_of_stock",
+            filtered_count: 2,
+          }),
         ],
         images: [],
         categories: [{ id: CATEGORY_ID, name: "Rackets" }],
@@ -522,6 +494,14 @@ describe("product list query", () => {
       supabaseUrl: "https://example.supabase.co",
     });
 
+    expect(calls.find((call) => call.type === "rpc")?.args).toEqual(
+      expect.objectContaining({
+        p_stock: "out_of_stock",
+        p_sort: "price_desc",
+        p_offset: 0,
+        p_limit: PRODUCT_PAGE_SIZE_DEFAULT,
+      }),
+    );
     expect(listed.ok).toBe(true);
     if (listed.ok) {
       expect(listed.result.items.map((item) => item.id)).toEqual([
@@ -530,53 +510,14 @@ describe("product list query", () => {
       ]);
       expect(listed.result.items[0]?.priceRange.minAmount).toBe("50.00");
       expect(listed.result.items[1]?.priceRange.minAmount).toBeNull();
+      expect(listed.result.totalCount).toBe(2);
     }
 
     const inStock = await listProducts({
       supabase: createExplorerClient([], {
-        products: [
-          {
-            id: PRODUCT_ID,
-            category_id: CATEGORY_ID,
-            brand_id: null,
-            name: "Priced racket",
-            slug: "priced-racket",
-            status: "active",
-            is_featured: false,
-            published_at: "2026-01-01T00:00:00.000Z",
-            updated_at: "2026-01-02T00:00:00.000Z",
-          },
-          {
-            id: PRODUCT_ID_B,
-            category_id: CATEGORY_ID,
-            brand_id: null,
-            name: "No variants",
-            slug: "no-variants",
-            status: "draft",
-            is_featured: false,
-            published_at: null,
-            updated_at: "2026-01-03T00:00:00.000Z",
-          },
-        ],
-        productCount: 2,
-        variants: [
-          {
-            id: VARIANT_ID,
-            product_id: PRODUCT_ID,
-            price: "50.00",
-            is_active: true,
-          },
-        ],
-        inventory: [
-          {
-            variant_id: VARIANT_ID,
-            quantity_on_hand: 0,
-            quantity_reserved: 0,
-            reorder_level: 2,
-          },
-        ],
+        rpcRows: [{ id: null, filtered_count: 0 }],
         images: [],
-        categories: [{ id: CATEGORY_ID, name: "Rackets" }],
+        categories: [],
         brands: [],
       }),
       query: defaultQuery({ stock: "in_stock" }),
@@ -586,6 +527,7 @@ describe("product list query", () => {
     expect(inStock.ok).toBe(true);
     if (inStock.ok) {
       expect(inStock.result.items).toEqual([]);
+      expect(inStock.result.totalCount).toBe(0);
     }
   });
 
@@ -620,8 +562,7 @@ describe("product list query", () => {
     });
     const listed = await listProducts({
       supabase: createExplorerClient([], {
-        products: [{ id: "bad-row", boom: "sql token=secret" }],
-        productCount: 1,
+        rpcRows: [{ id: "bad-row", boom: "sql token=secret" }],
       }),
       query: defaultQuery(),
       supabaseUrl: "https://example.supabase.co",
@@ -664,6 +605,35 @@ describe("product list query", () => {
   });
 });
 
+function rpcExplorerRow(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id: PRODUCT_ID,
+    category_id: CATEGORY_ID,
+    brand_id: null,
+    name: "Aero Strike",
+    slug: "aero-strike",
+    status: "active",
+    is_featured: false,
+    published_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-02T00:00:00.000Z",
+    active_variant_count: 1,
+    total_variant_count: 1,
+    min_price: "1890000.00",
+    max_price: "1890000.00",
+    total_on_hand: 4,
+    total_reserved: 1,
+    total_available: 3,
+    missing_inventory_count: 0,
+    has_missing_inventory: false,
+    is_low_stock: false,
+    stock_state: "in_stock",
+    filtered_count: 1,
+    ...overrides,
+  };
+}
+
 function listItem(options: {
   id?: string;
   minAmount: string | null;
@@ -700,10 +670,8 @@ function listItem(options: {
 function createExplorerClient(
   calls: Array<Record<string, unknown>>,
   fixtures: {
-    products?: unknown[];
-    productCount?: number;
-    variants?: unknown[];
-    inventory?: unknown[];
+    rpcRows?: unknown[];
+    rpcError?: unknown;
     images?: unknown[];
     categories?: unknown[];
     brands?: unknown[];
@@ -712,6 +680,16 @@ function createExplorerClient(
   return {
     auth: {
       getClaims: async () => ({ data: { claims: null }, error: null }),
+    },
+    rpc(fn: string, args: unknown) {
+      calls.push({ type: "rpc", fn, args });
+      if (fixtures.rpcError) {
+        return Promise.resolve({ data: null, error: fixtures.rpcError });
+      }
+      return Promise.resolve({
+        data: fixtures.rpcRows ?? [],
+        error: null,
+      });
     },
     from(table: string) {
       const state = {
@@ -753,27 +731,11 @@ function createExplorerClient(
         range(from: number, to: number) {
           state.range = [from, to];
           calls.push({ ...state });
-          return Promise.resolve({
-            data: fixtures.products ?? [],
-            error: null,
-            count: fixtures.productCount ?? 0,
-          });
+          return Promise.resolve({ data: [], error: null, count: 0 });
         },
         limit(count: number) {
           state.limit = count;
           calls.push({ ...state });
-          if (table === "product_variants") {
-            return Promise.resolve({
-              data: fixtures.variants ?? [],
-              error: null,
-            });
-          }
-          if (table === "inventory") {
-            return Promise.resolve({
-              data: fixtures.inventory ?? [],
-              error: null,
-            });
-          }
           if (table === "product_images") {
             return Promise.resolve({
               data: fixtures.images ?? [],

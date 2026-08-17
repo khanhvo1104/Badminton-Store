@@ -1,14 +1,6 @@
 export const PRODUCTS_LIST_PATH = "/dashboard/products";
 export const PRODUCTS_ROUTE = PRODUCTS_LIST_PATH;
-
-export const PRODUCT_LIST_COLUMNS =
-  "id, category_id, brand_id, name, slug, status, is_featured, published_at, updated_at" as const;
-
-export const PRODUCT_VARIANT_LIST_COLUMNS =
-  "id, product_id, price, is_active" as const;
-
-export const PRODUCT_INVENTORY_LIST_COLUMNS =
-  "variant_id, quantity_on_hand, quantity_reserved, reorder_level" as const;
+export const LIST_CMS_PRODUCTS_RPC = "list_cms_products";
 
 export const PRODUCT_IMAGE_LIST_COLUMNS =
   "product_id, storage_path, variant_id, is_primary" as const;
