@@ -127,6 +127,14 @@ clamped pagination, and deterministic `sort_order, name, id` ordering. Mutations
 are Server Actions that call `authorizeCmsRequest` again, validate hierarchy,
 and compensate Storage uploads against `category-assets`.
 
+Brand management lives under `cms/src/features/brands/` with App Router pages at
+`cms/src/app/dashboard/brands/`. List reads use explicit brand columns, clamped
+pagination, and the same deterministic `sort_order, name, id` ordering.
+Mutations are Server Actions that call `authorizeCmsRequest` again, validate
+optional HTTPS website URLs, treat slug uniqueness conflicts as field errors,
+and compensate Storage uploads against `brand-assets`. Logo previews use the
+public object URL and never inline SVG.
+
 ## Catalog data flow
 
 ### Read

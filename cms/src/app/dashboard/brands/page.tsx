@@ -1,13 +1,89 @@
-import { CatalogPlaceholderPage } from "@/features/dashboard/components/catalog-placeholder-page";
+import Link from "next/link";
 
-export default function BrandsPlaceholderPage() {
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+import { BrandList } from "@/features/brands/components/brand-list";
+import { BRANDS_NEW_PATH } from "@/features/brands/constants";
+import {
+  listBrands,
+  type BrandListQueryClient,
+} from "@/features/brands/queries";
+import { brandSuccessMessage } from "@/features/brands/success-message";
+import { parseBrandPagination } from "@/features/brands/validation";
+import { getPublicEnvironment } from "@/lib/env/public-env";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
+
+type BrandsPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function BrandsPage({ searchParams }: BrandsPageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const pagination = parseBrandPagination(resolvedSearchParams);
+  const successMessage = brandSuccessMessage(resolvedSearchParams.success);
+
+  const environment = getPublicEnvironment();
+  const supabase = await createSupabaseServerClient();
+  const listed = await listBrands({
+    supabase: supabase as unknown as BrandListQueryClient,
+    pagination,
+    supabaseUrl: environment.supabaseUrl,
+  });
+
   return (
-    <CatalogPlaceholderPage
-      eyebrow="Brands"
-      title="Brands"
-      description="Brand listing and editing are not available in this shell task."
-      emptyTitle="Brand management comes next"
-      emptyDescription="This protected placeholder keeps navigation ready. Brand CRUD arrives in a later catalog task and will not query data from this page yet."
-    />
+    <div className="mx-auto max-w-6xl space-y-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-3">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
+            Brands
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            Brand management
+          </h1>
+          <p className="max-w-3xl text-base leading-7 text-slate-300">
+            Create, edit, order, and activate catalog brands. Inactive rows stay
+            available to CMS staff and remain hidden from public readers.
+          </p>
+        </div>
+        <Link
+          href={BRANDS_NEW_PATH}
+          className="inline-flex rounded-full bg-emerald-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+        >
+          New brand
+        </Link>
+      </header>
+
+      {successMessage ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="rounded-3xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100"
+        >
+          {successMessage}
+        </p>
+      ) : null}
+
+      {!listed.ok ? (
+        <ErrorState title="Brands unavailable" description={listed.message} />
+      ) : listed.result.totalCount === 0 &&
+        listed.result.pagination.page > 1 ? (
+        <EmptyState
+          title="No brands on this page"
+          description="This page is outside the current result set. Go back to the first page."
+          action={
+            <Link
+              href="/dashboard/brands"
+              className="inline-flex rounded-full bg-emerald-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+            >
+              Back to first page
+            </Link>
+          }
+        />
+      ) : (
+        <BrandList result={listed.result} />
+      )}
+    </div>
   );
 }
