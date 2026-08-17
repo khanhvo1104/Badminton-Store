@@ -1,6 +1,13 @@
 "use client";
 
-import { useActionState, type ReactNode } from "react";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useActionState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { useFormStatus } from "react-dom";
 
 import { createBrand } from "@/features/brands/actions/create-brand";
@@ -34,12 +41,7 @@ export function BrandForm({
   const values = state.values;
 
   return (
-    <form
-      action={formAction}
-      className="space-y-6"
-      noValidate
-      encType="multipart/form-data"
-    >
+    <form action={formAction} className="space-y-6" noValidate>
       {mode === "edit" && brandId ? (
         <input type="hidden" name="id" value={brandId} />
       ) : null}
@@ -201,20 +203,67 @@ function Field({
   error?: string;
   children: ReactNode;
 }) {
+  const helpId = `${id}-help`;
+  const errorId = `${id}-error`;
+  const describedBy = error ? `${helpId} ${errorId}` : helpId;
+
   return (
     <div className="space-y-2">
       <label htmlFor={id} className="text-sm font-medium text-slate-100">
         {label}
       </label>
-      {children}
-      <p className="text-xs text-slate-400">{help}</p>
+      {associateFieldControl(children, id, describedBy, Boolean(error))}
+      <p id={helpId} className="text-xs text-slate-400">
+        {help}
+      </p>
       {error ? (
-        <p className="text-sm text-rose-300" role="alert">
+        <p id={errorId} className="text-sm text-rose-300" role="alert">
           {error}
         </p>
       ) : null}
     </div>
   );
+}
+
+type DescribableProps = {
+  id?: string;
+  children?: ReactNode;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
+};
+
+function associateFieldControl(
+  children: ReactNode,
+  controlId: string,
+  describedBy: string,
+  invalid: boolean,
+): ReactNode {
+  return Children.map(children, (child) => {
+    if (!isValidElement(child)) {
+      return child;
+    }
+
+    const element = child as ReactElement<DescribableProps>;
+    if (element.props.id === controlId) {
+      return cloneElement(element, {
+        "aria-describedby": describedBy,
+        ...(invalid ? { "aria-invalid": true } : {}),
+      });
+    }
+
+    if (element.props.children) {
+      return cloneElement(element, {
+        children: associateFieldControl(
+          element.props.children,
+          controlId,
+          describedBy,
+          invalid,
+        ),
+      });
+    }
+
+    return child;
+  });
 }
 
 function SubmitButton({ label }: { label: string }) {
