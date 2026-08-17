@@ -99,6 +99,20 @@ failures, and upload optional images to the public `category-assets` bucket with
 compensation for partial failures. Reads and writes use the cookie-backed SSR
 client only; there is no client-side Supabase access for categories.
 
+### Brand management
+
+`/dashboard/brands` lists brands with deterministic ordering, clamped pagination,
+status, country, website, sort order, and logo preview. Staff can create and
+edit brands at `/dashboard/brands/new` and `/dashboard/brands/[brandId]/edit`.
+
+Server Actions re-authorize active staff/admin before every mutation, validate
+name, slug, optional HTTPS website URL, country, sort order, and activation,
+sanitize slug conflicts and provider failures, and upload optional logos to the
+public `brand-assets` bucket with compensation for partial failures. Logos are
+rendered through the public object URL and never inlined as SVG. Reads and
+writes use the cookie-backed SSR client only; there is no client-side Supabase
+access for brands.
+
 Add new dashboard areas by extending
 `src/lib/navigation/dashboard-routes.ts` and placing pages under
 `src/app/dashboard/`. Do not trust client state or URL text for roles or
