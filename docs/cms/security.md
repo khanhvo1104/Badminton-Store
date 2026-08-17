@@ -131,6 +131,11 @@ The authenticated session remains subject to the RPC’s trusted-profile check, 
 a service-role browser or server client is unnecessary for cost reads. Do not
 cache cost responses across users or weaken the column grant matrix.
 
+The CMS product explorer at `/dashboard/products` reads selling prices from
+`product_variants` with the cookie-backed user JWT and never selects
+`cost_price` or calls `get_staff_variant_costs`. Inventory summaries are
+server-rendered after `authorizeCmsRequest`.
+
 ## Inventory and state transitions
 
 The CMS must not treat direct client-side updates as sufficient for stock or

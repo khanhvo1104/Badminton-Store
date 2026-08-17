@@ -111,7 +111,7 @@ describe("DashboardOverviewPage", () => {
       "href",
       "/dashboard/products",
     );
-    expect(screen.getByRole("link", { name: /inventory/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^Inventory\b/ })).toHaveAttribute(
       "href",
       "/dashboard/inventory",
     );
@@ -122,39 +122,18 @@ describe("DashboardOverviewPage", () => {
 });
 
 describe("dashboard placeholder pages", () => {
-  it("renders product and inventory placeholders", async () => {
-    const { default: ProductsPage } = await import(
-      "@/app/dashboard/products/page"
-    );
+  it("renders the inventory placeholder", async () => {
     const { default: InventoryPage } = await import(
       "@/app/dashboard/inventory/page"
     );
 
-    const cases = [
-      {
-        page: <ProductsPage />,
-        heading: "Products",
-        emptyTitle: "Product management comes next",
-      },
-      {
-        page: <InventoryPage />,
-        heading: "Inventory",
-        emptyTitle: "Inventory tools come next",
-      },
-    ];
-
-    for (const item of cases) {
-      const view = render(item.page);
-      expect(
-        screen.getByRole("heading", { name: item.heading }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("heading", { name: item.emptyTitle }),
-      ).toBeInTheDocument();
-      view.unmount();
-    }
-
     render(<InventoryPage />);
+    expect(
+      screen.getByRole("heading", { name: "Inventory" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Inventory tools come next" }),
+    ).toBeInTheDocument();
     expect(
       screen.queryByText(/select \*|mutation|sql/i),
     ).not.toBeInTheDocument();

@@ -135,6 +135,13 @@ optional HTTPS website URLs, treat slug uniqueness conflicts as field errors,
 and compensate Storage uploads against `brand-assets`. Logo previews use the
 public object URL and never inline SVG.
 
+Product explorer lives under `cms/src/features/products/` with the App Router
+page at `cms/src/app/dashboard/products/`. List reads use explicit product,
+variant, inventory, and image columns, clamped pagination, and deterministic
+ordering with an `id` tie-breaker before `.range(from, to)`. Related reads are
+batched for the current product page only. The page calls `authorizeCmsRequest`
+before operational inventory reads and never selects `cost_price`.
+
 ## Catalog data flow
 
 ### Read

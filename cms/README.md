@@ -113,6 +113,20 @@ rendered through the public object URL and never inlined as SVG. Reads and
 writes use the cookie-backed SSR client only; there is no client-side Supabase
 access for brands.
 
+### Product explorer
+
+`/dashboard/products` is a read-only product explorer for active staff and
+admins. It paginates on the server, searches name and slug with escaped literal
+input, and filters by category, brand, status, and stock. Each row shows
+identity, status, featured state, primary image, variant counts, selling-price
+range, and a staff-safe inventory summary. Cost price is never selected. Related
+variants, inventory, and primary images are loaded only for the current page of
+product IDs. The product editor is not available yet and is shown as a disabled
+affordance rather than a broken link.
+
+Reads use the cookie-backed SSR client and re-check `authorizeCmsRequest` before
+inventory access. There is no client-side Supabase access for products.
+
 Add new dashboard areas by extending
 `src/lib/navigation/dashboard-routes.ts` and placing pages under
 `src/app/dashboard/`. Do not trust client state or URL text for roles or
