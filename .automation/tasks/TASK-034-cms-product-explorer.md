@@ -27,7 +27,9 @@ Risk: high
   `is_primary is true`) through a public object URL; SVG must never be rendered
   inline.
 - Existing explicit grants and RLS/security-contract tests are the source of truth.
-  No schema, view, RPC, policy, grant, bucket, or migration change is required.
+  The base tables do not provide a correct globally aggregated price/stock sort and
+  filter contract before pagination, so this task requires one narrowly scoped
+  read-only database function and a new migration plus executable security tests.
 
 ## Scope
 
@@ -56,8 +58,19 @@ Risk: high
 - Use a bounded query plan: fetch only the requested product page and then fetch
   related variants, inventory, and primary images only for IDs from that page.
   Batch/relational reads are allowed; per-row N+1 queries and unbounded fallback
-  reads are forbidden. Supabase `.range(from, to)` is zero-based and inclusive and
-  must follow deterministic ordering.
+  reads are forbidden. The database function must apply deterministic ordering
+  before its validated offset/limit pagination.
+- Add one read-only `public.list_cms_products` database function that performs the
+  product/variant/inventory aggregation, filtering, deterministic sorting, exact
+  filtered count, and pagination atomically in Postgres. It must be `SECURITY
+  INVOKER`, include an explicit trusted `is_staff_or_admin()` authorization
+  predicate, use a fixed enum/CASE sort contract rather than dynamic SQL, expose no
+  cost/barcode/customer data, set a safe search path, revoke EXECUTE from `PUBLIC`
+  and `anon`, and grant EXECUTE only to `authenticated` and `service_role`.
+- Create the migration with the installed Supabase CLI. Extend executable database
+  tests to prove staff/admin success; anonymous/customer/inactive/forged denial;
+  no protected columns in the return contract; correct filtered count and stable
+  cross-page stock/price ordering. Do not edit an existing migration.
 - Keep all Supabase access in Server Components/server-only feature queries using
   the cookie-backed SSR client and user JWT. Authorize with `authorizeCmsRequest`
   before operational inventory reads. Return narrow mapped DTOs and sanitized,
@@ -78,10 +91,12 @@ Risk: high
 - Do not mutate variants, prices, inventory, media, categories, or brands.
 - Do not implement product detail/editor, variant editor, inventory adjustments,
   media management, CSV export/import, dashboards, or analytics.
-- Do not add fuzzy search, a new search RPC/view, database aggregate function,
-  schema/index optimization, dependencies, or client-side Supabase access.
-- Do not change Flutter, authentication, password recovery, CI, migrations, RLS,
-  grants, Storage policies, or bucket configuration.
+- Do not add fuzzy search, a general-purpose view, schema/index optimization,
+  dependencies, or client-side Supabase access. The single task-specific read-only
+  function described above is the only allowed database surface.
+- Do not change Flutter, authentication, password recovery, CI, table RLS policies,
+  Storage policies, or bucket configuration beyond the single function migration
+  and its explicit function EXECUTE grants.
 
 ## Allowed paths
 
@@ -96,6 +111,8 @@ Risk: high
 - `cms/src/app/dashboard/dashboard.test.tsx`
 - `cms/README.md`
 - `docs/cms/`
+- `supabase/migrations/`
+- `supabase/tests/database/`
 - `.automation/backlog.json`
 
 ## Acceptance criteria
@@ -105,9 +122,13 @@ Risk: high
 - Product, category, brand, variant, inventory, and image reads select explicit
   columns only. There is no `.select('*')`, service-role client, protected cost
   field, client-side Supabase request, N+1 loop, or unbounded related-data query.
+- The explorer obtains its paged aggregate result from `list_cms_products`; stock
+  filtering and price sorting happen before pagination/count in Postgres, not on a
+  page-local JavaScript array. An arbitrary larger read cap is not an acceptable
+  substitute.
 - Pagination is strictly parsed/clamped, total count drives valid navigation, and
-  every paged/sorted query uses deterministic order with an `id` tie-breaker before
-  the inclusive `.range(from, to)` modifier.
+  every paged/sorted function result uses deterministic order with an `id`
+  tie-breaker before applying its offset/limit.
 - Search is length-bounded and safely escaped/encoded; crafted commas, parentheses,
   percent signs, underscores, quotes, and PostgREST operators cannot alter filter
   structure or expose products outside the intended staff query.
@@ -122,11 +143,12 @@ Risk: high
 - Loading, empty, filtered-empty, error/retry, and populated states are responsive
   and accessible; status and stock meaning is available as text and not color-only.
 - Focused network-free tests cover query parsing, search escaping, each filter and
-  sort contract, zero-based inclusive ranges, stable tie-breakers, bounded related
+  sort contract, validated page offsets/limits, stable tie-breakers, bounded related
   reads, mapping/aggregation, null/missing data, sanitization, authorization, and
   primary page/filter/list states.
-- Existing CMS auth/dashboard/category/brand tests remain green. No migration,
-  dependency, Flutter, secret, or generated-output change is present.
+- Existing CMS auth/dashboard/category/brand tests remain green. Exactly one new
+  task migration is present; no dependency, Flutter, secret, or generated-output
+  change is present.
 
 ## Required quality gates
 
@@ -148,7 +170,10 @@ Risk: high
 - Run the existing CMS security contract/RLS regression suite if the local
   Supabase stack is available. If unavailable, report the exact blocker and rely
   only on versioned contract tests; do not claim live verification.
-- Run `supabase migration list --local` and confirm this task creates no migration.
+- Create the required migration with `supabase migration new`, apply it locally,
+  run `supabase migration list --local`, and confirm local migration history.
+- Run the extended RLS/CMS security contract and database checklist against the
+  local stack; this high-risk database change may not rely only on mocked CMS tests.
 
 ## Forbidden actions
 
