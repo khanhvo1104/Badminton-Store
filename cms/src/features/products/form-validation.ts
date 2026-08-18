@@ -8,6 +8,7 @@ import {
   PRODUCT_SLUG_MAX_LENGTH,
   PRODUCT_SLUG_PATTERN,
   PRODUCT_STATUSES,
+  PRODUCT_STATUS_INVALID_MESSAGE,
 } from "@/features/products/constants";
 import {
   formatSpecificationsForForm,
@@ -36,7 +37,6 @@ export function suggestProductSlugFromName(name: string): string {
 }
 
 export function readProductFormValues(formData: FormData): ProductFormValues {
-  const statusRaw = readTrimmed(formData, "status");
   return {
     categoryId: readTrimmed(formData, "category_id"),
     brandId: readTrimmed(formData, "brand_id"),
@@ -47,7 +47,7 @@ export function readProductFormValues(formData: FormData): ProductFormValues {
     description: readString(formData, "description"),
     specifications: readString(formData, "specifications"),
     searchKeywords: readTrimmed(formData, "search_keywords"),
-    status: isProductStatus(statusRaw) ? statusRaw : "draft",
+    status: readTrimmed(formData, "status"),
     isFeatured: readCheckbox(formData, "is_featured"),
     publishedAt: readTrimmed(formData, "published_at"),
   };
@@ -115,6 +115,7 @@ export function validateProductFormValues(
   const description = values.description.trim();
   const searchKeywords = values.searchKeywords.trim();
   const publishedAtRaw = values.publishedAt.trim();
+  const statusRaw = values.status.trim();
 
   if (!name) {
     fieldErrors.name = "Enter a product name.";
@@ -164,17 +165,25 @@ export function validateProductFormValues(
     fieldErrors.specifications = specifications.message;
   }
 
-  if (!isProductStatus(values.status)) {
-    fieldErrors.status = "Choose a valid product status.";
+  let status: ProductStatus | null = null;
+  if (!statusRaw) {
+    fieldErrors.status = PRODUCT_STATUS_INVALID_MESSAGE;
+  } else if (!isProductStatus(statusRaw)) {
+    fieldErrors.status = PRODUCT_STATUS_INVALID_MESSAGE;
+  } else {
+    status = statusRaw;
   }
 
-  const publishedAt = resolvePublishedAt({
-    status: values.status,
-    publishedAtRaw,
-    existingPublishedAt: options.existingPublishedAt,
-    now: options.now ?? (() => new Date()),
-    fieldErrors,
-  });
+  let publishedAt: string | null | undefined = null;
+  if (status) {
+    publishedAt = resolvePublishedAt({
+      status,
+      publishedAtRaw,
+      existingPublishedAt: options.existingPublishedAt,
+      now: options.now ?? (() => new Date()),
+      fieldErrors,
+    });
+  }
 
   if (Object.keys(fieldErrors).length > 0) {
     return { ok: false, fieldErrors };
@@ -188,7 +197,7 @@ export function validateProductFormValues(
     return { ok: false, fieldErrors };
   }
 
-  if (publishedAt === undefined) {
+  if (publishedAt === undefined || status === null) {
     return { ok: false, fieldErrors };
   }
 
@@ -203,7 +212,7 @@ export function validateProductFormValues(
       description: description.length > 0 ? description : null,
       specifications: specifications.value,
       searchKeywords: searchKeywords.length > 0 ? searchKeywords : null,
-      status: values.status,
+      status,
       isFeatured: values.isFeatured,
       publishedAt,
     },
@@ -239,6 +248,7 @@ export function preserveSafeProductValues(
     categoryId: values.categoryId.trim(),
     brandId: values.brandId.trim(),
     searchKeywords: values.searchKeywords.trim(),
+    status: values.status.trim(),
     publishedAt: values.publishedAt.trim(),
   };
 }

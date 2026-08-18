@@ -123,7 +123,7 @@ export type ProductFormValues = {
   description: string;
   specifications: string;
   searchKeywords: string;
-  status: ProductStatus;
+  status: string;
   isFeatured: boolean;
   publishedAt: string;
 };

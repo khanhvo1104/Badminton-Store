@@ -6,6 +6,7 @@ import {
   PRODUCT_PUBLISHED_AT_INVALID_MESSAGE,
   PRODUCT_SLUG_CONFLICT_MESSAGE,
   PRODUCT_SPEC_INVALID_MESSAGE,
+  PRODUCT_STATUS_INVALID_MESSAGE,
 } from "@/features/products/constants";
 import {
   assertNoProviderLeak,
@@ -91,6 +92,48 @@ describe("product form validation", () => {
         PRODUCT_SPEC_INVALID_MESSAGE,
       );
       expect(parsed.values.brandId).toBe("bad-brand");
+    }
+  });
+
+  it("rejects missing or unknown product status without coercing to draft", () => {
+    const missing = parseProductFormInput(
+      formDataFrom({
+        category_id: CATEGORY_ID,
+        name: "Draft Product",
+        slug: "draft-product",
+      }),
+    );
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) {
+      expect(missing.fieldErrors.status).toBe(PRODUCT_STATUS_INVALID_MESSAGE);
+      expect(missing.values.status).toBe("");
+    }
+
+    const unknown = parseProductFormInput(
+      formDataFrom({
+        category_id: CATEGORY_ID,
+        name: "Draft Product",
+        slug: "draft-product",
+        status: "published",
+      }),
+    );
+    expect(unknown.ok).toBe(false);
+    if (!unknown.ok) {
+      expect(unknown.fieldErrors.status).toBe(PRODUCT_STATUS_INVALID_MESSAGE);
+      expect(unknown.values.status).toBe("published");
+    }
+
+    const draft = parseProductFormInput(
+      formDataFrom({
+        category_id: CATEGORY_ID,
+        name: "Draft Product",
+        slug: "draft-product",
+        status: "draft",
+      }),
+    );
+    expect(draft.ok).toBe(true);
+    if (draft.ok) {
+      expect(draft.data.status).toBe("draft");
     }
   });
 
