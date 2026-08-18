@@ -1,0 +1,411 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { INITIAL_PRODUCT_FORM_STATE } from "@/features/products/product-form-state";
+import {
+  PRODUCT_MUTATION_AUTH_DENIED_MESSAGE,
+  PRODUCT_NOT_FOUND_MESSAGE,
+  PRODUCT_SLUG_CONFLICT_MESSAGE,
+  PRODUCT_STATUS_INVALID_MESSAGE,
+} from "@/features/products/constants";
+
+const requireProductActionAuth = vi.hoisted(() => vi.fn());
+const revalidatePath = vi.hoisted(() => vi.fn());
+const redirect = vi.hoisted(() => vi.fn());
+
+vi.mock("@/features/products/action-utils", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/features/products/action-utils")
+  >("@/features/products/action-utils");
+  return {
+    ...actual,
+    requireProductActionAuth,
+  };
+});
+
+vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("next/navigation", () => ({ redirect }));
+
+const CATEGORY_ID = "10000000-0000-4000-8000-000000000001";
+const PRODUCT_ID = "30000000-0000-4000-8000-000000000099";
+const FORGED_PRODUCT_ID = "30000000-0000-4000-8000-000000000088";
+
+const PRODUCT_DETAIL_ROW = {
+  id: PRODUCT_ID,
+  category_id: CATEGORY_ID,
+  brand_id: null,
+  name: "Aero Strike",
+  slug: "aero-strike",
+  short_description: null,
+  description: null,
+  specifications: {},
+  search_keywords: null,
+  status: "draft",
+  is_featured: false,
+  published_at: null,
+  updated_at: "2026-01-02T00:00:00.000Z",
+};
+
+const ACTIVE_PRODUCT_DETAIL_ROW = {
+  ...PRODUCT_DETAIL_ROW,
+  status: "active",
+  published_at: "2026-01-02T00:00:00.000Z",
+};
+
+function validFormData(overrides: Record<string, string> = {}): FormData {
+  const data = new FormData();
+  data.set("category_id", overrides.category_id ?? CATEGORY_ID);
+  data.set("brand_id", overrides.brand_id ?? "");
+  data.set("name", overrides.name ?? "Aero Strike");
+  data.set("slug", overrides.slug ?? "aero-strike");
+  data.set("slug_manual", overrides.slug_manual ?? "true");
+  data.set("short_description", overrides.short_description ?? "");
+  data.set("description", overrides.description ?? "");
+  data.set("specifications", overrides.specifications ?? "");
+  data.set("search_keywords", overrides.search_keywords ?? "");
+  data.set("status", overrides.status ?? "draft");
+  data.set("is_featured", overrides.is_featured ?? "false");
+  data.set("published_at", overrides.published_at ?? "");
+  return data;
+}
+
+function mockAuthorizedSupabase(options: {
+  insert?: ReturnType<typeof vi.fn>;
+  update?: ReturnType<typeof vi.fn>;
+  productRow?: typeof PRODUCT_DETAIL_ROW | typeof ACTIVE_PRODUCT_DETAIL_ROW;
+}) {
+  const insert = options.insert ?? vi.fn();
+  const update = options.update ?? vi.fn();
+  const productRow = options.productRow ?? PRODUCT_DETAIL_ROW;
+
+  requireProductActionAuth.mockResolvedValue({
+    ok: true,
+    supabase: {
+      from: vi.fn((table: string) => {
+        if (table === "products") {
+          return {
+            insert,
+            update,
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: productRow,
+                  error: null,
+                }),
+              })),
+            })),
+          };
+        }
+
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: CATEGORY_ID, is_active: true },
+                error: null,
+              }),
+            })),
+          })),
+        };
+      }),
+    },
+  });
+
+  return { insert, update };
+}
+
+describe("createProduct", () => {
+  beforeEach(() => {
+    requireProductActionAuth.mockReset();
+    revalidatePath.mockReset();
+    redirect.mockReset();
+  });
+
+  it("denies unauthorized callers without writing", async () => {
+    const insert = vi.fn();
+    requireProductActionAuth.mockResolvedValue({
+      ok: false,
+      state: {
+        status: "error",
+        message: PRODUCT_MUTATION_AUTH_DENIED_MESSAGE,
+        fieldErrors: {},
+        values: INITIAL_PRODUCT_FORM_STATE.values,
+      },
+    });
+
+    const { createProduct } = await import(
+      "@/features/products/actions/create-product"
+    );
+    const result = await createProduct(
+      INITIAL_PRODUCT_FORM_STATE,
+      validFormData(),
+    );
+    expect(result.message).toBe(PRODUCT_MUTATION_AUTH_DENIED_MESSAGE);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("creates a product and revalidates on success", async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    requireProductActionAuth.mockResolvedValue({
+      ok: true,
+      supabase: {
+        from: vi.fn((table: string) => {
+          if (table === "products") {
+            return { insert };
+          }
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id: CATEGORY_ID, is_active: true },
+                  error: null,
+                }),
+              })),
+            })),
+          };
+        }),
+      },
+    });
+    redirect.mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    const { createProduct } = await import(
+      "@/features/products/actions/create-product"
+    );
+    await expect(
+      createProduct(INITIAL_PRODUCT_FORM_STATE, validFormData()),
+    ).rejects.toThrow("NEXT_REDIRECT");
+    expect(insert).toHaveBeenCalled();
+    expect(revalidatePath).toHaveBeenCalledWith("/dashboard/products");
+    expect(revalidatePath).toHaveBeenCalledWith("/dashboard/products/new");
+  });
+
+  it("returns a sanitized slug conflict", async () => {
+    const insert = vi.fn().mockResolvedValue({
+      error: {
+        code: "23505",
+        message:
+          'duplicate key value violates unique constraint "products_slug_unique"',
+      },
+    });
+    requireProductActionAuth.mockResolvedValue({
+      ok: true,
+      supabase: {
+        from: vi.fn((table: string) => {
+          if (table === "products") {
+            return { insert };
+          }
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id: CATEGORY_ID, is_active: true },
+                  error: null,
+                }),
+              })),
+            })),
+          };
+        }),
+      },
+    });
+
+    const { createProduct } = await import(
+      "@/features/products/actions/create-product"
+    );
+    const result = await createProduct(
+      INITIAL_PRODUCT_FORM_STATE,
+      validFormData(),
+    );
+    expect(result.fieldErrors.slug).toBe(PRODUCT_SLUG_CONFLICT_MESSAGE);
+    expect(result.message).toBe(PRODUCT_SLUG_CONFLICT_MESSAGE);
+  });
+
+  it("rejects missing status without inserting", async () => {
+    const { insert } = mockAuthorizedSupabase({});
+
+    const { createProduct } = await import(
+      "@/features/products/actions/create-product"
+    );
+    const formData = validFormData();
+    formData.delete("status");
+
+    const result = await createProduct(INITIAL_PRODUCT_FORM_STATE, formData);
+
+    expect(result.fieldErrors.status).toBe(PRODUCT_STATUS_INVALID_MESSAGE);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown status without inserting", async () => {
+    const { insert } = mockAuthorizedSupabase({});
+
+    const { createProduct } = await import(
+      "@/features/products/actions/create-product"
+    );
+    const result = await createProduct(
+      INITIAL_PRODUCT_FORM_STATE,
+      validFormData({ status: "published" }),
+    );
+
+    expect(result.fieldErrors.status).toBe(PRODUCT_STATUS_INVALID_MESSAGE);
+    expect(result.values.status).toBe("published");
+    expect(insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateProduct", () => {
+  beforeEach(() => {
+    requireProductActionAuth.mockReset();
+    revalidatePath.mockReset();
+    redirect.mockReset();
+  });
+
+  it("rejects invalid bound product ids before writing", async () => {
+    const update = vi.fn();
+    requireProductActionAuth.mockResolvedValue({
+      ok: true,
+      supabase: { from: () => ({ update }) },
+    });
+
+    const { updateProduct } = await import(
+      "@/features/products/actions/update-product"
+    );
+
+    const result = await updateProduct(
+      "not-a-uuid",
+      INITIAL_PRODUCT_FORM_STATE,
+      validFormData(),
+    );
+    expect(result.message).toBe(PRODUCT_NOT_FOUND_MESSAGE);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("returns not found when the bound product row is missing", async () => {
+    requireProductActionAuth.mockResolvedValue({
+      ok: true,
+      supabase: {
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi
+                .fn()
+                .mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+          update: vi.fn(),
+        })),
+      },
+    });
+
+    const { updateProduct } = await import(
+      "@/features/products/actions/update-product"
+    );
+
+    const result = await updateProduct(
+      PRODUCT_ID,
+      INITIAL_PRODUCT_FORM_STATE,
+      validFormData(),
+    );
+    expect(result.message).toBe(PRODUCT_NOT_FOUND_MESSAGE);
+  });
+
+  it("ignores a forged form id and updates the bound route product only", async () => {
+    const eqUpdate = vi.fn(() => ({
+      select: vi.fn(() => ({
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: PRODUCT_ID },
+          error: null,
+        }),
+      })),
+    }));
+    const update = vi.fn(() => ({ eq: eqUpdate }));
+
+    requireProductActionAuth.mockResolvedValue({
+      ok: true,
+      supabase: {
+        from: vi.fn((table: string) => {
+          if (table === "products") {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: PRODUCT_DETAIL_ROW,
+                    error: null,
+                  }),
+                })),
+              })),
+              update,
+            };
+          }
+
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id: CATEGORY_ID, is_active: true },
+                  error: null,
+                }),
+              })),
+            })),
+          };
+        }),
+      },
+    });
+    redirect.mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    const { updateProduct } = await import(
+      "@/features/products/actions/update-product"
+    );
+    const formData = validFormData({ name: "Forged target attempt" });
+    formData.set("id", FORGED_PRODUCT_ID);
+
+    await expect(
+      updateProduct(PRODUCT_ID, INITIAL_PRODUCT_FORM_STATE, formData),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(update).toHaveBeenCalled();
+    expect(eqUpdate).toHaveBeenCalledWith("id", PRODUCT_ID);
+    expect(eqUpdate).not.toHaveBeenCalledWith("id", FORGED_PRODUCT_ID);
+  });
+
+  it("rejects missing status on an active product without updating", async () => {
+    const { update } = mockAuthorizedSupabase({
+      productRow: ACTIVE_PRODUCT_DETAIL_ROW,
+    });
+
+    const { updateProduct } = await import(
+      "@/features/products/actions/update-product"
+    );
+    const formData = validFormData();
+    formData.delete("status");
+
+    const result = await updateProduct(
+      PRODUCT_ID,
+      INITIAL_PRODUCT_FORM_STATE,
+      formData,
+    );
+
+    expect(result.fieldErrors.status).toBe(PRODUCT_STATUS_INVALID_MESSAGE);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown status on an active product without updating", async () => {
+    const { update } = mockAuthorizedSupabase({
+      productRow: ACTIVE_PRODUCT_DETAIL_ROW,
+    });
+
+    const { updateProduct } = await import(
+      "@/features/products/actions/update-product"
+    );
+    const result = await updateProduct(
+      PRODUCT_ID,
+      INITIAL_PRODUCT_FORM_STATE,
+      validFormData({ status: "published" }),
+    );
+
+    expect(result.fieldErrors.status).toBe(PRODUCT_STATUS_INVALID_MESSAGE);
+    expect(result.values.status).toBe("published");
+    expect(update).not.toHaveBeenCalled();
+  });
+});

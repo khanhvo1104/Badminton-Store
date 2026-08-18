@@ -161,13 +161,18 @@ describe("ProductsPage", () => {
       "href",
       "/dashboard/products",
     );
-    expect(screen.getAllByText("Editor unavailable")[0]).toHaveAttribute(
-      "aria-disabled",
-      "true",
+    expect(screen.getByRole("link", { name: "New product" })).toHaveAttribute(
+      "href",
+      "/dashboard/products/new",
     );
-    expect(
-      screen.queryByRole("link", { name: "Editor unavailable" }),
-    ).toBeNull();
+    expect(screen.getAllByRole("link", { name: "View" })[0]).toHaveAttribute(
+      "href",
+      `/dashboard/products/${PRODUCT_ID}`,
+    );
+    expect(screen.getAllByRole("link", { name: "Edit" })[0]).toHaveAttribute(
+      "href",
+      `/dashboard/products/${PRODUCT_ID}/edit`,
+    );
 
     listProducts.mockResolvedValue({
       ok: true,

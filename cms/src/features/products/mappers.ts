@@ -15,11 +15,16 @@ import {
   sellingPriceToCents,
 } from "@/features/products/money";
 import type {
+  ProductDetail,
   ProductInventorySummary,
   ProductListItem,
   ProductSort,
   ProductStatus,
 } from "@/features/products/types";
+import {
+  parseSpecificationsValue,
+  type SpecificationsJson,
+} from "@/features/products/specifications";
 import { isValidUuid } from "@/features/products/validation";
 
 export type ProductRow = {
@@ -599,4 +604,138 @@ function isParsableDate(value: string): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+export type ProductDetailRow = {
+  id: string;
+  category_id: string;
+  brand_id: string | null;
+  name: string;
+  slug: string;
+  short_description: string | null;
+  description: string | null;
+  specifications: SpecificationsJson;
+  search_keywords: string | null;
+  status: ProductStatus;
+  is_featured: boolean;
+  published_at: string | null;
+  updated_at: string;
+};
+
+export function isProductDetailRow(value: unknown): value is ProductDetailRow {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const mapped = mapProductDetailFields(value);
+  return mapped !== null;
+}
+
+export function mapProductDetail(options: {
+  row: ProductDetailRow;
+  categoryName: string | null;
+  brandName: string | null;
+}): ProductDetail {
+  const { row, categoryName, brandName } = options;
+
+  return {
+    id: row.id,
+    categoryId: row.category_id,
+    categoryName,
+    brandId: row.brand_id,
+    brandName,
+    name: row.name,
+    slug: row.slug,
+    shortDescription: row.short_description,
+    description: row.description,
+    specifications: row.specifications,
+    searchKeywords: row.search_keywords,
+    status: row.status,
+    statusLabel: PRODUCT_STATUS_LABELS[row.status],
+    isFeatured: row.is_featured,
+    featuredLabel: row.is_featured ? "Featured" : "Not featured",
+    publishedAt: row.published_at,
+    publishedAtLabel: formatTimestamp(row.published_at),
+    updatedAt: row.updated_at,
+    updatedAtLabel: formatTimestamp(row.updated_at),
+  };
+}
+
+function mapProductDetailFields(
+  value: Record<string, unknown>,
+): ProductDetailRow | null {
+  const id = value.id;
+  const categoryId = value.category_id;
+  const brandId = value.brand_id;
+  const name = value.name;
+  const slug = value.slug;
+  const shortDescription = value.short_description;
+  const description = value.description;
+  const specifications = value.specifications;
+  const searchKeywords = value.search_keywords;
+  const status = value.status;
+  const isFeatured = value.is_featured;
+  const publishedAt = value.published_at;
+  const updatedAt = value.updated_at;
+
+  if (typeof id !== "string" || !isValidUuid(id)) {
+    return null;
+  }
+  if (typeof categoryId !== "string" || !isValidUuid(categoryId)) {
+    return null;
+  }
+  if (brandId !== null && typeof brandId !== "string") {
+    return null;
+  }
+  if (typeof brandId === "string" && !isValidUuid(brandId)) {
+    return null;
+  }
+  if (typeof name !== "string" || typeof slug !== "string") {
+    return null;
+  }
+  if (shortDescription !== null && typeof shortDescription !== "string") {
+    return null;
+  }
+  if (description !== null && typeof description !== "string") {
+    return null;
+  }
+  if (searchKeywords !== null && typeof searchKeywords !== "string") {
+    return null;
+  }
+  if (typeof status !== "string" || !PRODUCT_STATUS_SET.has(status)) {
+    return null;
+  }
+  if (typeof isFeatured !== "boolean") {
+    return null;
+  }
+  if (publishedAt !== null && typeof publishedAt !== "string") {
+    return null;
+  }
+  if (typeof updatedAt !== "string" || !isParsableDate(updatedAt)) {
+    return null;
+  }
+  if (publishedAt !== null && !isParsableDate(publishedAt)) {
+    return null;
+  }
+
+  const parsedSpecifications = parseSpecificationsValue(specifications);
+  if (parsedSpecifications === null) {
+    return null;
+  }
+
+  return {
+    id,
+    category_id: categoryId,
+    brand_id: brandId,
+    name,
+    slug,
+    short_description: shortDescription,
+    description,
+    specifications: parsedSpecifications,
+    search_keywords: searchKeywords,
+    status: status as ProductStatus,
+    is_featured: isFeatured,
+    published_at: publishedAt,
+    updated_at: updatedAt,
+  };
 }

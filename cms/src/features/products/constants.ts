@@ -1,6 +1,34 @@
 export const PRODUCTS_LIST_PATH = "/dashboard/products";
 export const PRODUCTS_ROUTE = PRODUCTS_LIST_PATH;
+export const PRODUCTS_NEW_PATH = "/dashboard/products/new";
+
+export function productEditPath(productId: string): string {
+  return `${PRODUCTS_LIST_PATH}/${productId}/edit`;
+}
+
+export function productDetailPath(productId: string): string {
+  return `${PRODUCTS_LIST_PATH}/${productId}`;
+}
+
 export const LIST_CMS_PRODUCTS_RPC = "list_cms_products";
+
+export const PRODUCT_DETAIL_COLUMNS =
+  "id, category_id, brand_id, name, slug, short_description, description, specifications, search_keywords, status, is_featured, published_at, updated_at" as const;
+
+export const PRODUCT_MUTATION_COLUMNS = PRODUCT_DETAIL_COLUMNS;
+
+export const PRODUCT_NAME_MAX_LENGTH = 200;
+export const PRODUCT_SLUG_MAX_LENGTH = 120;
+export const PRODUCT_SHORT_DESCRIPTION_MAX_LENGTH = 500;
+export const PRODUCT_DESCRIPTION_MAX_LENGTH = 10_000;
+export const PRODUCT_SEARCH_KEYWORDS_MAX_LENGTH = 500;
+export const PRODUCT_SPEC_MAX_KEYS = 50;
+export const PRODUCT_SPEC_MAX_DEPTH = 3;
+export const PRODUCT_SPEC_MAX_KEY_LENGTH = 80;
+export const PRODUCT_SPEC_MAX_STRING_VALUE_LENGTH = 500;
+export const PRODUCT_SPEC_MAX_SERIALIZED_BYTES = 8192;
+
+export const PRODUCT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const PRODUCT_IMAGE_LIST_COLUMNS =
   "product_id, storage_path, variant_id, is_primary" as const;
@@ -94,10 +122,33 @@ export const PRODUCT_SORT_LABELS = {
 
 export const PRODUCT_AUTH_DENIED_MESSAGE =
   "You do not have permission to view products.";
+export const PRODUCT_MUTATION_AUTH_DENIED_MESSAGE =
+  "You do not have permission to manage products.";
 export const PRODUCT_LOAD_FAILURE_MESSAGE =
   "We couldn't load products right now. Try again in a moment.";
+export const PRODUCT_GENERIC_FAILURE_MESSAGE =
+  "We couldn't save that product. Check your input and try again.";
+export const PRODUCT_NOT_FOUND_MESSAGE = "That product could not be found.";
+export const PRODUCT_SLUG_CONFLICT_MESSAGE =
+  "That slug is already in use. Choose a different slug.";
+export const PRODUCT_INACTIVE_CATEGORY_MESSAGE =
+  "Choose an active category, or keep the current inactive category on this product.";
+export const PRODUCT_INACTIVE_BRAND_MESSAGE =
+  "Choose an active brand, or keep the current inactive brand on this product.";
+export const PRODUCT_CATEGORY_REQUIRED_MESSAGE = "Choose a category.";
+export const PRODUCT_PUBLISH_INACTIVE_CATEGORY_MESSAGE =
+  "Active products require an active category.";
+export const PRODUCT_PUBLISH_INACTIVE_BRAND_MESSAGE =
+  "Active products require an active brand.";
+export const PRODUCT_STATUS_INVALID_MESSAGE = "Choose a valid product status.";
+export const PRODUCT_SPEC_INVALID_MESSAGE =
+  "Specifications must be a JSON object with bounded keys and values.";
+export const PRODUCT_PUBLISHED_AT_INVALID_MESSAGE =
+  "Enter a valid publication date and time, or leave the field empty.";
+export const PRODUCT_SAVE_SUCCESS_MESSAGE = "Product saved.";
+
+export const PRODUCT_SUCCESS_CREATED = "created";
+export const PRODUCT_SUCCESS_UPDATED = "updated";
+
 export const PRODUCT_NO_PRICE_LABEL = "No price";
 export const PRODUCT_NO_INVENTORY_LABEL = "Inventory incomplete";
-export const PRODUCT_EDITOR_UNAVAILABLE_LABEL = "Editor unavailable";
-export const PRODUCT_EDITOR_UNAVAILABLE_HELP =
-  "The product editor arrives in a later catalog task.";

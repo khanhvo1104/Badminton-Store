@@ -113,17 +113,26 @@ rendered through the public object URL and never inlined as SVG. Reads and
 writes use the cookie-backed SSR client only; there is no client-side Supabase
 access for brands.
 
-### Product explorer
+### Product explorer and editor
 
 `/dashboard/products` is a read-only product explorer for active staff and
 admins. It paginates on the server, searches name and slug with escaped literal
 input, and filters by category, brand, status, and stock. Each row shows
 identity, status, featured state, primary image, variant counts, selling-price
-range, and a staff-safe inventory summary. Cost price is never selected. Aggregation, stock filtering, price sorting,
-exact filtered counts, and pagination run in `public.list_cms_products` before
-offset/limit. Primary images for the current page are loaded through bounded
-related reads. The product editor is not available yet and is shown as a disabled
-affordance rather than a broken link.
+range, and a staff-safe inventory summary. Cost price is never selected.
+Aggregation, stock filtering, price sorting, exact filtered counts, and
+pagination run in `public.list_cms_products` before offset/limit. Primary images
+for the current page are loaded through bounded related reads.
+
+Staff can create and edit core product fields at `/dashboard/products/new`,
+`/dashboard/products/[productId]`, and `/dashboard/products/[productId]/edit`.
+The editor covers category, optional brand, name, slug, descriptions,
+specifications JSON, search keywords, status, featured flag, and publication
+time. Variants, prices, inventory, media, delete, duplicate, and bulk flows
+remain out of scope. Server Actions re-authorize active staff/admin before every
+mutation, validate inactive category/brand rules, sanitize slug conflicts, and
+redirect outside action catch blocks after revalidating the explorer and detail
+routes.
 
 Reads use the cookie-backed SSR client and re-check `authorizeCmsRequest` before
 inventory access. There is no client-side Supabase access for products.
