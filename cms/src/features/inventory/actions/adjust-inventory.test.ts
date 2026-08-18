@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { INITIAL_INVENTORY_FORM_STATE } from "@/features/inventory/adjustment-form-state";
 import {
   ADJUST_CMS_INVENTORY_RPC,
+  INVENTORY_GENERIC_FAILURE_MESSAGE,
   INVENTORY_NOT_FOUND_MESSAGE,
   INVENTORY_QUANTITY_INVALID_MESSAGE,
   INVENTORY_SUCCESS_ADJUSTED,
@@ -125,4 +126,51 @@ describe("adjustInventory", () => {
     );
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["empty", []],
+    ["null", null],
+    ["multiple", [{ variant_id: VARIANT_ID }, { variant_id: VARIANT_ID }]],
+    ["malformed", [{ variant_id: "not-a-uuid" }]],
+    ["mismatched", [{ variant_id: FORGED_VARIANT_ID }]],
+    [
+      "extra stock fields",
+      [
+        {
+          variant_id: VARIANT_ID,
+          quantity_on_hand: 13,
+          quantity_reserved: 2,
+          reorder_level: 4,
+          allow_backorder: false,
+        },
+      ],
+    ],
+    ["protected cost_price", [{ variant_id: VARIANT_ID, cost_price: "1" }]],
+    ["protected barcode", [{ variant_id: VARIANT_ID, barcode: "x" }]],
+  ])(
+    "fail-closes a %s adjust payload without redirecting",
+    async (_label, data) => {
+      const rpc = vi.fn().mockResolvedValue({ data, error: null });
+      requireInventoryActionAuth.mockResolvedValue({
+        ok: true,
+        supabase: { rpc },
+      });
+
+      const { adjustInventory } = await import(
+        "@/features/inventory/actions/adjust-inventory"
+      );
+      const result = await adjustInventory(
+        VARIANT_ID,
+        INITIAL_INVENTORY_FORM_STATE,
+        validFormData(),
+      );
+
+      expect(result).toMatchObject({
+        status: "error",
+        message: INVENTORY_GENERIC_FAILURE_MESSAGE,
+      });
+      expect(revalidatePath).not.toHaveBeenCalled();
+      expect(redirect).not.toHaveBeenCalled();
+    },
+  );
 });

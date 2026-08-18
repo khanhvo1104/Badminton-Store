@@ -167,7 +167,9 @@ privileged workflow transitions. Inventory adjustments go through
 `search_path`, `is_staff_or_admin()` authorization, `auth.uid()` as actor,
 inventory row locking, and a same-transaction insert into immutable
 `public.inventory_history`. Direct authenticated INSERT/UPDATE/DELETE on
-history are closed. `public.list_cms_inventory` is SECURITY INVOKER and never
+history are closed. `adjust_cms_inventory` returns only `variant_id`; the CMS
+Server Action fail-closes empty, multiple, malformed, mismatched, or extra-field
+payloads. `public.list_cms_inventory` is SECURITY INVOKER and never
 selects `cost_price` or `barcode`. Reserved quantity cannot be edited. Future
 order status changes require explicit transition rules enforced server-side.
 

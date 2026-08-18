@@ -337,7 +337,11 @@ grant execute on function public.list_cms_inventory(
   text, text, text, integer, integer
 ) to authenticated, service_role;
 
-create or replace function public.adjust_cms_inventory(
+drop function if exists public.adjust_cms_inventory(
+  uuid, text, integer, boolean, text, text
+);
+
+create function public.adjust_cms_inventory(
   p_variant_id uuid,
   p_operation text,
   p_quantity integer,
@@ -346,11 +350,7 @@ create or replace function public.adjust_cms_inventory(
   p_note text
 )
 returns table (
-  variant_id uuid,
-  quantity_on_hand integer,
-  quantity_reserved integer,
-  reorder_level integer,
-  allow_backorder boolean
+  variant_id uuid
 )
 language plpgsql
 volatile
@@ -576,12 +576,7 @@ begin
   );
 
   return query
-  select
-    p_variant_id,
-    v_new_on_hand,
-    v_reserved,
-    v_new_reorder,
-    v_new_backorder;
+  select p_variant_id;
 end;
 $$;
 
@@ -594,7 +589,7 @@ comment on function public.adjust_cms_inventory(
   'and records auth.uid() as actor. Locks the variant, creates a missing '
   'inventory row when the variant exists, rejects negatives/overflow and '
   'reserved-invariant violations, and writes inventory plus history in one '
-  'transaction. Returns only variant_id and operational stock fields. EXECUTE '
+  'transaction. Returns only variant_id. EXECUTE '
   'granted to authenticated and service_role only.';
 
 revoke all on function public.adjust_cms_inventory(

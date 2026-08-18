@@ -331,6 +331,7 @@ declare
   v_secdef boolean;
   v_config text[];
   v_bad integer;
+  v_col text;
 begin
   select p.provolatile, p.prosecdef, p.proconfig
   into v_volatile, v_secdef, v_config
@@ -392,16 +393,54 @@ begin
   where n.nspname = 'public'
     and p.proname = 'adjust_cms_inventory'
     and args.ord > p.pronargs
-    and args.argname not in (
-      'variant_id',
-      'quantity_on_hand',
-      'quantity_reserved',
-      'reorder_level',
-      'allow_backorder'
-    );
+    and args.argname is distinct from 'variant_id';
   if v_bad <> 0 then
-    raise exception 'FAIL: adjust_cms_inventory return is not minimal';
+    raise exception 'FAIL: adjust_cms_inventory return is not variant_id only';
   end if;
+
+  select count(*) into v_bad
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  join unnest(p.proargnames) with ordinality as args(argname, ord) on true
+  where n.nspname = 'public'
+    and p.proname = 'adjust_cms_inventory'
+    and args.ord > p.pronargs
+    and args.argname = 'variant_id';
+  if v_bad <> 1 then
+    raise exception 'FAIL: adjust_cms_inventory must return exactly variant_id';
+  end if;
+
+  if pg_catalog.pg_get_function_result(v_adjust_sig::regprocedure)
+     is distinct from 'TABLE(variant_id uuid)'
+  then
+    raise exception 'FAIL: adjust_cms_inventory result type is not TABLE(variant_id uuid)';
+  end if;
+
+  foreach v_col in array array[
+    'quantity_on_hand',
+    'quantity_reserved',
+    'reorder_level',
+    'allow_backorder',
+    'cost_price',
+    'barcode'
+  ]
+  loop
+    begin
+      execute format(
+        $q$select %I from public.adjust_cms_inventory(
+          'a3730000-0000-4000-8000-000000000001'::uuid,
+          'add_stock', 1, null, 'received', null
+        )$q$,
+        v_col
+      );
+      raise exception
+        'FAIL: adjust_cms_inventory still exposes %',
+        v_col;
+    exception
+      when undefined_column then
+        null;
+    end;
+  end loop;
 
   if has_function_privilege('public', v_list_sig, 'EXECUTE')
      or has_function_privilege('anon', v_list_sig, 'EXECUTE')
@@ -490,21 +529,15 @@ declare
 begin
   perform pg_temp.inv_set_auth(v_staff);
 
-  select q.variant_id, q.quantity_on_hand, q.quantity_reserved,
-         q.reorder_level, q.allow_backorder
-  into v_returned, v_on_hand, v_reserved, v_reorder, v_backorder
+  select q.variant_id
+  into v_returned
   from public.adjust_cms_inventory(
     v_stock, 'add_stock', 3, null, 'received', ' inbound pallet '
   ) as q;
 
-  if v_returned is distinct from v_stock
-     or v_on_hand <> 13
-     or v_reserved <> 2
-     or v_reorder <> 4
-     or v_backorder is not false
-  then
+  if v_returned is distinct from v_stock then
     perform pg_temp.inv_clear_auth();
-    raise exception 'FAIL: staff add_stock result incorrect';
+    raise exception 'FAIL: staff add_stock result is not the bound variant_id';
   end if;
 
   select quantity_on_hand, quantity_reserved
@@ -552,12 +585,19 @@ begin
     raise exception 'FAIL: staff history count=%', v_history;
   end if;
 
-  select q.quantity_on_hand, q.quantity_reserved
-  into v_on_hand, v_reserved
+  select q.variant_id
+  into v_returned
   from public.adjust_cms_inventory(
     v_missing, 'add_stock', 7, null, 'received', null
   ) as q;
-  if v_on_hand <> 7 or v_reserved <> 0 then
+  select quantity_on_hand, quantity_reserved
+  into v_on_hand, v_reserved
+  from public.inventory
+  where variant_id = v_missing;
+  if v_returned is distinct from v_missing
+     or v_on_hand <> 7
+     or v_reserved <> 0
+  then
     perform pg_temp.inv_clear_auth();
     raise exception 'FAIL: missing inventory row was not created';
   end if;

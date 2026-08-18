@@ -75,7 +75,7 @@ Order number `BDM-YYYYMMDD-XXXXXX`; grand_total math check; shipping_address jso
   - EXECUTE: `authenticated` only (revoked from `PUBLIC`, `anon`, `service_role`)
   - Does not change variant RLS or grant `SELECT(cost_price)` to public API roles
 - `list_cms_inventory(text, text, text, int, int)` — STABLE SECURITY INVOKER, empty search_path, staff/admin only
-- `adjust_cms_inventory(uuid, text, int, bool, text, text)` — VOLATILE SECURITY DEFINER, empty search_path, staff/admin only, history + inventory in one transaction
+- `adjust_cms_inventory(uuid, text, int, bool, text, text)` — VOLATILE SECURITY DEFINER, empty search_path, staff/admin only, history + inventory in one transaction, returns only `variant_id`
 - `search_products(text, int)`
 - `generate_order_number()`
 - `is_staff_or_admin()` / `is_admin()`

@@ -23,6 +23,7 @@ import {
   preserveSafeInventoryValues,
   readInventoryFormValues,
 } from "@/features/inventory/form-validation";
+import { readAdjustedInventoryVariantId } from "@/features/inventory/mappers";
 import { revalidateInventoryPaths } from "@/features/inventory/revalidate";
 import type { InventoryFormState } from "@/features/inventory/types";
 import { isValidUuid } from "@/features/products/validation";
@@ -52,7 +53,7 @@ export async function adjustInventory(
   }
 
   try {
-    const { error } = await auth.supabase.rpc(ADJUST_CMS_INVENTORY_RPC, {
+    const { data, error } = await auth.supabase.rpc(ADJUST_CMS_INVENTORY_RPC, {
       p_variant_id: variantId,
       p_operation: parsed.data.operation,
       p_quantity: parsed.data.quantity,
@@ -68,6 +69,9 @@ export async function adjustInventory(
         parsed.values,
         toInventoryMutationFailureMessage(error),
       );
+    }
+    if (!readAdjustedInventoryVariantId(data, variantId)) {
+      return errorState(parsed.values, INVENTORY_GENERIC_FAILURE_MESSAGE);
     }
   } catch {
     return errorState(parsed.values, INVENTORY_GENERIC_FAILURE_MESSAGE);

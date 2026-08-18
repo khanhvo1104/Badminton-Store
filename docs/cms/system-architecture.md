@@ -156,7 +156,8 @@ pages at `cms/src/app/dashboard/inventory/` and
 `variant_id` tie-breaker before offset/limit. The page calls
 `authorizeCmsRequest` before operational inventory reads and never selects
 `cost_price` or `barcode`. Adjustments are a Server Action that re-authorizes,
-binds `variantId` from the route, and calls `adjust_cms_inventory`.
+binds `variantId` from the route, calls `adjust_cms_inventory`, and fail-closes
+unless the RPC returns exactly one `variant_id` row matching that route id.
 
 ## Catalog data flow
 

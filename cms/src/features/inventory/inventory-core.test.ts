@@ -12,6 +12,7 @@ import {
   mapCmsInventoryRpcRow,
   mapInventoryListItem,
   mapInventoryVariantRow,
+  readAdjustedInventoryVariantId,
 } from "@/features/inventory/mappers";
 import { sanitizeInventorySearchLiteral } from "@/features/inventory/search";
 import {
@@ -158,6 +159,54 @@ describe("inventory mappers", () => {
       }),
     ).toBeNull();
     expect(availableQuantity(5, 8)).toBe(0);
+  });
+
+  it("accepts a single variant_id adjust row and rejects unsafe payloads", () => {
+    const variantId = "40000000-0000-4000-8000-000000000001";
+    const otherId = "40000000-0000-4000-8000-000000000088";
+
+    expect(
+      readAdjustedInventoryVariantId([{ variant_id: variantId }], variantId),
+    ).toBe(variantId);
+    expect(readAdjustedInventoryVariantId(variantId, variantId)).toBe(
+      variantId,
+    );
+    expect(readAdjustedInventoryVariantId([variantId], variantId)).toBe(
+      variantId,
+    );
+
+    expect(readAdjustedInventoryVariantId([], variantId)).toBeNull();
+    expect(readAdjustedInventoryVariantId(null, variantId)).toBeNull();
+    expect(
+      readAdjustedInventoryVariantId(
+        [{ variant_id: variantId }, { variant_id: variantId }],
+        variantId,
+      ),
+    ).toBeNull();
+    expect(
+      readAdjustedInventoryVariantId([{ variant_id: "not-a-uuid" }], variantId),
+    ).toBeNull();
+    expect(
+      readAdjustedInventoryVariantId([{ variant_id: otherId }], variantId),
+    ).toBeNull();
+    expect(
+      readAdjustedInventoryVariantId(
+        [{ variant_id: variantId, quantity_on_hand: 13 }],
+        variantId,
+      ),
+    ).toBeNull();
+    expect(
+      readAdjustedInventoryVariantId(
+        [{ variant_id: variantId, cost_price: "1" }],
+        variantId,
+      ),
+    ).toBeNull();
+    expect(
+      readAdjustedInventoryVariantId(
+        [{ variant_id: variantId, barcode: "x" }],
+        variantId,
+      ),
+    ).toBeNull();
   });
 });
 

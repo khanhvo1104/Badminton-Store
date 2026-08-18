@@ -83,7 +83,7 @@ select set_config(
   true
 );
 set local role authenticated;
-select variant_id, quantity_on_hand
+select variant_id
 from public.adjust_cms_inventory(
   '${VARIANT}'::uuid,
   'add_stock',
@@ -105,7 +105,7 @@ select set_config(
   true
 );
 set local role authenticated;
-select variant_id, quantity_on_hand
+select variant_id
 from public.adjust_cms_inventory(
   '${VARIANT}'::uuid,
   'add_stock',
