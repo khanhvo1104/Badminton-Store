@@ -83,3 +83,96 @@ export type ProductListResult = {
 export type ProductExplorerLoadResult =
   | { ok: true; result: ProductListResult }
   | { ok: false; message: string };
+
+export type ProductFormReferenceOption = {
+  id: string;
+  name: string;
+  isActive: boolean;
+};
+
+export type ProductDetail = {
+  id: string;
+  categoryId: string;
+  categoryName: string | null;
+  brandId: string | null;
+  brandName: string | null;
+  name: string;
+  slug: string;
+  shortDescription: string | null;
+  description: string | null;
+  specifications: Record<string, string | number | boolean | null>;
+  searchKeywords: string | null;
+  status: ProductStatus;
+  statusLabel: string;
+  isFeatured: boolean;
+  featuredLabel: string;
+  publishedAt: string | null;
+  publishedAtLabel: string;
+  updatedAt: string;
+  updatedAtLabel: string;
+};
+
+export type ProductFormValues = {
+  categoryId: string;
+  brandId: string;
+  name: string;
+  slug: string;
+  slugManual: boolean;
+  shortDescription: string;
+  description: string;
+  specifications: string;
+  searchKeywords: string;
+  status: ProductStatus;
+  isFeatured: boolean;
+  publishedAt: string;
+};
+
+export type ProductFieldErrors = {
+  categoryId?: string;
+  brandId?: string;
+  name?: string;
+  slug?: string;
+  shortDescription?: string;
+  description?: string;
+  specifications?: string;
+  searchKeywords?: string;
+  status?: string;
+  isFeatured?: string;
+  publishedAt?: string;
+  form?: string;
+};
+
+export type ProductFormState = {
+  status: "idle" | "error" | "success";
+  message: string | null;
+  fieldErrors: ProductFieldErrors;
+  values: ProductFormValues;
+};
+
+export type ParsedProductInput = {
+  categoryId: string;
+  brandId: string | null;
+  name: string;
+  slug: string;
+  shortDescription: string | null;
+  description: string | null;
+  specifications: Record<string, string | number | boolean | null>;
+  searchKeywords: string | null;
+  status: ProductStatus;
+  isFeatured: boolean;
+  publishedAt: string | null;
+};
+
+export type ProductMutationPayload = {
+  category_id: string;
+  brand_id: string | null;
+  name: string;
+  slug: string;
+  short_description: string | null;
+  description: string | null;
+  specifications: Record<string, string | number | boolean | null>;
+  search_keywords: string | null;
+  status: ProductStatus;
+  is_featured: boolean;
+  published_at: string | null;
+};

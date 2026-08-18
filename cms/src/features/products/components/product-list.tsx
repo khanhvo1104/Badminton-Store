@@ -4,8 +4,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ProductPagination } from "@/features/products/components/product-pagination";
 import {
-  PRODUCT_EDITOR_UNAVAILABLE_HELP,
-  PRODUCT_EDITOR_UNAVAILABLE_LABEL,
+  productDetailPath,
+  productEditPath,
   PRODUCTS_LIST_PATH,
 } from "@/features/products/constants";
 import type {
@@ -152,7 +152,7 @@ export function ProductList({ result }: ProductListProps) {
                   </p>
                 </td>
                 <td className="px-4 py-4 align-top">
-                  <EditorAffordance />
+                  <ProductActions productId={item.id} name={item.name} />
                 </td>
               </tr>
             ))}
@@ -208,7 +208,7 @@ function ProductCard({ item }: { item: ProductListItem }) {
         <Info label="Updated" value={item.updatedAtLabel} />
         <Info label="Published" value={item.publishedAtLabel} />
       </dl>
-      <EditorAffordance />
+      <ProductActions productId={item.id} name={item.name} />
     </article>
   );
 }
@@ -261,15 +261,29 @@ function ProductImage({ url }: { url: string | null }) {
   );
 }
 
-function EditorAffordance() {
+function ProductActions({
+  productId,
+  name,
+}: {
+  productId: string;
+  name: string;
+}) {
   return (
-    <span
-      aria-disabled="true"
-      title={PRODUCT_EDITOR_UNAVAILABLE_HELP}
-      className="inline-flex cursor-not-allowed rounded-full border border-white/10 px-3 py-1 text-sm text-slate-500"
-    >
-      {PRODUCT_EDITOR_UNAVAILABLE_LABEL}
-    </span>
+    <div className="flex flex-wrap gap-2">
+      <Link
+        href={productDetailPath(productId)}
+        className="inline-flex rounded-full border border-white/15 px-3 py-1 text-sm font-semibold text-emerald-200 transition hover:border-emerald-200/40 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+      >
+        View
+      </Link>
+      <Link
+        href={productEditPath(productId)}
+        aria-label={`Edit ${name}`}
+        className="inline-flex rounded-full bg-emerald-300 px-3 py-1 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+      >
+        Edit
+      </Link>
+    </div>
   );
 }
 

@@ -1,9 +1,13 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 import { ErrorState } from "@/components/ui/error-state";
 import { ProductFilters } from "@/features/products/components/product-filters";
 import { ProductList } from "@/features/products/components/product-list";
-import { PRODUCT_AUTH_DENIED_MESSAGE } from "@/features/products/constants";
+import {
+  PRODUCT_AUTH_DENIED_MESSAGE,
+  PRODUCTS_NEW_PATH,
+} from "@/features/products/constants";
 import {
   listProductBrandOptions,
   listProductCategoryOptions,
@@ -96,18 +100,27 @@ export default async function ProductsPage({
 function ProductExplorerShell({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <header className="space-y-3">
-        <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-          Products
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-          Product explorer
-        </h1>
-        <p className="max-w-3xl text-base leading-7 text-slate-300">
-          Browse catalog products with server-side search, filters, sorting, and
-          staff-safe inventory summaries. Selling prices are visible; cost
-          prices are never loaded here. Editing arrives in a later catalog task.
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-3">
+          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
+            Products
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            Product explorer
+          </h1>
+          <p className="max-w-3xl text-base leading-7 text-slate-300">
+            Browse catalog products with server-side search, filters, sorting,
+            and staff-safe inventory summaries. Create and edit core product
+            fields without loading cost prices, variants, inventory, or media
+            here.
+          </p>
+        </div>
+        <Link
+          href={PRODUCTS_NEW_PATH}
+          className="inline-flex rounded-full bg-emerald-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+        >
+          New product
+        </Link>
       </header>
       {children}
     </div>

@@ -237,7 +237,14 @@
       "title": "Build CMS product explorer",
       "task_file": ".automation/tasks/TASK-034-cms-product-explorer.md",
       "risk": "high",
-      "status": "ready"
+      "status": "complete"
+    },
+    {
+      "id": "TASK-035",
+      "title": "Build CMS product editor",
+      "task_file": ".automation/tasks/TASK-035-cms-product-editor.md",
+      "risk": "high",
+      "status": "complete"
     }
   ]
 }
