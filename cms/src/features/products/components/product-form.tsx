@@ -5,6 +5,7 @@ import {
   cloneElement,
   isValidElement,
   useActionState,
+  useMemo,
   useRef,
   type ChangeEvent,
   type ReactElement,
@@ -49,7 +50,14 @@ export function ProductForm({
       ? { ...INITIAL_PRODUCT_FORM_STATE, values: initialValues }
       : INITIAL_PRODUCT_FORM_STATE);
 
-  const action = mode === "create" ? createProduct : updateProduct;
+  const boundUpdateProduct = useMemo(
+    () =>
+      productId
+        ? (updateProduct.bind(null, productId) as typeof createProduct)
+        : createProduct,
+    [productId],
+  );
+  const action = mode === "create" ? createProduct : boundUpdateProduct;
   const [state, formAction] = useActionState(action, resolvedInitialState);
   const values = state.values;
   const slugInputRef = useRef<HTMLInputElement>(null);
@@ -73,9 +81,6 @@ export function ProductForm({
 
   return (
     <form action={formAction} className="space-y-6" noValidate>
-      {mode === "edit" && productId ? (
-        <input type="hidden" name="id" value={productId} />
-      ) : null}
       <input
         ref={slugManualInputRef}
         type="hidden"
@@ -187,7 +192,7 @@ export function ProductForm({
       <Field
         id="specifications"
         label="Specifications"
-        help="Optional JSON object with bounded keys and scalar values."
+        help="Optional JSON object with bounded nested keys and scalar values."
         error={state.fieldErrors.specifications}
       >
         <textarea

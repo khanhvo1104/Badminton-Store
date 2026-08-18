@@ -109,4 +109,20 @@ describe("ProductForm", () => {
       "Specifications must be a JSON object with bounded keys and values.",
     );
   });
+
+  it("does not submit a hidden product id in edit mode", () => {
+    render(
+      <ProductForm
+        mode="edit"
+        productId="30000000-0000-4000-8000-000000000001"
+        initialState={INITIAL_PRODUCT_FORM_STATE}
+        categories={categories}
+        brands={brands}
+      />,
+    );
+
+    expect(
+      document.querySelector('input[type="hidden"][name="id"]'),
+    ).toBeNull();
+  });
 });

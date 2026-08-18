@@ -21,7 +21,10 @@ import type {
   ProductSort,
   ProductStatus,
 } from "@/features/products/types";
-import type { SpecificationScalar } from "@/features/products/specifications";
+import {
+  parseSpecificationsValue,
+  type SpecificationsJson,
+} from "@/features/products/specifications";
 import { isValidUuid } from "@/features/products/validation";
 
 export type ProductRow = {
@@ -611,7 +614,7 @@ export type ProductDetailRow = {
   slug: string;
   short_description: string | null;
   description: string | null;
-  specifications: Record<string, SpecificationScalar>;
+  specifications: SpecificationsJson;
   search_keywords: string | null;
   status: ProductStatus;
   is_featured: boolean;
@@ -715,8 +718,8 @@ function mapProductDetailFields(
     return null;
   }
 
-  const parsedSpecifications = parseSpecificationsRecord(specifications);
-  if (!parsedSpecifications) {
+  const parsedSpecifications = parseSpecificationsValue(specifications);
+  if (parsedSpecifications === null) {
     return null;
   }
 
@@ -735,55 +738,4 @@ function mapProductDetailFields(
     published_at: publishedAt,
     updated_at: updatedAt,
   };
-}
-
-function parseSpecificationsRecord(
-  value: unknown,
-): Record<string, SpecificationScalar> | null {
-  if (!isPlainSpecificationsObject(value)) {
-    return null;
-  }
-
-  const parsed: Record<string, SpecificationScalar> = {};
-  for (const [key, entryValue] of Object.entries(value)) {
-    if (typeof key !== "string" || key.length === 0) {
-      return null;
-    }
-    const scalar = parseSpecificationScalar(entryValue);
-    if (scalar === undefined) {
-      return null;
-    }
-    parsed[key] = scalar;
-  }
-
-  return parsed;
-}
-
-function parseSpecificationScalar(
-  value: unknown,
-): SpecificationScalar | undefined {
-  if (value === null) {
-    return null;
-  }
-  if (typeof value === "boolean") {
-    return value;
-  }
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : undefined;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  return undefined;
-}
-
-function isPlainSpecificationsObject(
-  value: unknown,
-): value is Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }

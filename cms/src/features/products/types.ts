@@ -3,6 +3,7 @@ import type {
   PRODUCT_STATUSES,
   PRODUCT_STOCK_STATES,
 } from "@/features/products/constants";
+import type { SpecificationsJson } from "@/features/products/specifications";
 
 export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 export type ProductStockState = (typeof PRODUCT_STOCK_STATES)[number];
@@ -100,7 +101,7 @@ export type ProductDetail = {
   slug: string;
   shortDescription: string | null;
   description: string | null;
-  specifications: Record<string, string | number | boolean | null>;
+  specifications: SpecificationsJson;
   searchKeywords: string | null;
   status: ProductStatus;
   statusLabel: string;
@@ -156,7 +157,7 @@ export type ParsedProductInput = {
   slug: string;
   shortDescription: string | null;
   description: string | null;
-  specifications: Record<string, string | number | boolean | null>;
+  specifications: SpecificationsJson;
   searchKeywords: string | null;
   status: ProductStatus;
   isFeatured: boolean;
@@ -170,7 +171,7 @@ export type ProductMutationPayload = {
   slug: string;
   short_description: string | null;
   description: string | null;
-  specifications: Record<string, string | number | boolean | null>;
+  specifications: SpecificationsJson;
   search_keywords: string | null;
   status: ProductStatus;
   is_featured: boolean;

@@ -26,6 +26,23 @@ vi.mock("next/navigation", () => ({ redirect }));
 
 const CATEGORY_ID = "10000000-0000-4000-8000-000000000001";
 const PRODUCT_ID = "30000000-0000-4000-8000-000000000099";
+const FORGED_PRODUCT_ID = "30000000-0000-4000-8000-000000000088";
+
+const PRODUCT_DETAIL_ROW = {
+  id: PRODUCT_ID,
+  category_id: CATEGORY_ID,
+  brand_id: null,
+  name: "Aero Strike",
+  slug: "aero-strike",
+  short_description: null,
+  description: null,
+  specifications: {},
+  search_keywords: null,
+  status: "draft",
+  is_featured: false,
+  published_at: null,
+  updated_at: "2026-01-02T00:00:00.000Z",
+};
 
 function validFormData(overrides: Record<string, string> = {}): FormData {
   const data = new FormData();
@@ -76,7 +93,6 @@ describe("createProduct", () => {
 
   it("creates a product and revalidates on success", async () => {
     const insert = vi.fn().mockResolvedValue({ error: null });
-    const from = vi.fn(() => ({ insert }));
     requireProductActionAuth.mockResolvedValue({
       ok: true,
       supabase: {
@@ -107,7 +123,6 @@ describe("createProduct", () => {
     await expect(
       createProduct(INITIAL_PRODUCT_FORM_STATE, validFormData()),
     ).rejects.toThrow("NEXT_REDIRECT");
-    expect(from).not.toHaveBeenCalled();
     expect(insert).toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/products");
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard/products/new");
@@ -161,7 +176,7 @@ describe("updateProduct", () => {
     redirect.mockReset();
   });
 
-  it("rejects invalid product ids before writing", async () => {
+  it("rejects invalid bound product ids before writing", async () => {
     const update = vi.fn();
     requireProductActionAuth.mockResolvedValue({
       ok: true,
@@ -171,15 +186,17 @@ describe("updateProduct", () => {
     const { updateProduct } = await import(
       "@/features/products/actions/update-product"
     );
-    const formData = validFormData();
-    formData.set("id", "not-a-uuid");
 
-    const result = await updateProduct(INITIAL_PRODUCT_FORM_STATE, formData);
+    const result = await updateProduct(
+      "not-a-uuid",
+      INITIAL_PRODUCT_FORM_STATE,
+      validFormData(),
+    );
     expect(result.message).toBe(PRODUCT_NOT_FOUND_MESSAGE);
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("returns not found when the product row is missing", async () => {
+  it("returns not found when the bound product row is missing", async () => {
     requireProductActionAuth.mockResolvedValue({
       ok: true,
       supabase: {
@@ -199,10 +216,73 @@ describe("updateProduct", () => {
     const { updateProduct } = await import(
       "@/features/products/actions/update-product"
     );
-    const formData = validFormData();
-    formData.set("id", PRODUCT_ID);
 
-    const result = await updateProduct(INITIAL_PRODUCT_FORM_STATE, formData);
+    const result = await updateProduct(
+      PRODUCT_ID,
+      INITIAL_PRODUCT_FORM_STATE,
+      validFormData(),
+    );
     expect(result.message).toBe(PRODUCT_NOT_FOUND_MESSAGE);
+  });
+
+  it("ignores a forged form id and updates the bound route product only", async () => {
+    const eqUpdate = vi.fn(() => ({
+      select: vi.fn(() => ({
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: PRODUCT_ID },
+          error: null,
+        }),
+      })),
+    }));
+    const update = vi.fn(() => ({ eq: eqUpdate }));
+
+    requireProductActionAuth.mockResolvedValue({
+      ok: true,
+      supabase: {
+        from: vi.fn((table: string) => {
+          if (table === "products") {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: PRODUCT_DETAIL_ROW,
+                    error: null,
+                  }),
+                })),
+              })),
+              update,
+            };
+          }
+
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id: CATEGORY_ID, is_active: true },
+                  error: null,
+                }),
+              })),
+            })),
+          };
+        }),
+      },
+    });
+    redirect.mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+
+    const { updateProduct } = await import(
+      "@/features/products/actions/update-product"
+    );
+    const formData = validFormData({ name: "Forged target attempt" });
+    formData.set("id", FORGED_PRODUCT_ID);
+
+    await expect(
+      updateProduct(PRODUCT_ID, INITIAL_PRODUCT_FORM_STATE, formData),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(update).toHaveBeenCalled();
+    expect(eqUpdate).toHaveBeenCalledWith("id", PRODUCT_ID);
+    expect(eqUpdate).not.toHaveBeenCalledWith("id", FORGED_PRODUCT_ID);
   });
 });

@@ -1,4 +1,7 @@
-import type { ProductFormState, ProductFormValues } from "@/features/products/types";
+import type {
+  ProductFormState,
+  ProductFormValues,
+} from "@/features/products/types";
 
 export const EMPTY_PRODUCT_FORM_VALUES: ProductFormValues = {
   categoryId: "",

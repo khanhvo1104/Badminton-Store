@@ -138,6 +138,8 @@ export const PRODUCT_INACTIVE_BRAND_MESSAGE =
 export const PRODUCT_CATEGORY_REQUIRED_MESSAGE = "Choose a category.";
 export const PRODUCT_PUBLISH_INACTIVE_CATEGORY_MESSAGE =
   "Active products require an active category.";
+export const PRODUCT_PUBLISH_INACTIVE_BRAND_MESSAGE =
+  "Active products require an active brand.";
 export const PRODUCT_SPEC_INVALID_MESSAGE =
   "Specifications must be a JSON object with bounded keys and values.";
 export const PRODUCT_PUBLISHED_AT_INVALID_MESSAGE =

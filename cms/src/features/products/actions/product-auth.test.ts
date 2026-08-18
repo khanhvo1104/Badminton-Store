@@ -14,6 +14,9 @@ vi.mock("@/lib/auth/authorization", async () => {
   return { ...actual, authorizeCmsRequest };
 });
 
+const CATEGORY_ID = "10000000-0000-4000-8000-000000000001";
+const PRODUCT_ID = "30000000-0000-4000-8000-000000000001";
+
 function productFormData(): FormData {
   const formData = new FormData();
   formData.set("category_id", "10000000-0000-4000-8000-000000000001");
@@ -67,7 +70,7 @@ describe("product server actions auth", () => {
     formData.set("id", "30000000-0000-4000-8000-000000000001");
 
     await expect(
-      updateProduct(INITIAL_PRODUCT_FORM_STATE, formData),
+      updateProduct(PRODUCT_ID, INITIAL_PRODUCT_FORM_STATE, formData),
     ).resolves.toMatchObject({
       status: "error",
       message: PRODUCT_MUTATION_AUTH_DENIED_MESSAGE,

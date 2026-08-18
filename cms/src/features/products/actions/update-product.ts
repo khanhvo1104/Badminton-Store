@@ -32,6 +32,7 @@ import type { ProductFormState } from "@/features/products/types";
 import { isValidUuid } from "@/features/products/validation";
 
 export async function updateProduct(
+  productId: string,
   _previousState: ProductFormState,
   formData: FormData,
 ): Promise<ProductFormState> {
@@ -41,9 +42,6 @@ export async function updateProduct(
       preserveSafeProductValues(readProductFormValues(formData)),
     );
   }
-
-  const productIdRaw = formData.get("id");
-  const productId = typeof productIdRaw === "string" ? productIdRaw.trim() : "";
 
   if (!isValidUuid(productId)) {
     return errorState(

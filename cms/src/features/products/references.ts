@@ -1,11 +1,17 @@
 import {
   PRODUCT_INACTIVE_BRAND_MESSAGE,
   PRODUCT_INACTIVE_CATEGORY_MESSAGE,
+  PRODUCT_PUBLISH_INACTIVE_BRAND_MESSAGE,
   PRODUCT_PUBLISH_INACTIVE_CATEGORY_MESSAGE,
 } from "@/features/products/constants";
 import { PRODUCT_FILTER_OPTION_COLUMNS } from "@/features/products/constants";
 import type { ProductStatus } from "@/features/products/types";
 import { isValidUuid } from "@/features/products/validation";
+
+const RETAINED_INACTIVE_REFERENCE_STATUSES = new Set<ProductStatus>([
+  "draft",
+  "inactive",
+]);
 
 type ReferenceRow = {
   id: string;
@@ -114,6 +120,8 @@ export async function validateProductReferences(options: {
 
     const brandChanged =
       existingBrandId !== undefined && brandId !== (existingBrandId ?? null);
+    const keepingInactiveBrand =
+      existingBrandId === brandId && !brand.row.is_active;
 
     if (brandChanged && !brand.row.is_active) {
       return {
@@ -127,6 +135,17 @@ export async function validateProductReferences(options: {
       return {
         ok: false,
         message: PRODUCT_INACTIVE_BRAND_MESSAGE,
+        field: "brandId",
+      };
+    }
+
+    if (
+      keepingInactiveBrand &&
+      !RETAINED_INACTIVE_REFERENCE_STATUSES.has(status)
+    ) {
+      return {
+        ok: false,
+        message: PRODUCT_PUBLISH_INACTIVE_BRAND_MESSAGE,
         field: "brandId",
       };
     }

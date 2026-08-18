@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   PRODUCT_MUTATION_AUTH_DENIED_MESSAGE,
+  PRODUCT_PUBLISH_INACTIVE_BRAND_MESSAGE,
   PRODUCT_PUBLISHED_AT_INVALID_MESSAGE,
   PRODUCT_SLUG_CONFLICT_MESSAGE,
   PRODUCT_SPEC_INVALID_MESSAGE,
@@ -184,7 +185,7 @@ describe("product form validation", () => {
 });
 
 describe("product specifications validation", () => {
-  it("accepts bounded scalar objects and rejects attacks", () => {
+  it("accepts bounded nested plain objects and rejects attacks", () => {
     expect(
       parseSpecificationsInput('{"weight":"80g","head":"isometric"}'),
     ).toEqual({
@@ -192,13 +193,25 @@ describe("product specifications validation", () => {
       value: { weight: "80g", head: "isometric" },
     });
 
+    expect(
+      parseSpecificationsInput(
+        '{"frame":{"material":"graphite","flex":"stiff"}}',
+      ),
+    ).toEqual({
+      ok: true,
+      value: { frame: { material: "graphite", flex: "stiff" } },
+    });
+
     expect(parseSpecificationsInput("[]").ok).toBe(false);
     expect(parseSpecificationsInput('{"__proto__":{"admin":true}}').ok).toBe(
       false,
     );
-    expect(parseSpecificationsInput('{"nested":{"too":"deep"}}').ok).toBe(
-      false,
-    );
+    expect(
+      parseSpecificationsInput('{"frame":{"material":{"__proto__":true}}}').ok,
+    ).toBe(false);
+    expect(
+      parseSpecificationsInput('{"a":{"b":{"c":{"d":"too-deep"}}}}').ok,
+    ).toBe(false);
     expect(parseSpecificationsInput(`{"key":"${"x".repeat(600)}"}`).ok).toBe(
       false,
     );
@@ -209,17 +222,21 @@ describe("product specifications validation", () => {
     ).toBe(false);
   });
 
-  it("round-trips formatted specifications", () => {
-    const formatted = formatSpecificationsForForm({ balance: "head-heavy" });
+  it("round-trips nested formatted specifications", () => {
+    const nested = {
+      balance: "head-heavy",
+      frame: { material: "graphite", weight_g: 80 },
+    };
+    const formatted = formatSpecificationsForForm(nested);
     expect(parseSpecificationsInput(formatted)).toEqual({
       ok: true,
-      value: { balance: "head-heavy" },
+      value: nested,
     });
   });
 });
 
 describe("product detail mapping and errors", () => {
-  it("maps detail rows with scalar specifications only", () => {
+  it("maps detail rows with nested specifications preserved", () => {
     const row = {
       id: PRODUCT_ID,
       category_id: CATEGORY_ID,
@@ -228,7 +245,13 @@ describe("product detail mapping and errors", () => {
       slug: "aero-strike",
       short_description: "Short",
       description: "Long description",
-      specifications: { weight: "80g", stiff: true, rating: 4.5, note: null },
+      specifications: {
+        weight: "80g",
+        stiff: true,
+        rating: 4.5,
+        note: null,
+        frame: { material: "graphite" },
+      },
       search_keywords: "racket",
       status: "draft",
       is_featured: false,
@@ -248,7 +271,46 @@ describe("product detail mapping and errors", () => {
       stiff: true,
       rating: 4.5,
       note: null,
+      frame: { material: "graphite" },
     });
+  });
+
+  it("rejects malformed provider specification rows", () => {
+    expect(
+      isProductDetailRow({
+        id: PRODUCT_ID,
+        category_id: CATEGORY_ID,
+        brand_id: null,
+        name: "Aero Strike",
+        slug: "aero-strike",
+        short_description: null,
+        description: null,
+        specifications: { frame: ["graphite"] },
+        search_keywords: null,
+        status: "draft",
+        is_featured: false,
+        published_at: null,
+        updated_at: "2026-01-02T00:00:00.000Z",
+      }),
+    ).toBe(false);
+
+    expect(
+      isProductDetailRow({
+        id: PRODUCT_ID,
+        category_id: CATEGORY_ID,
+        brand_id: null,
+        name: "Aero Strike",
+        slug: "aero-strike",
+        short_description: null,
+        description: null,
+        specifications: { a: { b: { c: { d: "too-deep" } } } },
+        search_keywords: null,
+        status: "draft",
+        is_featured: false,
+        published_at: null,
+        updated_at: "2026-01-02T00:00:00.000Z",
+      }),
+    ).toBe(false);
   });
 
   it("sanitizes slug conflicts without leaking provider details", () => {
@@ -330,6 +392,64 @@ describe("product reference validation", () => {
     });
 
     expect(publishInactive.ok).toBe(true);
+  });
+
+  it("allows unchanged inactive brands for draft edits but rejects active publish", async () => {
+    const { validateProductReferences } = await import(
+      "@/features/products/references"
+    );
+
+    const supabase = {
+      from: vi.fn((table: string) => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: table === "categories" ? CATEGORY_ID : BRAND_ID,
+                is_active: table === "categories",
+              },
+              error: null,
+            }),
+          })),
+        })),
+      })),
+    };
+
+    const draftEdit = await validateProductReferences({
+      supabase,
+      categoryId: CATEGORY_ID,
+      brandId: BRAND_ID,
+      status: "draft",
+      existingCategoryId: CATEGORY_ID,
+      existingBrandId: BRAND_ID,
+    });
+    expect(draftEdit.ok).toBe(true);
+
+    const inactiveEdit = await validateProductReferences({
+      supabase,
+      categoryId: CATEGORY_ID,
+      brandId: BRAND_ID,
+      status: "inactive",
+      existingCategoryId: CATEGORY_ID,
+      existingBrandId: BRAND_ID,
+    });
+    expect(inactiveEdit.ok).toBe(true);
+
+    const publishWithInactiveBrand = await validateProductReferences({
+      supabase,
+      categoryId: CATEGORY_ID,
+      brandId: BRAND_ID,
+      status: "active",
+      existingCategoryId: CATEGORY_ID,
+      existingBrandId: BRAND_ID,
+    });
+    expect(publishWithInactiveBrand.ok).toBe(false);
+    if (!publishWithInactiveBrand.ok) {
+      expect(publishWithInactiveBrand.message).toBe(
+        PRODUCT_PUBLISH_INACTIVE_BRAND_MESSAGE,
+      );
+      expect(publishWithInactiveBrand.field).toBe("brandId");
+    }
   });
 });
 
