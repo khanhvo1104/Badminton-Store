@@ -41,6 +41,16 @@ describe("dashboard routes", () => {
 
     expect(
       buildDashboardBreadcrumbs(
+        "/dashboard/inventory/40000000-0000-4000-8000-000000000001",
+      ),
+    ).toEqual([
+      { href: "/dashboard", label: "Overview", current: false },
+      { href: "/dashboard/inventory", label: "Inventory", current: false },
+      { label: UNKNOWN_ROUTE_LABEL, current: true },
+    ]);
+
+    expect(
+      buildDashboardBreadcrumbs(
         "/dashboard/categories/%3Cscript%3Ealert(1)%3C/script%3E?next=/evil",
       ),
     ).toEqual([

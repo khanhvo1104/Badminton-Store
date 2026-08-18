@@ -162,9 +162,16 @@ single space, preserve case, require 1..80 characters.
 ## Inventory and state transitions
 
 The CMS must not treat direct client-side updates as sufficient for stock or
-privileged workflow transitions. Inventory adjustments require an atomic
-database operation with validation and an auditable reason. Future order status
-changes require explicit transition rules enforced server-side.
+privileged workflow transitions. Inventory adjustments go through
+`public.adjust_cms_inventory`, a narrow SECURITY DEFINER RPC with empty
+`search_path`, `is_staff_or_admin()` authorization, `auth.uid()` as actor,
+inventory row locking, and a same-transaction insert into immutable
+`public.inventory_history`. Direct authenticated INSERT/UPDATE/DELETE on
+history are closed. `adjust_cms_inventory` returns only `variant_id`; the CMS
+Server Action fail-closes empty, multiple, malformed, mismatched, or extra-field
+payloads. `public.list_cms_inventory` is SECURITY INVOKER and never
+selects `cost_price` or `barcode`. Reserved quantity cannot be edited. Future
+order status changes require explicit transition rules enforced server-side.
 
 ## Storage rules
 

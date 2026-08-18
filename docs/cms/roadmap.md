@@ -60,7 +60,8 @@ the automation backlog.
 ### TASK-033 — Inventory adjustments
 
 Introduce atomic stock adjustment with reason/history, concurrency protection,
-least-privilege execution, and negative authorization tests.
+least-privilege execution, and negative authorization tests. Delivered as
+TASK-037 in the automation backlog.
 
 ### TASK-034 — Product media manager
 

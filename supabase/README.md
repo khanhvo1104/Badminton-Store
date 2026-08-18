@@ -84,6 +84,10 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/04_trigger_fu
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/05_explicit_data_api_grants.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/06_notifications.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/07_cms_security_contract.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/08_cms_variant_editor.sql
+bash supabase/tests/database/08_cms_variant_editor_concurrency.sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/09_cms_inventory_adjustments.sql
+bash supabase/tests/database/09_cms_inventory_adjustments_concurrency.sh
 ```
 
 ### RLS / Storage / RPC suite (TASK-006)

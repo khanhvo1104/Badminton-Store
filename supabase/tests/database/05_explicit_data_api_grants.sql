@@ -206,7 +206,8 @@ do $$
 declare
   app_objects text[] := array[
     'profiles', 'addresses', 'categories', 'brands', 'products',
-    'product_variants', 'product_images', 'inventory', 'favorites',
+    'product_variants', 'product_images', 'inventory', 'inventory_history',
+    'favorites',
     'carts', 'cart_items', 'orders', 'order_items', 'order_status_history',
     'notifications', 'product_catalog', 'inventory_availability'
   ];
@@ -252,6 +253,9 @@ begin
     'anon', 'order_status_history', false, false, false, false
   );
   perform pg_temp.assert_siud('anon', 'inventory', false, false, false, false);
+  perform pg_temp.assert_siud(
+    'anon', 'inventory_history', false, false, false, false
+  );
   perform pg_temp.assert_siud(
     'anon', 'inventory_availability', false, false, false, false
   );
@@ -312,6 +316,9 @@ begin
   );
   perform pg_temp.assert_siud(
     'authenticated', 'inventory', true, true, true, true
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'inventory_history', true, false, false, false
   );
   -- Favorites: SELECT/INSERT/DELETE only (no UPDATE grant).
   perform pg_temp.assert_siud(
@@ -431,7 +438,8 @@ declare
     'public.prevent_profile_privilege_escalation()',
     'public.assign_order_number()',
     'public.record_order_status_change()',
-    'public.validate_product_image_variant()'
+    'public.validate_product_image_variant()',
+    'public.prevent_inventory_history_mutation()'
   ];
   sig text;
   grantee text;
@@ -563,6 +571,65 @@ begin
   ) then
     raise exception
       'FAIL: service_role missing EXECUTE on save_cms_product_variant';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.list_cms_inventory(text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on list_cms_inventory';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.list_cms_inventory(text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on list_cms_inventory';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.list_cms_inventory(text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: authenticated missing EXECUTE on list_cms_inventory';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.list_cms_inventory(text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role missing EXECUTE on list_cms_inventory';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.adjust_cms_inventory(uuid, text, integer, boolean, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on adjust_cms_inventory';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.adjust_cms_inventory(uuid, text, integer, boolean, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on adjust_cms_inventory';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.adjust_cms_inventory(uuid, text, integer, boolean, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on adjust_cms_inventory';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.adjust_cms_inventory(uuid, text, integer, boolean, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role missing EXECUTE on adjust_cms_inventory';
   end if;
 
   -- Policy helpers remain executable by Data API roles.

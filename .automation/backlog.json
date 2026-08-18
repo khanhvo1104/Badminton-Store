@@ -252,6 +252,13 @@
       "task_file": ".automation/tasks/TASK-036-cms-variant-editor.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-037",
+      "title": "Build CMS inventory adjustments",
+      "task_file": ".automation/tasks/TASK-037-cms-inventory-adjustments.md",
+      "risk": "high",
+      "status": "complete"
     }
   ]
 }
