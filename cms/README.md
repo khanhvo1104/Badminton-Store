@@ -128,14 +128,25 @@ Staff can create and edit core product fields at `/dashboard/products/new`,
 `/dashboard/products/[productId]`, and `/dashboard/products/[productId]/edit`.
 The editor covers category, optional brand, name, slug, descriptions,
 specifications JSON, search keywords, status, featured flag, and publication
-time. Variants, prices, inventory, media, delete, duplicate, and bulk flows
-remain out of scope. Server Actions re-authorize active staff/admin before every
-mutation, validate inactive category/brand rules, sanitize slug conflicts, and
-redirect outside action catch blocks after revalidating the explorer and detail
-routes.
+time. Variants for one product are managed at
+`/dashboard/products/[productId]/variants`, `/variants/new`, and
+`/variants/[variantId]/edit`. Inventory, media, delete, duplicate, and bulk
+flows remain out of scope. Server Actions re-authorize active staff/admin
+before every mutation, validate inactive category/brand rules, sanitize slug
+conflicts, and redirect outside action catch blocks after revalidating the
+explorer and detail routes.
+
+The variant editor lists a bounded, explicitly selected set of SKUs for one
+product and merges protected costs from `get_staff_variant_costs`. Safe variant
+reads never select `cost_price` or `barcode`. Create/update goes through
+`save_cms_product_variant`, which switches defaults atomically. Barcode cannot
+be prefilled on edit; leave the field blank to preserve the stored value,
+enter a new value to replace it, or use Clear barcode. Cost empty clears the
+recorded cost; `0` is stored as zero.
 
 Reads use the cookie-backed SSR client and re-check `authorizeCmsRequest` before
-inventory access. There is no client-side Supabase access for products.
+inventory or cost access. There is no client-side Supabase access for products
+or variants.
 
 Add new dashboard areas by extending
 `src/lib/navigation/dashboard-routes.ts` and placing pages under

@@ -1280,6 +1280,240 @@ exception
     raise;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- save_cms_product_variant: definition, grants, denial, return contract
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_sig text :=
+    'public.save_cms_product_variant(uuid, uuid, text, text, text, text, text, text, text, text, text, numeric, numeric, text, numeric, text, text, jsonb, boolean, boolean, integer)';
+  v_volatile "char";
+  v_secdef boolean;
+  v_config text[];
+  v_in_names text[];
+  v_out_names text[];
+  v_out_types text[];
+  v_call text;
+  v_actor uuid;
+  v_returned jsonb;
+  v_id uuid;
+begin
+  select p.provolatile, p.prosecdef, p.proconfig
+  into v_volatile, v_secdef, v_config
+  from pg_proc p
+  where p.oid = v_sig::regprocedure;
+
+  if v_volatile is distinct from 'v' then
+    raise exception 'FAIL: save_cms_product_variant is not VOLATILE';
+  end if;
+  if v_secdef is not false then
+    raise exception 'FAIL: save_cms_product_variant is not SECURITY INVOKER';
+  end if;
+  if v_config is null
+     or not exists (
+       select 1
+       from unnest(v_config) as cfg(val)
+       where cfg.val in ('search_path=', 'search_path=""')
+     )
+  then
+    raise exception 'FAIL: save_cms_product_variant search_path is not empty';
+  end if;
+
+  select
+    coalesce(
+      array_agg(x.argname order by x.ord) filter (where x.mode = 'i'),
+      array[]::text[]
+    ),
+    coalesce(
+      array_agg(x.argname order by x.ord) filter (where x.mode = 't'),
+      array[]::text[]
+    ),
+    coalesce(
+      array_agg(x.typ order by x.ord) filter (where x.mode = 't'),
+      array[]::text[]
+    )
+  into v_in_names, v_out_names, v_out_types
+  from (
+    select
+      t.ord,
+      t.argname,
+      t.mode,
+      pg_catalog.format_type(t.argtype, null) as typ
+    from (
+      select
+        ordinality as ord,
+        argname,
+        mode,
+        argtype
+      from pg_proc p
+      cross join lateral unnest(
+        p.proargnames,
+        p.proargmodes,
+        p.proallargtypes
+      ) with ordinality as u(argname, mode, argtype, ordinality)
+      where p.oid = v_sig::regprocedure
+    ) as t
+  ) as x;
+
+  if v_in_names is distinct from array[
+    'p_product_id',
+    'p_variant_id',
+    'p_sku',
+    'p_name',
+    'p_color_name',
+    'p_color_hex',
+    'p_racket_weight_class',
+    'p_grip_size',
+    'p_shoe_size',
+    'p_clothing_size',
+    'p_unit',
+    'p_price',
+    'p_compare_at_price',
+    'p_cost_mode',
+    'p_cost_price',
+    'p_barcode_mode',
+    'p_barcode',
+    'p_attributes',
+    'p_is_default',
+    'p_is_active',
+    'p_sort_order'
+  ]::text[] then
+    raise exception 'FAIL: save_cms_product_variant IN argument names mismatch';
+  end if;
+  if v_out_names is distinct from array['variant_id']::text[] then
+    raise exception 'FAIL: save_cms_product_variant return columns mismatch';
+  end if;
+  if v_out_types is distinct from array['uuid']::text[] then
+    raise exception 'FAIL: save_cms_product_variant return types mismatch';
+  end if;
+
+  if has_function_privilege('public', v_sig, 'EXECUTE') then
+    raise exception 'FAIL: PUBLIC has EXECUTE on save_cms_product_variant';
+  end if;
+  if has_function_privilege('anon', v_sig, 'EXECUTE') then
+    raise exception 'FAIL: anon has EXECUTE on save_cms_product_variant';
+  end if;
+  if not has_function_privilege('authenticated', v_sig, 'EXECUTE') then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on save_cms_product_variant';
+  end if;
+  if not has_function_privilege('service_role', v_sig, 'EXECUTE') then
+    raise exception
+      'FAIL: service_role missing EXECUTE on save_cms_product_variant';
+  end if;
+
+  v_call := format(
+    $sql$
+      select variant_id
+      from public.save_cms_product_variant(
+        %L::uuid, %L::uuid, 'CMS-COST-A-S1-LOW', 'A sort 1 low id',
+        null, null, null, null, null, null, 'item', 110000, null,
+        'unchanged', null, 'unchanged', null, '{}'::jsonb, false, true, 1
+      )
+    $sql$,
+    'a2620000-0000-4000-8000-000000000001',
+    'a2630000-0000-4000-8000-000000000002'
+  );
+
+  perform pg_temp.cms_set_anon();
+  perform pg_temp.cms_assert_execute_denied(
+    'anon save_cms_product_variant EXECUTE',
+    v_call
+  );
+  perform pg_temp.cms_clear_auth();
+
+  perform pg_temp.cms_set_auth('a2600000-0000-4000-8000-000000000001');
+  perform pg_temp.cms_assert_authz_denied(
+    'customer save_cms_product_variant',
+    v_call
+  );
+  perform pg_temp.cms_clear_auth();
+
+  perform pg_temp.cms_set_auth('a2600000-0000-4000-8000-000000000004');
+  perform pg_temp.cms_assert_authz_denied(
+    'inactive staff save_cms_product_variant',
+    v_call
+  );
+  perform pg_temp.cms_clear_auth();
+
+  perform pg_temp.cms_set_auth_forged_staff(
+    'a2600000-0000-4000-8000-000000000007'
+  );
+  perform pg_temp.cms_assert_authz_denied(
+    'forged metadata save_cms_product_variant',
+    v_call
+  );
+  perform pg_temp.cms_clear_auth();
+
+  foreach v_actor in array array[
+    'a2600000-0000-4000-8000-000000000002'::uuid,
+    'a2600000-0000-4000-8000-000000000003'::uuid
+  ] loop
+    perform pg_temp.cms_set_auth(v_actor);
+
+    -- RETURNS TABLE with one column aliases as the scalar, not a composite.
+    select jsonb_build_object('variant_id', q.variant_id)
+    into v_returned
+    from public.save_cms_product_variant(
+      'a2620000-0000-4000-8000-000000000001'::uuid,
+      'a2630000-0000-4000-8000-000000000002'::uuid,
+      'CMS-COST-A-S1-LOW',
+      'A sort 1 low id',
+      null, null, null, null, null, null,
+      'item',
+      110000,
+      null,
+      'unchanged',
+      null,
+      'unchanged',
+      null,
+      '{}'::jsonb,
+      false,
+      true,
+      1
+    ) as q(variant_id);
+
+    if v_returned is null then
+      perform pg_temp.cms_clear_auth();
+      raise exception 'FAIL: actor % save returned no row', v_actor;
+    end if;
+    if v_returned ? 'cost_price' or v_returned ? 'barcode' then
+      perform pg_temp.cms_clear_auth();
+      raise exception
+        'FAIL: actor % save returned protected columns',
+        v_actor;
+    end if;
+    if jsonb_typeof(v_returned) is distinct from 'object'
+       or v_returned ->> 'variant_id' is null
+       or exists (
+         select 1
+         from jsonb_each(v_returned) as e(k, v)
+         where e.k not in ('variant_id')
+       )
+       or (
+         select count(*) from jsonb_each(v_returned) as e(k, v)
+       ) <> 1
+    then
+      perform pg_temp.cms_clear_auth();
+      raise exception 'FAIL: actor % save return keys mismatch', v_actor;
+    end if;
+
+    v_id := (v_returned ->> 'variant_id')::uuid;
+    if v_id is distinct from 'a2630000-0000-4000-8000-000000000002'::uuid then
+      perform pg_temp.cms_clear_auth();
+      raise exception 'FAIL: actor % save returned unexpected id', v_actor;
+    end if;
+
+    perform pg_temp.cms_clear_auth();
+  end loop;
+
+  raise notice 'OK: save_cms_product_variant definition + denial + return';
+exception
+  when others then
+    perform pg_temp.cms_clear_auth();
+    raise;
+end $$;
+
 rollback;
 
 \echo '== done =='

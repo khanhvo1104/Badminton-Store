@@ -534,6 +534,37 @@ begin
     raise exception 'FAIL: service_role missing EXECUTE on list_cms_products';
   end if;
 
+  if has_function_privilege(
+    'public',
+    'public.save_cms_product_variant(uuid, uuid, text, text, text, text, text, text, text, text, text, numeric, numeric, text, numeric, text, text, jsonb, boolean, boolean, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on save_cms_product_variant';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.save_cms_product_variant(uuid, uuid, text, text, text, text, text, text, text, text, text, numeric, numeric, text, numeric, text, text, jsonb, boolean, boolean, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on save_cms_product_variant';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.save_cms_product_variant(uuid, uuid, text, text, text, text, text, text, text, text, text, numeric, numeric, text, numeric, text, text, jsonb, boolean, boolean, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on save_cms_product_variant';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.save_cms_product_variant(uuid, uuid, text, text, text, text, text, text, text, text, text, numeric, numeric, text, numeric, text, text, jsonb, boolean, boolean, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on save_cms_product_variant';
+  end if;
+
   -- Policy helpers remain executable by Data API roles.
   foreach grantee in array array['anon', 'authenticated', 'service_role'] loop
     if not has_function_privilege(

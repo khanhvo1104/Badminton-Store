@@ -2,28 +2,29 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ErrorState } from "@/components/ui/error-state";
-import { ProductDetailView } from "@/features/products/components/product-detail-view";
 import {
   PRODUCTS_LIST_PATH,
+  productDetailPath,
   productEditPath,
 } from "@/features/products/constants";
-import { productVariantsPath } from "@/features/variants/constants";
-import {
-  getProductById,
-  type ProductDetailQueryClient,
-} from "@/features/products/detail-queries";
 import { isValidUuid } from "@/features/products/validation";
+import { VariantList } from "@/features/variants/components/variant-list";
+import { productVariantNewPath } from "@/features/variants/constants";
+import {
+  listProductVariants,
+  type VariantQueryClient,
+} from "@/features/variants/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-type ProductDetailPageProps = {
+type ProductVariantsPageProps = {
   params: Promise<{ productId: string }>;
 };
 
-export default async function ProductDetailPage({
+export default async function ProductVariantsPage({
   params,
-}: ProductDetailPageProps) {
+}: ProductVariantsPageProps) {
   const { productId } = await params;
 
   if (!isValidUuid(productId)) {
@@ -31,40 +32,41 @@ export default async function ProductDetailPage({
   }
 
   const supabase = await createSupabaseServerClient();
-  const productResult = await getProductById({
-    supabase: supabase as unknown as ProductDetailQueryClient,
+  const result = await listProductVariants({
+    supabase: supabase as unknown as VariantQueryClient,
     productId,
   });
 
-  if (!productResult.ok && productResult.notFound) {
+  if (!result.ok && result.notFound) {
     notFound();
   }
 
-  if (!productResult.ok) {
+  if (!result.ok) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-6xl">
         <ErrorState
-          title="Unable to load product"
-          description={productResult.message}
+          title="Unable to load variants"
+          description={result.message}
         />
       </div>
     );
   }
 
-  const product = productResult.product;
+  const { data } = result;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8">
       <header className="space-y-3">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-          Products
+          Variants
         </p>
         <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-          {product.name}
+          Variants for {data.productName}
         </h1>
-        <p className="max-w-2xl text-base leading-7 text-slate-300">
-          Core product fields and linked variant management for this product.
-          Inventory, media, delete, and bulk flows remain out of scope.
+        <p className="max-w-3xl text-base leading-7 text-slate-300">
+          Manage SKUs, attributes, selling prices, compare-at prices, and the
+          protected cost contract for this product. Inventory, media, delete,
+          and bulk import stay out of scope.
         </p>
         <div className="flex flex-wrap gap-4 text-sm">
           <Link
@@ -74,21 +76,27 @@ export default async function ProductDetailPage({
             Back to products
           </Link>
           <Link
-            href={productEditPath(product.id)}
+            href={productDetailPath(productId)}
+            className="font-semibold text-emerald-200 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+          >
+            View product
+          </Link>
+          <Link
+            href={productEditPath(productId)}
             className="font-semibold text-emerald-200 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
           >
             Edit product
           </Link>
           <Link
-            href={productVariantsPath(product.id)}
+            href={productVariantNewPath(productId)}
             className="font-semibold text-emerald-200 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
           >
-            Manage variants
+            Add variant
           </Link>
         </div>
       </header>
 
-      <ProductDetailView product={product} />
+      <VariantList productId={productId} variants={data.variants} />
     </div>
   );
 }
