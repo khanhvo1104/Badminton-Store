@@ -168,12 +168,6 @@ describe("inventory mappers", () => {
     expect(
       readAdjustedInventoryVariantId([{ variant_id: variantId }], variantId),
     ).toBe(variantId);
-    expect(readAdjustedInventoryVariantId(variantId, variantId)).toBe(
-      variantId,
-    );
-    expect(readAdjustedInventoryVariantId([variantId], variantId)).toBe(
-      variantId,
-    );
 
     expect(readAdjustedInventoryVariantId([], variantId)).toBeNull();
     expect(readAdjustedInventoryVariantId(null, variantId)).toBeNull();
@@ -207,6 +201,12 @@ describe("inventory mappers", () => {
         variantId,
       ),
     ).toBeNull();
+  });
+
+  it("rejects a bare UUID string and a one-element scalar UUID array", () => {
+    const variantId = "40000000-0000-4000-8000-000000000001";
+    expect(readAdjustedInventoryVariantId(variantId, variantId)).toBeNull();
+    expect(readAdjustedInventoryVariantId([variantId], variantId)).toBeNull();
   });
 });
 

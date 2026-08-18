@@ -130,6 +130,8 @@ describe("adjustInventory", () => {
   it.each([
     ["empty", []],
     ["null", null],
+    ["bare UUID string", VARIANT_ID],
+    ["scalar UUID array", [VARIANT_ID]],
     ["multiple", [{ variant_id: VARIANT_ID }, { variant_id: VARIANT_ID }]],
     ["malformed", [{ variant_id: "not-a-uuid" }]],
     ["mismatched", [{ variant_id: FORGED_VARIANT_ID }]],

@@ -42,18 +42,21 @@ export function readAdjustedInventoryVariantId(
   if (!isValidUuid(expectedVariantId)) {
     return null;
   }
-
-  const row = readSingleAdjustResultRow(data);
-  if (row === null) {
+  if (!Array.isArray(data) || data.length !== 1) {
     return null;
   }
 
-  if (typeof row === "string") {
-    return row === expectedVariantId && isValidUuid(row) ? row : null;
+  const row = data[0];
+  if (!isRecord(row)) {
+    return null;
   }
 
   const keys = Object.keys(row);
-  if (keys.length !== ADJUST_RESULT_KEYS.length || keys[0] !== "variant_id") {
+  if (
+    keys.length !== ADJUST_RESULT_KEYS.length ||
+    keys[0] !== "variant_id" ||
+    !Object.prototype.hasOwnProperty.call(row, "variant_id")
+  ) {
     return null;
   }
   if (typeof row.variant_id !== "string" || !isValidUuid(row.variant_id)) {
@@ -63,26 +66,6 @@ export function readAdjustedInventoryVariantId(
     return null;
   }
   return row.variant_id;
-}
-
-function readSingleAdjustResultRow(
-  data: unknown,
-): string | Record<string, unknown> | null {
-  if (typeof data === "string") {
-    return data;
-  }
-  if (!Array.isArray(data) || data.length !== 1) {
-    return null;
-  }
-
-  const row = data[0];
-  if (typeof row === "string") {
-    return row;
-  }
-  if (!isRecord(row)) {
-    return null;
-  }
-  return row;
 }
 
 export function mapCmsInventoryRpcRow(
