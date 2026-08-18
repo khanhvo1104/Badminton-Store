@@ -245,6 +245,13 @@
       "task_file": ".automation/tasks/TASK-035-cms-product-editor.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-036",
+      "title": "Build CMS variant editor",
+      "task_file": ".automation/tasks/TASK-036-cms-variant-editor.md",
+      "risk": "high",
+      "status": "complete"
     }
   ]
 }

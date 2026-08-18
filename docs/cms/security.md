@@ -136,6 +136,29 @@ The CMS product explorer at `/dashboard/products` reads selling prices through
 `cost_price` or calls `get_staff_variant_costs`. Inventory summaries are
 aggregated in that SECURITY INVOKER function after `authorizeCmsRequest`.
 
+The per-product variant editor at `/dashboard/products/[productId]/variants`
+follows the combine-reads contract above. Mutations use
+`public.save_cms_product_variant`, a SECURITY INVOKER RPC that:
+
+- calls trusted `public.is_staff_or_admin()` before any write;
+- validates product and variant ownership under caller RLS (`product_id` is
+  immutable on update);
+- accepts numeric prices as `numeric` and returns only `variant_id`;
+- writes `cost_price` and `barcode` through an explicit `unchanged|clear|set`
+  contract so an edit never reads or silently clears those columns;
+- forces the first variant to be default and rejects unsetting the current
+  default unless another default is selected in the same call;
+- serializes default switches with a per-product transaction advisory lock,
+  unsets the prior default, then sets the target.
+
+`barcode` remains absent from the authenticated SELECT grant. The editor
+therefore cannot prefill barcode; create may set it, and edit preserves it
+unless staff supply a new value or an explicit clear. Do not add a barcode
+read RPC unless a later task expands that contract on purpose.
+
+SKU normalization (CMS and RPC): trim, collapse internal whitespace to a
+single space, preserve case, require 1..80 characters.
+
 ## Inventory and state transitions
 
 The CMS must not treat direct client-side updates as sufficient for stock or

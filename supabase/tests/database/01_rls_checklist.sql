@@ -670,6 +670,37 @@ begin
     raise exception 'FAIL: service_role missing EXECUTE on list_cms_products';
   end if;
 
+  if has_function_privilege(
+    'public',
+    'public.save_cms_product_variant(uuid, uuid, text, text, text, text, text, text, text, text, text, numeric, numeric, text, numeric, text, text, jsonb, boolean, boolean, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on save_cms_product_variant';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.save_cms_product_variant(uuid, uuid, text, text, text, text, text, text, text, text, text, numeric, numeric, text, numeric, text, text, jsonb, boolean, boolean, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on save_cms_product_variant';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.save_cms_product_variant(uuid, uuid, text, text, text, text, text, text, text, text, text, numeric, numeric, text, numeric, text, text, jsonb, boolean, boolean, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on save_cms_product_variant';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.save_cms_product_variant(uuid, uuid, text, text, text, text, text, text, text, text, text, numeric, numeric, text, numeric, text, text, jsonb, boolean, boolean, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on save_cms_product_variant';
+  end if;
+
   foreach grantee in array array['anon', 'authenticated', 'service_role'] loop
     if not has_function_privilege(
       grantee, 'public.is_staff_or_admin()', 'EXECUTE'
@@ -769,6 +800,23 @@ begin
   ) then
     raise exception
       'FAIL: list_cms_products exposes a protected column name';
+  end if;
+
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    cross join lateral unnest(p.proargnames, p.proargmodes)
+      as args(argname, mode)
+    where n.nspname = 'public'
+      and p.proname = 'save_cms_product_variant'
+      and args.mode = 't'
+      and args.argname = any (
+        bad_cols || array['barcode', 'email', 'user_id', 'phone_number']
+      )
+  ) then
+    raise exception
+      'FAIL: save_cms_product_variant returns a protected column name';
   end if;
 
   raise notice 'OK: function EXECUTE + RPC schema contracts';

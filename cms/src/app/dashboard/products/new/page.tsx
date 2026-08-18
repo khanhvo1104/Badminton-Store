@@ -39,8 +39,9 @@ export default async function NewProductPage() {
           Create product
         </h1>
         <p className="max-w-2xl text-base leading-7 text-slate-300">
-          Add core catalog fields for a new product. Variants, prices,
-          inventory, and media arrive in later tasks.
+          Add core catalog fields for a new product. After saving, manage SKUs
+          and prices from the product variant editor. Inventory and media arrive
+          in later tasks.
         </p>
         <p>
           <Link

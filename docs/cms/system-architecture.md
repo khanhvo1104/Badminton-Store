@@ -142,6 +142,13 @@ page at `cms/src/app/dashboard/products/`. The paged aggregate result comes from
 for the current product page only. The page calls `authorizeCmsRequest` before
 operational inventory reads and never selects `cost_price`.
 
+Variant management lives under `cms/src/features/variants/` with App Router
+pages at `cms/src/app/dashboard/products/[productId]/variants/`. A bounded
+explicit-column variant read is merged with `get_staff_variant_costs` by id.
+Create and update are Server Actions that re-authorize, bind `productId` /
+`variantId` from the route, and call `save_cms_product_variant`. Cost appears
+only in this authorized editor; barcode is never listed or prefilled.
+
 ## Catalog data flow
 
 ### Read

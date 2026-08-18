@@ -8,6 +8,7 @@ import {
   PRODUCTS_LIST_PATH,
   productDetailPath,
 } from "@/features/products/constants";
+import { productVariantsPath } from "@/features/variants/constants";
 import {
   getProductById,
   listProductFormReferenceOptions,
@@ -101,7 +102,8 @@ export default async function EditProductPage({
           Edit product
         </h1>
         <p className="max-w-2xl text-base leading-7 text-slate-300">
-          Update core fields for “{product.name}”.
+          Update core fields for “{product.name}”. Use Manage variants for SKUs
+          and prices.
         </p>
         <div className="flex flex-wrap gap-4 text-sm">
           <Link
@@ -115,6 +117,12 @@ export default async function EditProductPage({
             className="font-semibold text-emerald-200 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
           >
             View product
+          </Link>
+          <Link
+            href={productVariantsPath(product.id)}
+            className="font-semibold text-emerald-200 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+          >
+            Manage variants
           </Link>
         </div>
       </header>

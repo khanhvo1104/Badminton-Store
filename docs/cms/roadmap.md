@@ -54,7 +54,8 @@ publish validation, with server-side validation and sanitized failures.
 ### TASK-032 — Variant editor
 
 Manage SKUs, attributes, selling prices, compare-at prices, the protected cost
-price contract, defaults, and uniqueness constraints.
+price contract, defaults, and uniqueness constraints. Delivered as TASK-036 in
+the automation backlog.
 
 ### TASK-033 — Inventory adjustments
 

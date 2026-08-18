@@ -67,6 +67,18 @@ begin
       'FAIL: service_role lost SELECT on product_variants.cost_price';
   end if;
 
+  if has_column_privilege(
+    'anon', 'public.product_variants', 'barcode', 'SELECT'
+  ) then
+    raise exception 'FAIL: anon can SELECT product_variants.barcode';
+  end if;
+  if has_column_privilege(
+    'authenticated', 'public.product_variants', 'barcode', 'SELECT'
+  ) then
+    raise exception
+      'FAIL: authenticated can SELECT product_variants.barcode';
+  end if;
+
   foreach col in array safe_cols loop
     if not has_column_privilege(
       'anon', 'public.product_variants', col, 'SELECT'
@@ -110,6 +122,23 @@ begin
         when others then
           raise exception
             'FAIL: % SELECT cost_price raised unexpected SQLSTATE %: %',
+            role_name,
+            sqlstate,
+            sqlerrm;
+      end;
+
+      begin
+        execute
+          'select barcode from public.product_variants where id = $1'
+          using active_variant_id;
+        raise exception
+          'FAIL: % SELECT barcode unexpectedly succeeded', role_name;
+      exception
+        when insufficient_privilege then
+          null; -- expected
+        when others then
+          raise exception
+            'FAIL: % SELECT barcode raised unexpected SQLSTATE %: %',
             role_name,
             sqlstate,
             sqlerrm;

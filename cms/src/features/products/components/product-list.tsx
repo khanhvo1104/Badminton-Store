@@ -8,6 +8,7 @@ import {
   productEditPath,
   PRODUCTS_LIST_PATH,
 } from "@/features/products/constants";
+import { productVariantsPath } from "@/features/variants/constants";
 import type {
   ProductListItem,
   ProductListResult,
@@ -282,6 +283,13 @@ function ProductActions({
         className="inline-flex rounded-full bg-emerald-300 px-3 py-1 text-sm font-semibold text-slate-950 transition hover:bg-emerald-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
       >
         Edit
+      </Link>
+      <Link
+        href={productVariantsPath(productId)}
+        aria-label={`Manage variants for ${name}`}
+        className="inline-flex rounded-full border border-white/15 px-3 py-1 text-sm font-semibold text-emerald-200 transition hover:border-emerald-200/40 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+      >
+        Variants
       </Link>
     </div>
   );
