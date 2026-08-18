@@ -49,7 +49,7 @@ SKU unique; price/compare_at/cost numeric; badminton columns (racket_weight_clas
 
 ## inventory
 
-PK `variant_id`. Reserved ≤ on_hand unless `allow_backorder`. Public uses `get_variant_availability`.
+PK `variant_id`. Reserved ≤ on_hand unless `allow_backorder`. Public uses `get_variant_availability`. CMS adjustments use `adjust_cms_inventory` and write immutable `inventory_history`.
 
 ## favorites
 
@@ -74,6 +74,8 @@ Order number `BDM-YYYYMMDD-XXXXXX`; grand_total math check; shipping_address jso
   - Authorizes active trusted `profiles.role` in (`staff`, `admin`) via `auth.uid()`
   - EXECUTE: `authenticated` only (revoked from `PUBLIC`, `anon`, `service_role`)
   - Does not change variant RLS or grant `SELECT(cost_price)` to public API roles
+- `list_cms_inventory(text, text, text, int, int)` — STABLE SECURITY INVOKER, empty search_path, staff/admin only
+- `adjust_cms_inventory(uuid, text, int, bool, text, text)` — VOLATILE SECURITY DEFINER, empty search_path, staff/admin only, history + inventory in one transaction
 - `search_products(text, int)`
 - `generate_order_number()`
 - `is_staff_or_admin()` / `is_admin()`

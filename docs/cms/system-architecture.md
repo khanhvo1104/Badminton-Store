@@ -149,6 +149,15 @@ Create and update are Server Actions that re-authorize, bind `productId` /
 `variantId` from the route, and call `save_cms_product_variant`. Cost appears
 only in this authorized editor; barcode is never listed or prefilled.
 
+Inventory management lives under `cms/src/features/inventory/` with App Router
+pages at `cms/src/app/dashboard/inventory/` and
+`cms/src/app/dashboard/inventory/[variantId]/`. The explorer page comes from
+`public.list_cms_inventory`, which filters, sorts, and counts in Postgres with a
+`variant_id` tie-breaker before offset/limit. The page calls
+`authorizeCmsRequest` before operational inventory reads and never selects
+`cost_price` or `barcode`. Adjustments are a Server Action that re-authorizes,
+binds `variantId` from the route, and calls `adjust_cms_inventory`.
+
 ## Catalog data flow
 
 ### Read

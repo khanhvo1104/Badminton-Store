@@ -45,7 +45,8 @@ export const DASHBOARD_NAV_ITEMS: readonly DashboardNavItem[] = [
     id: "inventory",
     href: `${DASHBOARD_ROOT_PATH}/inventory`,
     label: "Inventory",
-    description: "Inventory adjustments arrive in a later catalog task.",
+    description:
+      "Per-variant stock explorer with atomic adjustments and history.",
   },
 ] as const;
 

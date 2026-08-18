@@ -21,7 +21,8 @@ declare
     'public.prevent_profile_privilege_escalation()',
     'public.assign_order_number()',
     'public.record_order_status_change()',
-    'public.validate_product_image_variant()'
+    'public.validate_product_image_variant()',
+    'public.prevent_inventory_history_mutation()'
   ];
   sig text;
   grantee text;
@@ -117,6 +118,11 @@ begin
       role_name,
       'public.validate_product_image_variant()',
       'select public.validate_product_image_variant()'
+    );
+    perform pg_temp.assert_client_execute_denied(
+      role_name,
+      'public.prevent_inventory_history_mutation()',
+      'select public.prevent_inventory_history_mutation()'
     );
   end loop;
 

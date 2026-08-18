@@ -148,6 +148,20 @@ Reads use the cookie-backed SSR client and re-check `authorizeCmsRequest` before
 inventory or cost access. There is no client-side Supabase access for products
 or variants.
 
+### Inventory explorer and adjustments
+
+`/dashboard/inventory` lists per-variant stock with server-side pagination,
+product/variant/SKU search, stock filters, and stable sorting. Columns are
+product, variant/SKU, on-hand, reserved, available, reorder level,
+allow-backorder, status, and updated time. Cost price and barcode are never
+selected.
+
+Staff adjust a variant at `/dashboard/inventory/[variantId]`. The Server Action
+re-authorizes, binds `variantId` from the route, and calls
+`adjust_cms_inventory` with a required reason and optional note. Reserved
+quantity is read-only. History is listed from `inventory_history` after the
+same authorization check.
+
 Add new dashboard areas by extending
 `src/lib/navigation/dashboard-routes.ts` and placing pages under
 `src/app/dashboard/`. Do not trust client state or URL text for roles or

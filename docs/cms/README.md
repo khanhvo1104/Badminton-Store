@@ -110,8 +110,10 @@ Router layout. The shell provides:
 - safe display-name and trusted role context with POST logout;
 - reusable loading, empty, sanitized error/retry, and confirmation primitives.
 
-Placeholder routes under `/dashboard/inventory` keep primary navigation
-functional before the inventory-adjustment task. `/dashboard/products` is a
+`/dashboard/inventory` is a production inventory explorer with server-side
+pagination, product/variant/SKU search, stock filters, and stable sorting.
+Staff adjust a variant at `/dashboard/inventory/[variantId]` through
+`adjust_cms_inventory`. Reserved quantity is read-only. `/dashboard/products` is a
 read-only product explorer with linked create/edit/detail routes for core
 product fields and a per-product variant editor at
 `/dashboard/products/[productId]/variants`. The explorer provides server-side pagination, escaped name/slug

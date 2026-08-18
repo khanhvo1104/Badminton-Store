@@ -8,6 +8,9 @@
 | product_variants (active+parent active) | R* | R* | CRUD |
 | product_images (via active product) | R | R | CRUD |
 | inventory (raw) | — | — | CRUD |
+| inventory_history | — | — | R (immutable; writes via RPC) |
+| list_cms_inventory | — | — | R (explorer RPC) |
+| adjust_cms_inventory | — | — | RPC write |
 | get_variant_availability | R | R | R |
 | get_staff_variant_costs | —† | —† | R (cost-only RPC) |
 | product_catalog view | R | R | R |

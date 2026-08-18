@@ -121,25 +121,6 @@ describe("DashboardOverviewPage", () => {
   });
 });
 
-describe("dashboard placeholder pages", () => {
-  it("renders the inventory placeholder", async () => {
-    const { default: InventoryPage } = await import(
-      "@/app/dashboard/inventory/page"
-    );
-
-    render(<InventoryPage />);
-    expect(
-      screen.getByRole("heading", { name: "Inventory" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Inventory tools come next" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(/select \*|mutation|sql/i),
-    ).not.toBeInTheDocument();
-  });
-});
-
 describe("dashboard loading and error routes", () => {
   it("renders the shared loading pattern", async () => {
     const { default: DashboardLoading } = await import(
