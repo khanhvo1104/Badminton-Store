@@ -8,6 +8,7 @@ import {
   productEditPath,
 } from "@/features/products/constants";
 import { productVariantsPath } from "@/features/variants/constants";
+import { productMediaPath } from "@/features/media/constants";
 import {
   getProductById,
   type ProductDetailQueryClient,
@@ -63,8 +64,8 @@ export default async function ProductDetailPage({
           {product.name}
         </h1>
         <p className="max-w-2xl text-base leading-7 text-slate-300">
-          Core product fields and linked variant management for this product.
-          Inventory, media, delete, and bulk flows remain out of scope.
+          Core product fields, linked variant management, and catalog images for
+          this product. Inventory, delete, and bulk flows remain out of scope.
         </p>
         <div className="flex flex-wrap gap-4 text-sm">
           <Link
@@ -84,6 +85,12 @@ export default async function ProductDetailPage({
             className="font-semibold text-emerald-200 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
           >
             Manage variants
+          </Link>
+          <Link
+            href={productMediaPath(product.id)}
+            className="font-semibold text-emerald-200 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+          >
+            Manage images
           </Link>
         </div>
       </header>

@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 
+import { productMediaPath } from "@/features/media/constants";
 import {
   PRODUCTS_LIST_PATH,
   PRODUCTS_NEW_PATH,
@@ -12,7 +13,11 @@ export { productDetailPath, productEditPath };
 export function getProductRevalidationPaths(productId?: string): string[] {
   const paths = [PRODUCTS_LIST_PATH, PRODUCTS_NEW_PATH];
   if (productId) {
-    paths.push(productDetailPath(productId), productEditPath(productId));
+    paths.push(
+      productDetailPath(productId),
+      productEditPath(productId),
+      productMediaPath(productId),
+    );
   }
   return paths;
 }

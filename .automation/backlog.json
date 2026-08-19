@@ -259,6 +259,13 @@
       "task_file": ".automation/tasks/TASK-037-cms-inventory-adjustments.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-038",
+      "title": "Build CMS product media manager",
+      "task_file": ".automation/tasks/TASK-038-cms-product-media-manager.md",
+      "risk": "high",
+      "status": "complete"
     }
   ]
 }

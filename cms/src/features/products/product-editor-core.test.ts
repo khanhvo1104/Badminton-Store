@@ -375,6 +375,7 @@ describe("product detail mapping and errors", () => {
       "/dashboard/products/new",
       productDetailPath(PRODUCT_ID),
       productEditPath(PRODUCT_ID),
+      `/dashboard/products/${PRODUCT_ID}/media`,
     ]);
   });
 });

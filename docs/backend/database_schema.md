@@ -45,7 +45,7 @@ SKU unique; price/compare_at/cost numeric; badminton columns (racket_weight_clas
 
 ## product_images
 
-`storage_path`; optional `variant_id` validated against `product_id`; one primary general image per product.
+`storage_path`; optional `variant_id` validated against `product_id`; one primary general image per product and one primary per variant. CMS primary switches use `set_cms_product_image_primary`; bounded reorders use `reorder_cms_product_images`. Inserts and variant reassignment use `insert_cms_product_image` / `update_cms_product_image` so primary maintenance is one transaction.
 
 ## inventory
 
@@ -76,6 +76,10 @@ Order number `BDM-YYYYMMDD-XXXXXX`; grand_total math check; shipping_address jso
   - Does not change variant RLS or grant `SELECT(cost_price)` to public API roles
 - `list_cms_inventory(text, text, text, int, int)` — STABLE SECURITY INVOKER, empty search_path, staff/admin only
 - `adjust_cms_inventory(uuid, text, int, bool, text, text)` — VOLATILE SECURITY DEFINER, empty search_path, staff/admin only, history + inventory in one transaction, returns only `variant_id`
+- `set_cms_product_image_primary(uuid, uuid)` — VOLATILE SECURITY INVOKER, empty search_path, staff/admin only, serializes unique primary switches, returns only `image_id`
+- `reorder_cms_product_images(uuid, uuid[])` — VOLATILE SECURITY INVOKER, empty search_path, staff/admin only, bounded complete id list, returns only `product_id`
+- `insert_cms_product_image(uuid, text, text, uuid, boolean)` — VOLATILE SECURITY INVOKER, empty search_path, staff/admin only, insert + optional primary in one transaction, returns only `image_id`
+- `update_cms_product_image(uuid, uuid, text, uuid, integer)` — VOLATILE SECURITY INVOKER, empty search_path, staff/admin only, variant move + primary maintenance in one transaction, returns only `image_id`
 - `search_products(text, int)`
 - `generate_order_number()`
 - `is_staff_or_admin()` / `is_admin()`

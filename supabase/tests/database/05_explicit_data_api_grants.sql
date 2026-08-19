@@ -632,6 +632,130 @@ begin
     raise exception 'FAIL: service_role missing EXECUTE on adjust_cms_inventory';
   end if;
 
+  if has_function_privilege(
+    'public',
+    'public.set_cms_product_image_primary(uuid, uuid)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on set_cms_product_image_primary';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.set_cms_product_image_primary(uuid, uuid)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on set_cms_product_image_primary';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.set_cms_product_image_primary(uuid, uuid)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on set_cms_product_image_primary';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.set_cms_product_image_primary(uuid, uuid)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on set_cms_product_image_primary';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.reorder_cms_product_images(uuid, uuid[])',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on reorder_cms_product_images';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.reorder_cms_product_images(uuid, uuid[])',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on reorder_cms_product_images';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.reorder_cms_product_images(uuid, uuid[])',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on reorder_cms_product_images';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.reorder_cms_product_images(uuid, uuid[])',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on reorder_cms_product_images';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on insert_cms_product_image';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on insert_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on insert_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on insert_cms_product_image';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on update_cms_product_image';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on update_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on update_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on update_cms_product_image';
+  end if;
+
   -- Policy helpers remain executable by Data API roles.
   foreach grantee in array array['anon', 'authenticated', 'service_role'] loop
     if not has_function_privilege(

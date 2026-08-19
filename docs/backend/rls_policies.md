@@ -7,6 +7,7 @@
 | products (active) | R | R | CRUD all statuses |
 | product_variants (active+parent active) | R* | R* | CRUD |
 | product_images (via active product) | R | R | CRUD |
+| set_cms_product_image_primary / reorder_cms_product_images / insert_cms_product_image / update_cms_product_image | — | — | RPC write |
 | inventory (raw) | — | — | CRUD |
 | inventory_history | — | — | R (immutable; writes via RPC) |
 | list_cms_inventory | — | — | R (explorer RPC) |

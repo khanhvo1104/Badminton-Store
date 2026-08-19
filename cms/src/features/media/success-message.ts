@@ -1,0 +1,36 @@
+import {
+  MEDIA_DELETE_SUCCESS_MESSAGE,
+  MEDIA_PRIMARY_SUCCESS_MESSAGE,
+  MEDIA_REORDER_SUCCESS_MESSAGE,
+  MEDIA_REPLACE_SUCCESS_MESSAGE,
+  MEDIA_SUCCESS_DELETED,
+  MEDIA_SUCCESS_PRIMARY,
+  MEDIA_SUCCESS_REORDERED,
+  MEDIA_SUCCESS_REPLACED,
+  MEDIA_SUCCESS_UPDATED,
+  MEDIA_SUCCESS_UPLOADED,
+  MEDIA_UPDATE_SUCCESS_MESSAGE,
+  MEDIA_UPLOAD_SUCCESS_MESSAGE,
+} from "@/features/media/constants";
+
+export function mediaSuccessMessage(
+  status: string | string[] | undefined,
+): string | null {
+  const value = Array.isArray(status) ? status[0] : status;
+  switch (value) {
+    case MEDIA_SUCCESS_UPLOADED:
+      return MEDIA_UPLOAD_SUCCESS_MESSAGE;
+    case MEDIA_SUCCESS_UPDATED:
+      return MEDIA_UPDATE_SUCCESS_MESSAGE;
+    case MEDIA_SUCCESS_REPLACED:
+      return MEDIA_REPLACE_SUCCESS_MESSAGE;
+    case MEDIA_SUCCESS_PRIMARY:
+      return MEDIA_PRIMARY_SUCCESS_MESSAGE;
+    case MEDIA_SUCCESS_DELETED:
+      return MEDIA_DELETE_SUCCESS_MESSAGE;
+    case MEDIA_SUCCESS_REORDERED:
+      return MEDIA_REORDER_SUCCESS_MESSAGE;
+    default:
+      return null;
+  }
+}

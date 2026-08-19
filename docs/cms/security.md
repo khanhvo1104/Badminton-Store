@@ -173,6 +173,38 @@ payloads. `public.list_cms_inventory` is SECURITY INVOKER and never
 selects `cost_price` or `barcode`. Reserved quantity cannot be edited. Future
 order status changes require explicit transition rules enforced server-side.
 
+## Product media
+
+Product images are staff/admin catalog mutations over existing
+`product_images` RLS and the public `product-images` bucket.
+
+- `set_cms_product_image_primary(p_product_id uuid, p_image_id uuid)` is
+  SECURITY INVOKER with empty `search_path`, `is_staff_or_admin()`
+  authorization, a per-product advisory lock, and a two-step unset-then-set
+  so unique indexes are not raced. It returns only `image_id`. SECURITY
+  DEFINER is not used because staff already have table UPDATE under RLS.
+- `reorder_cms_product_images(p_product_id uuid, p_image_ids uuid[])` is the
+  matching bounded reorder RPC (1..20 complete, product-scoped ids) and
+  returns only `product_id`.
+- `insert_cms_product_image` inserts the row and assigns primary in one
+  locked transaction. `update_cms_product_image` moves variant scope and
+  maintains old/destination primaries in one locked transaction. Both return
+  only `image_id`.
+- Upload: validate raster MIME/size, generate `{productId}/{uuid}.ext`,
+  `upsert: false`, then call `insert_cms_product_image`. If the RPC fails,
+  best-effort delete the newly uploaded object.
+- Replace: upload a new unique object, update `storage_path`, then delete the
+  old object. On database failure, delete the new object and keep the old
+  working image.
+- Delete: if the target is primary, promote the next remaining image in the
+  same scope first (while both rows still exist). Then remove the database
+  row (never leaving a row pointing at a missing object), then best-effort
+  delete the Storage object. Cleanup failure is a sanitized warning. Fully
+  atomic Storage+Postgres delete is impossible; orphaned objects are the
+  retryable failure mode.
+- SVG is never accepted or inlined. Previews are public object URLs built
+  from stored paths that stay under the product folder.
+
 ## Storage rules
 
 - Validate MIME type, extension, size, bucket, and normalized object path.

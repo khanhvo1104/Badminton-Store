@@ -88,6 +88,8 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/08_cms_varian
 bash supabase/tests/database/08_cms_variant_editor_concurrency.sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/09_cms_inventory_adjustments.sql
 bash supabase/tests/database/09_cms_inventory_adjustments_concurrency.sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/10_cms_product_media.sql
+bash supabase/tests/database/10_cms_product_media_concurrency.sh
 ```
 
 ### RLS / Storage / RPC suite (TASK-006)
@@ -171,6 +173,28 @@ Contract summary:
 
 The suite also re-checks representative staff/admin catalog and catalog-bucket
 Storage write capabilities and customer denial of those mutations.
+
+### CMS product media RPCs (TASK-038)
+
+`10_cms_product_media.sql` plus `01`/`05`/`07` grant checks cover
+`set_cms_product_image_primary`, `reorder_cms_product_images`,
+`insert_cms_product_image`, and `update_cms_product_image`.
+
+- SECURITY INVOKER, VOLATILE, empty `search_path`
+- `is_staff_or_admin()` before any write
+- unique primary switches take a per-product advisory lock, unset the previous
+  primary in the same general or variant scope, then set the target
+- insert creates the row and optional primary in one transaction
+- update moves variant scope and maintains old/destination primaries in one
+  transaction
+- reorder requires a complete, duplicate-free, product-scoped id list of
+  length 1..20
+- returns only `image_id` or `product_id`
+- EXECUTE granted to `authenticated` and `service_role` (revoked from
+  `PUBLIC` and `anon`)
+
+`10_cms_product_media_concurrency.sh` proves concurrent primary switches and
+concurrent variant reassignment leave exactly one primary per scope.
 
 ### Trigger-helper EXECUTE contract (TASK-007)
 

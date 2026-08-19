@@ -1514,6 +1514,188 @@ exception
     raise;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- set_cms_product_image_primary / reorder_cms_product_images contracts
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_primary_sig text := 'public.set_cms_product_image_primary(uuid, uuid)';
+  v_reorder_sig text := 'public.reorder_cms_product_images(uuid, uuid[])';
+  v_insert_sig text :=
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)';
+  v_update_sig text :=
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)';
+  v_volatile "char";
+  v_secdef boolean;
+  v_config text[];
+  v_out_names text[];
+  v_sig text;
+begin
+  foreach v_sig in array array[
+    v_primary_sig, v_reorder_sig, v_insert_sig, v_update_sig
+  ] loop
+    select p.provolatile, p.prosecdef, p.proconfig
+    into v_volatile, v_secdef, v_config
+    from pg_proc p
+    where p.oid = v_sig::regprocedure;
+
+    if v_volatile is distinct from 'v' then
+      raise exception 'FAIL: % is not VOLATILE', v_sig;
+    end if;
+    if v_secdef is not false then
+      raise exception 'FAIL: % is not SECURITY INVOKER', v_sig;
+    end if;
+    if v_config is null
+       or not exists (
+         select 1
+         from unnest(v_config) as cfg(val)
+         where cfg.val in ('search_path=', 'search_path=""')
+       )
+    then
+      raise exception 'FAIL: % search_path is not empty', v_sig;
+    end if;
+    if has_function_privilege('public', v_sig, 'EXECUTE')
+       or has_function_privilege('anon', v_sig, 'EXECUTE')
+    then
+      raise exception 'FAIL: % EXECUTE too broad', v_sig;
+    end if;
+    if not has_function_privilege('authenticated', v_sig, 'EXECUTE')
+       or not has_function_privilege('service_role', v_sig, 'EXECUTE')
+    then
+      raise exception 'FAIL: % EXECUTE missing', v_sig;
+    end if;
+  end loop;
+
+  select coalesce(
+    array_agg(args.argname order by args.ord) filter (where args.mode = 't'),
+    array[]::text[]
+  )
+  into v_out_names
+  from pg_proc p
+  cross join lateral unnest(
+    p.proargnames,
+    p.proargmodes
+  ) with ordinality as args(argname, mode, ord)
+  where p.oid = v_primary_sig::regprocedure;
+  if v_out_names is distinct from array['image_id'] then
+    raise exception
+      'FAIL: set_cms_product_image_primary return columns mismatch';
+  end if;
+
+  select coalesce(
+    array_agg(args.argname order by args.ord) filter (where args.mode = 't'),
+    array[]::text[]
+  )
+  into v_out_names
+  from pg_proc p
+  cross join lateral unnest(
+    p.proargnames,
+    p.proargmodes
+  ) with ordinality as args(argname, mode, ord)
+  where p.oid = v_reorder_sig::regprocedure;
+  if v_out_names is distinct from array['product_id'] then
+    raise exception
+      'FAIL: reorder_cms_product_images return columns mismatch';
+  end if;
+
+  select coalesce(
+    array_agg(args.argname order by args.ord) filter (where args.mode = 't'),
+    array[]::text[]
+  )
+  into v_out_names
+  from pg_proc p
+  cross join lateral unnest(
+    p.proargnames,
+    p.proargmodes
+  ) with ordinality as args(argname, mode, ord)
+  where p.oid = v_insert_sig::regprocedure;
+  if v_out_names is distinct from array['image_id'] then
+    raise exception 'FAIL: insert_cms_product_image return columns mismatch';
+  end if;
+
+  select coalesce(
+    array_agg(args.argname order by args.ord) filter (where args.mode = 't'),
+    array[]::text[]
+  )
+  into v_out_names
+  from pg_proc p
+  cross join lateral unnest(
+    p.proargnames,
+    p.proargmodes
+  ) with ordinality as args(argname, mode, ord)
+  where p.oid = v_update_sig::regprocedure;
+  if v_out_names is distinct from array['image_id'] then
+    raise exception 'FAIL: update_cms_product_image return columns mismatch';
+  end if;
+
+  if has_function_privilege('public', v_primary_sig, 'EXECUTE')
+     or has_function_privilege('anon', v_primary_sig, 'EXECUTE')
+  then
+    raise exception 'FAIL: set_cms_product_image_primary EXECUTE too broad';
+  end if;
+  if not has_function_privilege('authenticated', v_primary_sig, 'EXECUTE')
+     or not has_function_privilege('service_role', v_primary_sig, 'EXECUTE')
+  then
+    raise exception 'FAIL: set_cms_product_image_primary EXECUTE missing';
+  end if;
+  if has_function_privilege('public', v_reorder_sig, 'EXECUTE')
+     or has_function_privilege('anon', v_reorder_sig, 'EXECUTE')
+  then
+    raise exception 'FAIL: reorder_cms_product_images EXECUTE too broad';
+  end if;
+  if not has_function_privilege('authenticated', v_reorder_sig, 'EXECUTE')
+     or not has_function_privilege('service_role', v_reorder_sig, 'EXECUTE')
+  then
+    raise exception 'FAIL: reorder_cms_product_images EXECUTE missing';
+  end if;
+
+  perform pg_temp.cms_set_anon();
+  perform pg_temp.cms_assert_execute_denied(
+    'anon set_cms_product_image_primary EXECUTE',
+    $q$select image_id from public.set_cms_product_image_primary(
+      '30000000-0000-4000-8000-000000000001'::uuid,
+      '50000000-0000-4000-8000-000000000001'::uuid
+    )$q$
+  );
+  perform pg_temp.cms_clear_auth();
+
+  perform pg_temp.cms_set_auth('a2600000-0000-4000-8000-000000000001');
+  perform pg_temp.cms_assert_authz_denied(
+    'customer set_cms_product_image_primary',
+    $q$select image_id from public.set_cms_product_image_primary(
+      '30000000-0000-4000-8000-000000000001'::uuid,
+      '50000000-0000-4000-8000-000000000001'::uuid
+    )$q$
+  );
+  perform pg_temp.cms_assert_authz_denied(
+    'customer insert_cms_product_image',
+    $q$select image_id from public.insert_cms_product_image(
+      '30000000-0000-4000-8000-000000000001'::uuid,
+      'product-images/30000000-0000-4000-8000-000000000001/50000000-0000-4000-8000-000000000001.webp',
+      'Alt',
+      null,
+      false
+    )$q$
+  );
+  perform pg_temp.cms_assert_authz_denied(
+    'customer update_cms_product_image',
+    $q$select image_id from public.update_cms_product_image(
+      '30000000-0000-4000-8000-000000000001'::uuid,
+      '50000000-0000-4000-8000-000000000001'::uuid,
+      'Alt',
+      null,
+      0
+    )$q$
+  );
+  perform pg_temp.cms_clear_auth();
+
+  raise notice 'OK: product media RPC definition + denial + return';
+exception
+  when others then
+    perform pg_temp.cms_clear_auth();
+    raise;
+end $$;
+
 rollback;
 
 \echo '== done =='

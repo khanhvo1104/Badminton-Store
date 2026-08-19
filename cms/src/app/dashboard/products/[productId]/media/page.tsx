@@ -2,40 +2,46 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ErrorState } from "@/components/ui/error-state";
+import { ProductMediaManager } from "@/features/media/components/product-media-manager";
+import {
+  getProductMediaPage,
+  type MediaQueryClient,
+} from "@/features/media/queries";
+import { mediaSuccessMessage } from "@/features/media/success-message";
+import { isValidUuid } from "@/features/media/validation";
 import {
   PRODUCTS_LIST_PATH,
   productDetailPath,
   productEditPath,
 } from "@/features/products/constants";
-import { productMediaPath } from "@/features/media/constants";
-import { isValidUuid } from "@/features/products/validation";
-import { VariantList } from "@/features/variants/components/variant-list";
-import { productVariantNewPath } from "@/features/variants/constants";
-import {
-  listProductVariants,
-  type VariantQueryClient,
-} from "@/features/variants/queries";
+import { productVariantsPath } from "@/features/variants/constants";
+import { getPublicEnvironment } from "@/lib/env/public-env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-type ProductVariantsPageProps = {
+type ProductMediaPageProps = {
   params: Promise<{ productId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function ProductVariantsPage({
+export default async function ProductMediaPage({
   params,
-}: ProductVariantsPageProps) {
+  searchParams,
+}: ProductMediaPageProps) {
   const { productId } = await params;
+  const resolvedSearchParams = (await searchParams) ?? {};
 
   if (!isValidUuid(productId)) {
     notFound();
   }
 
+  const environment = getPublicEnvironment();
   const supabase = await createSupabaseServerClient();
-  const result = await listProductVariants({
-    supabase: supabase as unknown as VariantQueryClient,
+  const result = await getProductMediaPage({
+    supabase: supabase as unknown as MediaQueryClient,
     productId,
+    supabaseUrl: environment.supabaseUrl,
   });
 
   if (!result.ok && result.notFound) {
@@ -44,30 +50,29 @@ export default async function ProductVariantsPage({
 
   if (!result.ok) {
     return (
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-4xl">
         <ErrorState
-          title="Unable to load variants"
+          title="Unable to load product images"
           description={result.message}
         />
       </div>
     );
   }
 
-  const { data } = result;
+  const successMessage = mediaSuccessMessage(resolvedSearchParams.success);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
+    <div className="mx-auto max-w-4xl space-y-8">
       <header className="space-y-3">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-emerald-300">
-          Variants
+          Product images
         </p>
         <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-          Variants for {data.productName}
+          Media for {result.data.productName}
         </h1>
         <p className="max-w-3xl text-base leading-7 text-slate-300">
-          Manage SKUs, attributes, selling prices, compare-at prices, and the
-          protected cost contract for this product. Inventory, delete, and bulk
-          import stay out of scope.
+          Upload, order, replace, and delete catalog images for this product.
+          Previews use stored object paths only and never inline SVG.
         </p>
         <div className="flex flex-wrap gap-4 text-sm">
           <Link
@@ -89,21 +94,29 @@ export default async function ProductVariantsPage({
             Edit product
           </Link>
           <Link
-            href={productMediaPath(productId)}
+            href={productVariantsPath(productId)}
             className="font-semibold text-emerald-200 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
           >
-            Manage images
-          </Link>
-          <Link
-            href={productVariantNewPath(productId)}
-            className="font-semibold text-emerald-200 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
-          >
-            Add variant
+            Manage variants
           </Link>
         </div>
       </header>
 
-      <VariantList productId={productId} variants={data.variants} />
+      {successMessage ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="rounded-3xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100"
+        >
+          {successMessage}
+        </p>
+      ) : null}
+
+      <ProductMediaManager
+        productId={result.data.productId}
+        images={result.data.images}
+        variants={result.data.variants}
+      />
     </div>
   );
 }
