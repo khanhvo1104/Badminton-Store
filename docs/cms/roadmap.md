@@ -66,7 +66,8 @@ TASK-037 in the automation backlog.
 ### TASK-034 — Product media manager
 
 Upload, validate, order, select primary, replace, and delete product images with
-Storage/database compensation for partial failures.
+Storage/database compensation for partial failures. Delivered as TASK-038 in the
+automation backlog.
 
 Completion of TASK-034 defines the product-management MVP.
 

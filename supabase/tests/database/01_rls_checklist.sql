@@ -769,6 +769,68 @@ begin
     raise exception 'FAIL: service_role missing EXECUTE on adjust_cms_inventory';
   end if;
 
+  if has_function_privilege(
+    'public',
+    'public.set_cms_product_image_primary(uuid, uuid)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on set_cms_product_image_primary';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.set_cms_product_image_primary(uuid, uuid)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on set_cms_product_image_primary';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.set_cms_product_image_primary(uuid, uuid)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on set_cms_product_image_primary';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.set_cms_product_image_primary(uuid, uuid)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on set_cms_product_image_primary';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.reorder_cms_product_images(uuid, uuid[])',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on reorder_cms_product_images';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.reorder_cms_product_images(uuid, uuid[])',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on reorder_cms_product_images';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.reorder_cms_product_images(uuid, uuid[])',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on reorder_cms_product_images';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.reorder_cms_product_images(uuid, uuid[])',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on reorder_cms_product_images';
+  end if;
+
   foreach grantee in array array['anon', 'authenticated', 'service_role'] loop
     if not has_function_privilege(
       grantee, 'public.is_staff_or_admin()', 'EXECUTE'
@@ -885,6 +947,26 @@ begin
   ) then
     raise exception
       'FAIL: save_cms_product_variant returns a protected column name';
+  end if;
+
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    cross join lateral unnest(p.proargnames, p.proargmodes)
+      as args(argname, mode)
+    where n.nspname = 'public'
+      and p.proname in (
+        'set_cms_product_image_primary',
+        'reorder_cms_product_images'
+      )
+      and args.mode = 't'
+      and args.argname = any (
+        bad_cols || array['barcode', 'email', 'user_id', 'phone_number', 'storage_path']
+      )
+  ) then
+    raise exception
+      'FAIL: product media RPC returns a protected column name';
   end if;
 
   raise notice 'OK: function EXECUTE + RPC schema contracts';

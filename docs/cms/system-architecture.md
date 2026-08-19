@@ -159,6 +159,18 @@ pages at `cms/src/app/dashboard/inventory/` and
 binds `variantId` from the route, calls `adjust_cms_inventory`, and fail-closes
 unless the RPC returns exactly one `variant_id` row matching that route id.
 
+Product media lives under `cms/src/features/media/` with the App Router page at
+`cms/src/app/dashboard/products/[productId]/media/`. The page calls
+`authorizeCmsRequest` before listing images. Mutations are Server Actions that
+re-authorize, bind `productId` / `imageId` from the route, and never trust form
+`product_id`, `storage_path`, actor, or role. Primary switches use
+`set_cms_product_image_primary`; reordering uses `reorder_cms_product_images`.
+Both are SECURITY INVOKER with empty `search_path`. Upload creates the Storage
+object first, then the database row. Replacement uploads a new unique object,
+updates the path, then deletes the old object. Deletion removes the database
+row after promoting a remaining in-scope primary, so a catalog row never
+points at a missing file; Storage cleanup is best-effort and retryable.
+
 ## Catalog data flow
 
 ### Read
