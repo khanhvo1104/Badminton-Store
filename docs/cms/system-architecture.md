@@ -165,8 +165,11 @@ Product media lives under `cms/src/features/media/` with the App Router page at
 re-authorize, bind `productId` / `imageId` from the route, and never trust form
 `product_id`, `storage_path`, actor, or role. Primary switches use
 `set_cms_product_image_primary`; reordering uses `reorder_cms_product_images`.
-Both are SECURITY INVOKER with empty `search_path`. Upload creates the Storage
-object first, then the database row. Replacement uploads a new unique object,
+Insert and metadata/variant updates use `insert_cms_product_image` and
+`update_cms_product_image` so primary assignment stays in the same
+transaction as the row write. Both are SECURITY INVOKER with empty `search_path`.
+Upload creates the Storage object first, then the database row through the
+insert RPC. Replacement uploads a new unique object,
 updates the path, then deletes the old object. Deletion removes the database
 row after promoting a remaining in-scope primary, so a catalog row never
 points at a missing file; Storage cleanup is best-effort and retryable.

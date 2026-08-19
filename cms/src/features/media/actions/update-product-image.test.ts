@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  MEDIA_GENERIC_FAILURE_MESSAGE,
   MEDIA_NOT_FOUND_MESSAGE,
   MEDIA_SUCCESS_UPDATED,
   MEDIA_VARIANT_INVALID_MESSAGE,
+  UPDATE_CMS_PRODUCT_IMAGE_RPC,
   productMediaPath,
 } from "@/features/media/constants";
 import { INITIAL_UPDATE_MEDIA_FORM_STATE } from "@/features/media/form-state";
@@ -26,19 +28,6 @@ const IMAGE_ID = "50000000-0000-4000-8000-000000000001";
 const FOREIGN_VARIANT = "40000000-0000-4000-8000-000000000088";
 const OTHER_PRODUCT = "30000000-0000-4000-8000-000000000088";
 
-const rows = [
-  {
-    id: IMAGE_ID,
-    product_id: PRODUCT_ID,
-    variant_id: null,
-    storage_path: `product-images/${PRODUCT_ID}/a.webp`,
-    alt_text: "A",
-    sort_order: 0,
-    is_primary: true,
-    updated_at: "2026-08-19T00:00:00.000Z",
-  },
-];
-
 describe("updateProductImage", () => {
   beforeEach(() => {
     requireMediaActionAuth.mockReset();
@@ -50,33 +39,13 @@ describe("updateProductImage", () => {
   });
 
   it("binds route ids and ignores FormData product_id and image_id", async () => {
-    const updateEq = vi.fn().mockResolvedValue({ error: null });
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ image_id: IMAGE_ID }],
+      error: null,
+    });
     requireMediaActionAuth.mockResolvedValue({
       ok: true,
-      supabase: {
-        from: (table: string) => {
-          if (table === "product_images") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  order: () => ({
-                    order: () => ({
-                      limit: async () => ({ data: rows, error: null }),
-                    }),
-                  }),
-                }),
-              }),
-              update: (payload: { alt_text: unknown; variant_id: unknown }) => {
-                expect(payload.alt_text).toBe("Updated alt");
-                expect(payload.variant_id).toBeNull();
-                return { eq: () => ({ eq: updateEq }) };
-              },
-            };
-          }
-          throw new Error(`unexpected table ${table}`);
-        },
-        rpc: vi.fn(),
-      },
+      supabase: { from: vi.fn(), rpc },
     });
 
     const data = new FormData();
@@ -98,46 +67,24 @@ describe("updateProductImage", () => {
       ),
     ).rejects.toThrow(`success=${MEDIA_SUCCESS_UPDATED}`);
 
-    expect(updateEq).toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(UPDATE_CMS_PRODUCT_IMAGE_RPC, {
+      p_product_id: PRODUCT_ID,
+      p_image_id: IMAGE_ID,
+      p_alt_text: "Updated alt",
+      p_variant_id: null,
+      p_sort_order: 3,
+    });
     expect(revalidatePath).toHaveBeenCalledWith(productMediaPath(PRODUCT_ID));
   });
 
   it("rejects a variant that does not belong to the route product", async () => {
-    const update = vi.fn();
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "invalid variant", code: "22023" },
+    });
     requireMediaActionAuth.mockResolvedValue({
       ok: true,
-      supabase: {
-        from: (table: string) => {
-          if (table === "product_images") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  order: () => ({
-                    order: () => ({
-                      limit: async () => ({ data: rows, error: null }),
-                    }),
-                  }),
-                }),
-              }),
-              update,
-            };
-          }
-          if (table === "product_variants") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  maybeSingle: async () => ({
-                    data: { id: FOREIGN_VARIANT, product_id: OTHER_PRODUCT },
-                    error: null,
-                  }),
-                }),
-              }),
-            };
-          }
-          throw new Error(`unexpected table ${table}`);
-        },
-        rpc: vi.fn(),
-      },
+      supabase: { from: vi.fn(), rpc },
     });
 
     const data = new FormData();
@@ -155,14 +102,15 @@ describe("updateProductImage", () => {
       data,
     );
     expect(result.message).toBe(MEDIA_VARIANT_INVALID_MESSAGE);
-    expect(update).not.toHaveBeenCalled();
+    expect(result.fieldErrors.variantId).toBe(MEDIA_VARIANT_INVALID_MESSAGE);
+    expect(redirect).not.toHaveBeenCalled();
   });
 
-  it("rejects a forged non-uuid image id before writes", async () => {
-    const from = vi.fn();
+  it("rejects a forged non-uuid image id before rpc", async () => {
+    const rpc = vi.fn();
     requireMediaActionAuth.mockResolvedValue({
       ok: true,
-      supabase: { from, rpc: vi.fn() },
+      supabase: { from: vi.fn(), rpc },
     });
     const { updateProductImage } = await import(
       "@/features/media/actions/update-product-image"
@@ -174,6 +122,53 @@ describe("updateProductImage", () => {
       new FormData(),
     );
     expect(result.message).toBe(MEDIA_NOT_FOUND_MESSAGE);
-    expect(from).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns a sanitized error when the update RPC throws", async () => {
+    const rpc = vi.fn().mockRejectedValue(new Error("partial write boom"));
+    requireMediaActionAuth.mockResolvedValue({
+      ok: true,
+      supabase: { rpc },
+    });
+    const data = new FormData();
+    data.set("alt_text", "Updated alt");
+    data.set("sort_order", "0");
+    const { updateProductImage } = await import(
+      "@/features/media/actions/update-product-image"
+    );
+    const result = await updateProductImage(
+      PRODUCT_ID,
+      IMAGE_ID,
+      INITIAL_UPDATE_MEDIA_FORM_STATE,
+      data,
+    );
+    expect(result.status).toBe("error");
+    expect(result.message).toBe(MEDIA_GENERIC_FAILURE_MESSAGE);
+    expect(result.message).not.toMatch(/partial write boom/i);
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["empty", []],
+    ["protected cost_price", [{ image_id: IMAGE_ID, cost_price: "1" }]],
+    ["mismatched", [{ image_id: "50000000-0000-4000-8000-000000000088" }]],
+  ])("fail-closes %s RPC payloads", async (_label, payload) => {
+    const rpc = vi.fn().mockResolvedValue({ data: payload, error: null });
+    requireMediaActionAuth.mockResolvedValue({ ok: true, supabase: { rpc } });
+    const data = new FormData();
+    data.set("alt_text", "Updated alt");
+    data.set("sort_order", "0");
+    const { updateProductImage } = await import(
+      "@/features/media/actions/update-product-image"
+    );
+    const result = await updateProductImage(
+      PRODUCT_ID,
+      IMAGE_ID,
+      INITIAL_UPDATE_MEDIA_FORM_STATE,
+      data,
+    );
+    expect(result.message).toBe(MEDIA_GENERIC_FAILURE_MESSAGE);
+    expect(redirect).not.toHaveBeenCalled();
   });
 });

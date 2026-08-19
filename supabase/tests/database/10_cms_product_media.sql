@@ -216,6 +216,70 @@ begin
 end;
 $$;
 
+create or replace function pg_temp.media_assert_invalid_variant(
+  p_label text,
+  p_sql text
+)
+returns void
+language plpgsql
+as $$
+declare
+  v_denied boolean := false;
+begin
+  begin
+    execute p_sql;
+  exception
+    when others then
+      if sqlstate = '22023' and sqlerrm = 'invalid variant' then
+        v_denied := true;
+      else
+        perform pg_temp.media_clear_auth();
+        raise exception
+          'FAIL: % raised unexpected SQLSTATE %',
+          p_label,
+          sqlstate;
+      end if;
+  end;
+
+  if not v_denied then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: % expected invalid variant', p_label;
+  end if;
+end;
+$$;
+
+create or replace function pg_temp.media_assert_image_limit(
+  p_label text,
+  p_sql text
+)
+returns void
+language plpgsql
+as $$
+declare
+  v_denied boolean := false;
+begin
+  begin
+    execute p_sql;
+  exception
+    when others then
+      if sqlstate = '22023' and sqlerrm = 'image limit exceeded' then
+        v_denied := true;
+      else
+        perform pg_temp.media_clear_auth();
+        raise exception
+          'FAIL: % raised unexpected SQLSTATE %',
+          p_label,
+          sqlstate;
+      end if;
+  end;
+
+  if not v_denied then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: % expected image limit exceeded', p_label;
+  end if;
+end;
+$$;
+
 create or replace function pg_temp.media_assert_not_found(
   p_label text,
   p_sql text
@@ -543,7 +607,9 @@ begin
       where n.nspname = 'public'
         and p.proname in (
           'set_cms_product_image_primary',
-          'reorder_cms_product_images'
+          'reorder_cms_product_images',
+          'insert_cms_product_image',
+          'update_cms_product_image'
         )
         and args.mode = 't'
         and args.argname = col
@@ -807,6 +873,254 @@ exception
     perform pg_temp.media_clear_auth();
     raise;
 end $$;
+
+-- Atomic insert + primary, and variant reassignment + rollback
+do $$
+declare
+  v_insert_sig text :=
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)';
+  v_update_sig text :=
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)';
+  v_count integer;
+  v_primary_count integer;
+  v_id uuid;
+  v_variant uuid;
+  v_is_primary boolean;
+  v_returned jsonb;
+begin
+  if has_function_privilege('public', v_insert_sig, 'EXECUTE')
+     or has_function_privilege('anon', v_insert_sig, 'EXECUTE')
+     or has_function_privilege('public', v_update_sig, 'EXECUTE')
+     or has_function_privilege('anon', v_update_sig, 'EXECUTE')
+  then
+    raise exception 'FAIL: insert/update media RPC EXECUTE too broad';
+  end if;
+  if not has_function_privilege('authenticated', v_insert_sig, 'EXECUTE')
+     or not has_function_privilege('authenticated', v_update_sig, 'EXECUTE')
+  then
+    raise exception 'FAIL: insert/update media RPC EXECUTE missing';
+  end if;
+
+  perform pg_temp.media_set_auth('a3800000-0000-4000-8000-000000000001');
+  perform pg_temp.media_assert_authz_denied(
+    'customer insert_cms_product_image',
+    $q$select image_id from public.insert_cms_product_image(
+      'a3820000-0000-4000-8000-000000000001'::uuid,
+      'product-images/a3820000-0000-4000-8000-000000000001/a3890000-0000-4000-8000-000000000010.webp',
+      'Nope',
+      null,
+      true
+    )$q$
+  );
+  perform pg_temp.media_assert_authz_denied(
+    'customer update_cms_product_image',
+    $q$select image_id from public.update_cms_product_image(
+      'a3820000-0000-4000-8000-000000000001'::uuid,
+      'a3840000-0000-4000-8000-000000000001'::uuid,
+      'Nope',
+      'a3830000-0000-4000-8000-000000000001'::uuid,
+      0
+    )$q$
+  );
+  perform pg_temp.media_clear_auth();
+
+  perform pg_temp.media_set_auth('a3800000-0000-4000-8000-000000000002');
+
+  select count(*)::integer
+  into v_count
+  from public.product_images
+  where product_id = 'a3820000-0000-4000-8000-000000000001';
+
+  perform pg_temp.media_assert_invalid(
+    'insert forged storage_path',
+    $q$select image_id from public.insert_cms_product_image(
+      'a3820000-0000-4000-8000-000000000001'::uuid,
+      'product-images/a3820000-0000-4000-8000-000000000002/evil.webp',
+      'Nope',
+      null,
+      true
+    )$q$
+  );
+
+  if (
+    select count(*)::integer
+    from public.product_images
+    where product_id = 'a3820000-0000-4000-8000-000000000001'
+  ) is distinct from v_count then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: invalid insert left a product image row';
+  end if;
+
+  perform pg_temp.media_assert_invalid_variant(
+    'insert foreign variant',
+    $q$select image_id from public.insert_cms_product_image(
+      'a3820000-0000-4000-8000-000000000001'::uuid,
+      'product-images/a3820000-0000-4000-8000-000000000001/a3890000-0000-4000-8000-000000000011.webp',
+      'Nope',
+      'a3830000-0000-4000-8000-000000000002'::uuid,
+      false
+    )$q$
+  );
+
+  if (
+    select count(*)::integer
+    from public.product_images
+    where product_id = 'a3820000-0000-4000-8000-000000000001'
+  ) is distinct from v_count then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: invalid-variant insert left a product image row';
+  end if;
+
+  perform pg_temp.media_assert_invalid_variant(
+    'update foreign variant',
+    $q$select image_id from public.update_cms_product_image(
+      'a3820000-0000-4000-8000-000000000001'::uuid,
+      'a3840000-0000-4000-8000-000000000001'::uuid,
+      'Still general',
+      'a3830000-0000-4000-8000-000000000002'::uuid,
+      4
+    )$q$
+  );
+
+  select variant_id, is_primary
+  into v_variant, v_is_primary
+  from public.product_images
+  where id = 'a3840000-0000-4000-8000-000000000001';
+  if v_variant is not null or v_is_primary is not true then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: invalid update changed primary general image';
+  end if;
+
+  select jsonb_build_object('image_id', q.image_id)
+  into v_returned
+  from public.update_cms_product_image(
+    'a3820000-0000-4000-8000-000000000001'::uuid,
+    'a3840000-0000-4000-8000-000000000001'::uuid,
+    'Moved',
+    'a3830000-0000-4000-8000-000000000001'::uuid,
+    2
+  ) as q(image_id);
+
+  if v_returned ->> 'image_id' is distinct from
+       'a3840000-0000-4000-8000-000000000001'
+     or v_returned ? 'cost_price'
+     or exists (
+       select 1 from jsonb_each(v_returned) as e(k, v)
+       where e.k not in ('image_id')
+     )
+  then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: update return contract';
+  end if;
+
+  select variant_id, is_primary
+  into v_variant, v_is_primary
+  from public.product_images
+  where id = 'a3840000-0000-4000-8000-000000000001';
+  if v_variant is distinct from 'a3830000-0000-4000-8000-000000000001'::uuid
+     or v_is_primary is not false
+  then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: moved primary did not join destination as gallery';
+  end if;
+
+  select count(*)::integer
+  into v_primary_count
+  from public.product_images
+  where product_id = 'a3820000-0000-4000-8000-000000000001'
+    and variant_id is null
+    and is_primary = true;
+  if v_primary_count <> 1 then
+    perform pg_temp.media_clear_auth();
+    raise exception
+      'FAIL: move left % general primaries',
+      v_primary_count;
+  end if;
+
+  select id
+  into v_id
+  from public.product_images
+  where product_id = 'a3820000-0000-4000-8000-000000000001'
+    and variant_id is null
+    and is_primary = true;
+  if v_id is distinct from 'a3840000-0000-4000-8000-000000000002'::uuid then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: old scope did not promote remaining general image';
+  end if;
+
+  select count(*)::integer
+  into v_primary_count
+  from public.product_images
+  where variant_id = 'a3830000-0000-4000-8000-000000000001'
+    and is_primary = true;
+  if v_primary_count <> 1 then
+    perform pg_temp.media_clear_auth();
+    raise exception
+      'FAIL: move left % variant primaries',
+      v_primary_count;
+  end if;
+
+  select jsonb_build_object('image_id', q.image_id)
+  into v_returned
+  from public.insert_cms_product_image(
+    'a3820000-0000-4000-8000-000000000001'::uuid,
+    'product-images/a3820000-0000-4000-8000-000000000001/a3890000-0000-4000-8000-000000000010.webp',
+    'New primary',
+    null,
+    true
+  ) as q(image_id);
+
+  v_id := (v_returned ->> 'image_id')::uuid;
+  if v_id is null
+     or v_returned ? 'cost_price'
+     or exists (
+       select 1 from jsonb_each(v_returned) as e(k, v)
+       where e.k not in ('image_id')
+     )
+  then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: insert return contract';
+  end if;
+
+  select count(*)::integer
+  into v_primary_count
+  from public.product_images
+  where product_id = 'a3820000-0000-4000-8000-000000000001'
+    and variant_id is null
+    and is_primary = true;
+  if v_primary_count <> 1 then
+    perform pg_temp.media_clear_auth();
+    raise exception
+      'FAIL: insert left % general primaries',
+      v_primary_count;
+  end if;
+
+  select is_primary
+  into v_is_primary
+  from public.product_images
+  where id = v_id;
+  if v_is_primary is not true then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: insert set_primary did not assign the new row';
+  end if;
+
+  select is_primary
+  into v_is_primary
+  from public.product_images
+  where id = 'a3840000-0000-4000-8000-000000000002';
+  if v_is_primary is not false then
+    perform pg_temp.media_clear_auth();
+    raise exception 'FAIL: insert set_primary did not unset previous primary';
+  end if;
+
+  perform pg_temp.media_clear_auth();
+  raise notice 'OK: media insert/update atomic behavior';
+exception
+  when others then
+    perform pg_temp.media_clear_auth();
+    raise;
+end $$;
+
 
 rollback;
 

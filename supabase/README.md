@@ -177,20 +177,24 @@ Storage write capabilities and customer denial of those mutations.
 ### CMS product media RPCs (TASK-038)
 
 `10_cms_product_media.sql` plus `01`/`05`/`07` grant checks cover
-`set_cms_product_image_primary` and `reorder_cms_product_images`.
+`set_cms_product_image_primary`, `reorder_cms_product_images`,
+`insert_cms_product_image`, and `update_cms_product_image`.
 
 - SECURITY INVOKER, VOLATILE, empty `search_path`
 - `is_staff_or_admin()` before any write
 - unique primary switches take a per-product advisory lock, unset the previous
   primary in the same general or variant scope, then set the target
+- insert creates the row and optional primary in one transaction
+- update moves variant scope and maintains old/destination primaries in one
+  transaction
 - reorder requires a complete, duplicate-free, product-scoped id list of
   length 1..20
 - returns only `image_id` or `product_id`
 - EXECUTE granted to `authenticated` and `service_role` (revoked from
   `PUBLIC` and `anon`)
 
-`10_cms_product_media_concurrency.sh` proves concurrent primary switches leave
-exactly one general primary.
+`10_cms_product_media_concurrency.sh` proves concurrent primary switches and
+concurrent variant reassignment leave exactly one primary per scope.
 
 ### Trigger-helper EXECUTE contract (TASK-007)
 

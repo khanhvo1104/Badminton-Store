@@ -694,6 +694,68 @@ begin
       'FAIL: service_role missing EXECUTE on reorder_cms_product_images';
   end if;
 
+  if has_function_privilege(
+    'public',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on insert_cms_product_image';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on insert_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on insert_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on insert_cms_product_image';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on update_cms_product_image';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on update_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on update_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on update_cms_product_image';
+  end if;
+
   -- Policy helpers remain executable by Data API roles.
   foreach grantee in array array['anon', 'authenticated', 'service_role'] loop
     if not has_function_privilege(

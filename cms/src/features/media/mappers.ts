@@ -167,9 +167,14 @@ export function readPrimaryImageId(
   data: unknown,
   expectedImageId: string,
 ): string | null {
-  if (!isValidUuid(expectedImageId)) {
+  const imageId = readReturnedImageId(data);
+  if (imageId === null || imageId !== expectedImageId) {
     return null;
   }
+  return imageId;
+}
+
+export function readReturnedImageId(data: unknown): string | null {
   if (!Array.isArray(data) || data.length !== 1) {
     return null;
   }
@@ -186,9 +191,6 @@ export function readPrimaryImageId(
     return null;
   }
   if (typeof row.image_id !== "string" || !isValidUuid(row.image_id)) {
-    return null;
-  }
-  if (row.image_id !== expectedImageId) {
     return null;
   }
   return row.image_id;

@@ -61,6 +61,24 @@ export function isInvalidRequestError(error: unknown): boolean {
   return code === "22023" || message === "invalid request";
 }
 
+export function isInvalidVariantError(error: unknown): boolean {
+  if (!isRecord(error)) {
+    return false;
+  }
+  const message =
+    typeof error.message === "string" ? error.message.toLowerCase() : "";
+  return message === "invalid variant";
+}
+
+export function isImageLimitError(error: unknown): boolean {
+  if (!isRecord(error)) {
+    return false;
+  }
+  const message =
+    typeof error.message === "string" ? error.message.toLowerCase() : "";
+  return message === "image limit exceeded";
+}
+
 export function assertNoProviderLeak(message: string): boolean {
   return !PROVIDER_LEAK_PATTERN.test(message);
 }

@@ -17,6 +17,7 @@ import {
   mapProductImageRow,
   readPrimaryImageId,
   readReorderedProductId,
+  readReturnedImageId,
   toProductMediaImage,
 } from "@/features/media/mappers";
 import {
@@ -131,6 +132,10 @@ describe("product media mapping contracts", () => {
       readPrimaryImageId([{ image_id: IMAGE_ID, cost_price: "1" }], IMAGE_ID),
     ).toBeNull();
     expect(readPrimaryImageId(IMAGE_ID, IMAGE_ID)).toBeNull();
+    expect(readReturnedImageId([{ image_id: IMAGE_ID }])).toBe(IMAGE_ID);
+    expect(
+      readReturnedImageId([{ image_id: IMAGE_ID, cost_price: "1" }]),
+    ).toBeNull();
     expect(
       readReorderedProductId([{ product_id: PRODUCT_ID }], PRODUCT_ID),
     ).toBe(PRODUCT_ID);

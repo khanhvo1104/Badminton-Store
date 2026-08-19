@@ -139,12 +139,14 @@ explorer and detail routes.
 
 The product media manager uploads JPEG/PNG/WebP/GIF files to the public
 `product-images` bucket using generated `{productId}/{uuid}.ext` paths. The
-database row is created only after Storage succeeds; replacement uploads a new
+database row is created only after Storage succeeds through
+`insert_cms_product_image` (insert + primary in one transaction); replacement uploads a new
 object, updates the path, then deletes the previous object; deletion promotes
 any remaining in-scope primary, then removes the database row so a catalog row
 never points at a missing file. Primary
 switches use `set_cms_product_image_primary` to avoid unique-index races.
-SVG is never uploaded or inlined.
+Variant reassignment uses `update_cms_product_image` so old and destination
+primaries stay consistent. SVG is never uploaded or inlined.
 
 The variant editor lists a bounded, explicitly selected set of SKUs for one
 product and merges protected costs from `get_staff_variant_costs`. Safe variant

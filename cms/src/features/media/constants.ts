@@ -2,6 +2,8 @@ export const PRODUCT_IMAGES_BUCKET = "product-images";
 export const SET_CMS_PRODUCT_IMAGE_PRIMARY_RPC =
   "set_cms_product_image_primary";
 export const REORDER_CMS_PRODUCT_IMAGES_RPC = "reorder_cms_product_images";
+export const INSERT_CMS_PRODUCT_IMAGE_RPC = "insert_cms_product_image";
+export const UPDATE_CMS_PRODUCT_IMAGE_RPC = "update_cms_product_image";
 
 export const PRODUCT_IMAGE_LIST_COLUMNS =
   "id, product_id, variant_id, storage_path, alt_text, sort_order, is_primary, updated_at" as const;

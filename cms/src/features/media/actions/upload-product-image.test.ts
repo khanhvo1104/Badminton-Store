@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  INSERT_CMS_PRODUCT_IMAGE_RPC,
+  MEDIA_GENERIC_FAILURE_MESSAGE,
   MEDIA_IMAGE_UPLOAD_FAILURE_MESSAGE,
   MEDIA_PRODUCT_NOT_FOUND_MESSAGE,
   MEDIA_SUCCESS_UPLOADED,
   PRODUCT_IMAGE_LIST_COLUMNS,
-  SET_CMS_PRODUCT_IMAGE_PRIMARY_RPC,
   productMediaPath,
 } from "@/features/media/constants";
 import { INITIAL_UPLOAD_MEDIA_FORM_STATE } from "@/features/media/form-state";
@@ -42,6 +43,57 @@ function pngData(overrides: Record<string, string> = {}): FormData {
   return data;
 }
 
+function productLookupClient(options: {
+  upload: ReturnType<typeof vi.fn>;
+  remove?: ReturnType<typeof vi.fn>;
+  rpc: ReturnType<typeof vi.fn>;
+  listed?: unknown[];
+}) {
+  return {
+    from: (table: string) => {
+      if (table === "products") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: PRODUCT_ID },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "product_images") {
+        return {
+          select: (columns: string) => {
+            expect(columns).toBe(PRODUCT_IMAGE_LIST_COLUMNS);
+            return {
+              eq: () => ({
+                order: () => ({
+                  order: () => ({
+                    limit: async () => ({
+                      data: options.listed ?? [],
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          },
+          insert: () => {
+            throw new Error("direct insert is not allowed");
+          },
+        };
+      }
+      throw new Error(`unexpected table ${table}`);
+    },
+    storage: {
+      from: () => ({ upload: options.upload, remove: options.remove }),
+    },
+    rpc: options.rpc,
+  };
+}
+
 describe("uploadProductImage", () => {
   beforeEach(() => {
     requireMediaActionAuth.mockReset();
@@ -52,17 +104,13 @@ describe("uploadProductImage", () => {
     });
   });
 
-  it("binds the route product id and ignores FormData product_id", async () => {
+  it("binds the route product id and inserts through the atomic RPC", async () => {
     const calls: string[] = [];
     const upload = vi.fn().mockImplementation(async () => {
       calls.push("upload");
       return { data: {}, error: null };
     });
     const remove = vi.fn();
-    const insertMaybeSingle = vi.fn().mockImplementation(async () => {
-      calls.push("insert");
-      return { data: { id: IMAGE_ID }, error: null };
-    });
     const rpc = vi.fn().mockImplementation(async () => {
       calls.push("rpc");
       return { data: [{ image_id: IMAGE_ID }], error: null };
@@ -70,44 +118,7 @@ describe("uploadProductImage", () => {
 
     requireMediaActionAuth.mockResolvedValue({
       ok: true,
-      supabase: {
-        from: (table: string) => {
-          if (table === "products") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  maybeSingle: async () => ({
-                    data: { id: PRODUCT_ID },
-                    error: null,
-                  }),
-                }),
-              }),
-            };
-          }
-          if (table === "product_images") {
-            return {
-              select: (columns: string) => {
-                expect(columns).toBe(PRODUCT_IMAGE_LIST_COLUMNS);
-                return {
-                  eq: () => ({
-                    order: () => ({
-                      order: () => ({
-                        limit: async () => ({ data: [], error: null }),
-                      }),
-                    }),
-                  }),
-                };
-              },
-              insert: () => ({
-                select: () => ({ maybeSingle: insertMaybeSingle }),
-              }),
-            };
-          }
-          throw new Error(`unexpected table ${table}`);
-        },
-        storage: { from: () => ({ upload, remove }) },
-        rpc,
-      },
+      supabase: productLookupClient({ upload, remove, rpc }),
     });
 
     const { uploadProductImage } = await import(
@@ -125,11 +136,20 @@ describe("uploadProductImage", () => {
       new RegExp(`^${PRODUCT_ID}/[0-9a-f-]+\\.png$`),
     );
     expect(upload.mock.calls[0]?.[2]).toMatchObject({ upsert: false });
-    expect(rpc).toHaveBeenCalledWith(SET_CMS_PRODUCT_IMAGE_PRIMARY_RPC, {
-      p_product_id: PRODUCT_ID,
-      p_image_id: IMAGE_ID,
-    });
-    expect(calls.indexOf("upload")).toBeLessThan(calls.indexOf("insert"));
+    expect(rpc).toHaveBeenCalledWith(
+      INSERT_CMS_PRODUCT_IMAGE_RPC,
+      expect.objectContaining({
+        p_product_id: PRODUCT_ID,
+        p_alt_text: "Main shot",
+        p_variant_id: null,
+        p_set_primary: false,
+      }),
+    );
+    expect(rpc.mock.calls[0]?.[1]?.p_storage_path).toMatch(
+      new RegExp(`^product-images/${PRODUCT_ID}/[0-9a-f-]+\\.png$`),
+    );
+    expect(calls.indexOf("upload")).toBeLessThan(calls.indexOf("rpc"));
+    expect(remove).not.toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith(productMediaPath(PRODUCT_ID));
   });
 
@@ -151,48 +171,16 @@ describe("uploadProductImage", () => {
     expect(upload).not.toHaveBeenCalled();
   });
 
-  it("deletes the new object if the database insert fails", async () => {
+  it("deletes the new object if the insert RPC returns an error", async () => {
     const upload = vi.fn().mockResolvedValue({ data: {}, error: null });
     const remove = vi.fn().mockResolvedValue({ data: {}, error: null });
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "duplicate key 23505", code: "23505" },
+    });
     requireMediaActionAuth.mockResolvedValue({
       ok: true,
-      supabase: {
-        from: (table: string) => {
-          if (table === "products") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  maybeSingle: async () => ({
-                    data: { id: PRODUCT_ID },
-                    error: null,
-                  }),
-                }),
-              }),
-            };
-          }
-          return {
-            select: () => ({
-              eq: () => ({
-                order: () => ({
-                  order: () => ({
-                    limit: async () => ({ data: [], error: null }),
-                  }),
-                }),
-              }),
-            }),
-            insert: () => ({
-              select: () => ({
-                maybeSingle: async () => ({
-                  data: null,
-                  error: { message: "duplicate key 23505" },
-                }),
-              }),
-            }),
-          };
-        },
-        storage: { from: () => ({ upload, remove }) },
-        rpc: vi.fn(),
-      },
+      supabase: productLookupClient({ upload, remove, rpc }),
     });
 
     const { uploadProductImage } = await import(
@@ -204,51 +192,47 @@ describe("uploadProductImage", () => {
       pngData(),
     );
     expect(result.status).toBe("error");
+    expect(result.message).toBe(MEDIA_GENERIC_FAILURE_MESSAGE);
     expect(result.message).not.toMatch(/23505|duplicate key|sql/i);
     expect(remove).toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("deletes the new object if the insert RPC throws", async () => {
+    const upload = vi.fn().mockResolvedValue({ data: {}, error: null });
+    const remove = vi.fn().mockResolvedValue({ data: {}, error: null });
+    const rpc = vi.fn().mockRejectedValue(new Error("rpc exploded"));
+    requireMediaActionAuth.mockResolvedValue({
+      ok: true,
+      supabase: productLookupClient({ upload, remove, rpc }),
+    });
+
+    const { uploadProductImage } = await import(
+      "@/features/media/actions/upload-product-image"
+    );
+    const result = await uploadProductImage(
+      PRODUCT_ID,
+      INITIAL_UPLOAD_MEDIA_FORM_STATE,
+      pngData(),
+    );
+    expect(result.status).toBe("error");
+    expect(result.message).toBe(MEDIA_GENERIC_FAILURE_MESSAGE);
+    expect(result.message).not.toMatch(/rpc exploded/i);
+    expect(remove).toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
   });
 
   it("does not insert a row when storage upload fails", async () => {
-    const insert = vi.fn();
+    const rpc = vi.fn();
     requireMediaActionAuth.mockResolvedValue({
       ok: true,
-      supabase: {
-        from: (table: string) => {
-          if (table === "products") {
-            return {
-              select: () => ({
-                eq: () => ({
-                  maybeSingle: async () => ({
-                    data: { id: PRODUCT_ID },
-                    error: null,
-                  }),
-                }),
-              }),
-            };
-          }
-          return {
-            select: () => ({
-              eq: () => ({
-                order: () => ({
-                  order: () => ({
-                    limit: async () => ({ data: [], error: null }),
-                  }),
-                }),
-              }),
-            }),
-            insert,
-          };
-        },
-        storage: {
-          from: () => ({
-            upload: async () => ({
-              data: null,
-              error: { message: "storage boom" },
-            }),
-          }),
-        },
-        rpc: vi.fn(),
-      },
+      supabase: productLookupClient({
+        upload: vi.fn().mockResolvedValue({
+          data: null,
+          error: { message: "storage boom" },
+        }),
+        rpc,
+      }),
     });
     const { uploadProductImage } = await import(
       "@/features/media/actions/upload-product-image"
@@ -259,6 +243,6 @@ describe("uploadProductImage", () => {
       pngData(),
     );
     expect(result.message).toBe(MEDIA_IMAGE_UPLOAD_FAILURE_MESSAGE);
-    expect(insert).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

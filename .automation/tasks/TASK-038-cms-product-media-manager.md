@@ -90,9 +90,11 @@ Risk: high
   `storage_path`.
 - Uploads reject empty files, oversize files, SVG, and disallowed MIME types.
   Generated paths are `{productId}/{uuid}.{ext}` under `product-images`.
-- `set_cms_product_image_primary` and `reorder_cms_product_images` are
-  SECURITY INVOKER with empty `search_path`, `is_staff_or_admin()`
-  authorization, advisory locks, explicit revoke/grant, and minimal return.
+- `set_cms_product_image_primary`, `reorder_cms_product_images`,
+  `insert_cms_product_image`, and `update_cms_product_image` are SECURITY
+  INVOKER with empty `search_path`, `is_staff_or_admin()` authorization,
+  advisory locks, explicit revoke/grant, and minimal return. Insert and
+  variant reassignment keep primary assignment in the same transaction.
   SECURITY DEFINER is not used because staff already have table UPDATE under
   RLS.
 - Delete promotes the next in-scope primary while the row still exists,

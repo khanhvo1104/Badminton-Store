@@ -186,9 +186,13 @@ Product images are staff/admin catalog mutations over existing
 - `reorder_cms_product_images(p_product_id uuid, p_image_ids uuid[])` is the
   matching bounded reorder RPC (1..20 complete, product-scoped ids) and
   returns only `product_id`.
+- `insert_cms_product_image` inserts the row and assigns primary in one
+  locked transaction. `update_cms_product_image` moves variant scope and
+  maintains old/destination primaries in one locked transaction. Both return
+  only `image_id`.
 - Upload: validate raster MIME/size, generate `{productId}/{uuid}.ext`,
-  `upsert: false`, insert the database row only after Storage succeeds, then
-  best-effort delete the new object if insert fails.
+  `upsert: false`, then call `insert_cms_product_image`. If the RPC fails,
+  best-effort delete the newly uploaded object.
 - Replace: upload a new unique object, update `storage_path`, then delete the
   old object. On database failure, delete the new object and keep the old
   working image.

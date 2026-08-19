@@ -831,6 +831,68 @@ begin
       'FAIL: service_role missing EXECUTE on reorder_cms_product_images';
   end if;
 
+  if has_function_privilege(
+    'public',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on insert_cms_product_image';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on insert_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on insert_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.insert_cms_product_image(uuid, text, text, uuid, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on insert_cms_product_image';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on update_cms_product_image';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on update_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on update_cms_product_image';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.update_cms_product_image(uuid, uuid, text, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on update_cms_product_image';
+  end if;
+
   foreach grantee in array array['anon', 'authenticated', 'service_role'] loop
     if not has_function_privilege(
       grantee, 'public.is_staff_or_admin()', 'EXECUTE'
@@ -958,7 +1020,9 @@ begin
     where n.nspname = 'public'
       and p.proname in (
         'set_cms_product_image_primary',
-        'reorder_cms_product_images'
+        'reorder_cms_product_images',
+        'insert_cms_product_image',
+        'update_cms_product_image'
       )
       and args.mode = 't'
       and args.argname = any (
