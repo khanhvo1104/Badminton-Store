@@ -74,6 +74,7 @@ Completion of TASK-034 defines the product-management MVP.
 ## Milestone 3: store operations
 
 - **TASK-035:** order search, detail, and trusted status transitions.
+  Delivered as TASK-039 in the automation backlog.
 - **TASK-036:** operational dashboard for sales and low-stock signals.
 - **TASK-037:** admin-only staff invitation, activation, and role management.
 - **TASK-038:** immutable audit trail for privileged changes.

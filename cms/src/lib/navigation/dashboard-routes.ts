@@ -6,7 +6,8 @@ export type DashboardNavItemId =
   | "categories"
   | "brands"
   | "products"
-  | "inventory";
+  | "inventory"
+  | "orders";
 
 export type DashboardNavItem = {
   id: DashboardNavItemId;
@@ -47,6 +48,13 @@ export const DASHBOARD_NAV_ITEMS: readonly DashboardNavItem[] = [
     label: "Inventory",
     description:
       "Per-variant stock explorer with atomic adjustments and history.",
+  },
+  {
+    id: "orders",
+    href: `${DASHBOARD_ROOT_PATH}/orders`,
+    label: "Orders",
+    description:
+      "Order search, detail, and trusted status transitions with inventory effects.",
   },
 ] as const;
 

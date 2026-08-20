@@ -170,8 +170,15 @@ inventory row locking, and a same-transaction insert into immutable
 history are closed. `adjust_cms_inventory` returns only `variant_id`; the CMS
 Server Action fail-closes empty, multiple, malformed, mismatched, or extra-field
 payloads. `public.list_cms_inventory` is SECURITY INVOKER and never
-selects `cost_price` or `barcode`. Reserved quantity cannot be edited. Future
-order status changes require explicit transition rules enforced server-side.
+selects `cost_price` or `barcode`. Reserved quantity cannot be edited.
+
+Order status changes go through `public.transition_cms_order_status`, a narrow
+SECURITY DEFINER RPC with empty `search_path`, `is_staff_or_admin()` +
+`auth.uid()`, order and inventory row locks, an explicit transition graph, and
+atomic inventory effects. Authenticated `UPDATE` on `public.orders` is revoked
+so direct status writes are impossible over the Data API; reads remain via RLS.
+History is written exactly once by `orders_record_status_history`. Payment
+status is read-only in the CMS.
 
 ## Product media
 

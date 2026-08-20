@@ -19,7 +19,9 @@
 | addresses | — | CRUD | R |
 | favorites | — | CRUD | — |
 | carts / cart_items | — | CRUD own active | R |
-| orders / order_items / history | — | R own | R + U orders |
+| orders / order_items / history | — | R own | R + I; status via transition RPC |
+| list_cms_orders | — | — | R (explorer RPC) |
+| transition_cms_order_status | — | — | RPC write |
 
 \* Public variant reads never expose `cost_price` through `product_catalog`.
   Direct `product_variants.cost_price` SELECT remains denied to `anon` and
@@ -37,6 +39,8 @@
 
 - Customers cannot change `profiles.role` / `is_active` (trigger + policy).
 - Customers cannot insert/update orders or order_items (checkout RPC later).
+- Authenticated `UPDATE` on `orders` is revoked; staff status changes use
+  `transition_cms_order_status` only.
 - Guest carts are schema-supported but **not** exposed via anon `guest_token` RLS.
 - Staff checks use `public.is_staff_or_admin()` (SECURITY DEFINER on `profiles.role`).
 - Cost-price reads for CMS use `public.get_staff_variant_costs` (trusted profile
