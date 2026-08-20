@@ -205,14 +205,14 @@ export async function getOrderDetail(options: {
         .eq("order_id", orderId)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true })
-        .limit(ORDERS_ITEMS_LIMIT),
+        .limit(ORDERS_ITEMS_LIMIT + 1),
       supabase
         .from("order_status_history")
         .select(ORDER_HISTORY_COLUMNS)
         .eq("order_id", orderId)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
-        .limit(ORDERS_HISTORY_LIMIT),
+        .limit(ORDERS_HISTORY_LIMIT + 1),
     ]);
 
     if (itemsResult.error || !Array.isArray(itemsResult.data)) {
@@ -227,7 +227,7 @@ export async function getOrderDetail(options: {
 
     const items: OrderItemSnapshot[] = [];
     for (const row of itemsResult.data) {
-      const mapped = mapOrderItemRow(row);
+      const mapped = mapOrderItemRow(row, order.currency_code);
       if (!mapped) {
         return { ok: false, message: ORDERS_LOAD_FAILURE_MESSAGE };
       }

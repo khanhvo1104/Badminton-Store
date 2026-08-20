@@ -232,14 +232,19 @@ export function mapOrderDetailRow(value: unknown): {
   };
 }
 
-export function mapOrderItemRow(value: unknown): OrderItemSnapshot | null {
+export function mapOrderItemRow(
+  value: unknown,
+  currencyCode: string,
+): OrderItemSnapshot | null {
   if (!isRecord(value)) {
     return null;
   }
   if (
     typeof value.id !== "string" ||
     typeof value.product_name !== "string" ||
-    typeof value.sku !== "string"
+    typeof value.sku !== "string" ||
+    typeof currencyCode !== "string" ||
+    currencyCode.length !== 3
   ) {
     return null;
   }
@@ -262,10 +267,10 @@ export function mapOrderItemRow(value: unknown): OrderItemSnapshot | null {
     variantName: asNullableString(value.variant_name),
     sku: value.sku,
     unitPrice,
-    unitPriceLabel: formatMoney(unitPrice, "VND"),
+    unitPriceLabel: formatMoney(unitPrice, currencyCode),
     quantity,
     lineTotal,
-    lineTotalLabel: formatMoney(lineTotal, "VND"),
+    lineTotalLabel: formatMoney(lineTotal, currencyCode),
   };
 }
 

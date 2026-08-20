@@ -14,7 +14,9 @@ import {
   toOrderMutationFailureMessage,
 } from "@/features/orders/errors";
 import {
+  buildOrderDetail,
   mapCmsOrderRpcRow,
+  mapOrderItemRow,
   readTransitionedOrderId,
 } from "@/features/orders/mappers";
 import { parseOrderTransitionFormInput } from "@/features/orders/form-validation";
@@ -102,5 +104,67 @@ describe("orders core helpers", () => {
         filtered_count: 0,
       }),
     ).toMatchObject({ order_id: null, filtered_count: 0 });
+  });
+
+  it("formats line items with the order currency, not a hard-coded VND", () => {
+    const item = mapOrderItemRow(
+      {
+        id: "50000000-0000-4000-8000-000000000001",
+        product_name: "Aero",
+        variant_name: "Red",
+        sku: "SKU-1",
+        unit_price: 12.5,
+        quantity: 2,
+        line_total: 25,
+      },
+      "USD",
+    );
+    expect(item).not.toBeNull();
+    expect(item?.unitPriceLabel).toMatch(/US\$|USD/);
+    expect(item?.unitPriceLabel).not.toMatch(/₫|VND/i);
+    expect(item?.lineTotalLabel).toMatch(/US\$|USD/);
+    expect(item?.lineTotalLabel).not.toMatch(/₫|VND/i);
+
+    const vndItem = mapOrderItemRow(
+      {
+        id: "50000000-0000-4000-8000-000000000001",
+        product_name: "Aero",
+        variant_name: "Red",
+        sku: "SKU-1",
+        unit_price: 12.5,
+        quantity: 2,
+        line_total: 25,
+      },
+      "VND",
+    );
+    expect(vndItem?.unitPriceLabel).not.toBe(item?.unitPriceLabel);
+    expect(vndItem?.lineTotalLabel).not.toBe(item?.lineTotalLabel);
+
+    const detail = buildOrderDetail({
+      order: {
+        id: "40000000-0000-4000-8000-000000000099",
+        order_number: "BDM-USD-1",
+        status: "pending",
+        payment_method: "cod",
+        payment_status: "unpaid",
+        currency_code: "USD",
+        subtotal: 25,
+        discount_total: 0,
+        shipping_fee: 0,
+        grand_total: 25,
+        customer_note: null,
+        recipient_name: "Pat",
+        recipient_phone: "0900000000",
+        shipping_address: {},
+        placed_at: "2026-08-20T00:00:00.000Z",
+        cancelled_at: null,
+      },
+      items: [item!],
+      history: [],
+    });
+
+    expect(detail.grandTotalLabel).toMatch(/US\$|USD/);
+    expect(detail.items[0]?.lineTotalLabel).toBe(item?.lineTotalLabel);
+    expect(detail.items[0]?.unitPriceLabel).toBe(item?.unitPriceLabel);
   });
 });
