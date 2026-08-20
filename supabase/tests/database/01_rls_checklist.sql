@@ -452,7 +452,7 @@ begin
     'authenticated', 'cart_items', true, true, true, true
   );
   perform pg_temp.assert_siud(
-    'authenticated', 'orders', true, true, true, false
+    'authenticated', 'orders', true, true, false, false
   );
   perform pg_temp.assert_siud(
     'authenticated', 'order_items', true, true, false, false
@@ -767,6 +767,66 @@ begin
     'EXECUTE'
   ) then
     raise exception 'FAIL: service_role missing EXECUTE on adjust_cms_inventory';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.list_cms_orders(text, text, text, timestamp with time zone, timestamp with time zone, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on list_cms_orders';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.list_cms_orders(text, text, text, timestamp with time zone, timestamp with time zone, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on list_cms_orders';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.list_cms_orders(text, text, text, timestamp with time zone, timestamp with time zone, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: authenticated missing EXECUTE on list_cms_orders';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.list_cms_orders(text, text, text, timestamp with time zone, timestamp with time zone, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role missing EXECUTE on list_cms_orders';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.transition_cms_order_status(uuid, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on transition_cms_order_status';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.transition_cms_order_status(uuid, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on transition_cms_order_status';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.transition_cms_order_status(uuid, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on transition_cms_order_status';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.transition_cms_order_status(uuid, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on transition_cms_order_status';
   end if;
 
   if has_function_privilege(
@@ -2386,9 +2446,19 @@ begin
   );
 
   select status into v_status from public.orders where id = v_order_a;
-  update public.orders set status = 'confirmed' where id = v_order_a;
-  if not found then
-    raise exception 'FAIL: staff cannot UPDATE order status';
+  perform pg_temp.assert_privilege_error(
+    'staff direct order UPDATE',
+    format(
+      $q$update public.orders set status = 'confirmed' where id = %L$q$,
+      v_order_a
+    )
+  );
+
+  perform public.transition_cms_order_status(v_order_a, 'confirmed', null);
+  if (
+    select status from public.orders where id = v_order_a
+  ) is distinct from 'confirmed' then
+    raise exception 'FAIL: staff transition_cms_order_status did not persist';
   end if;
 
   insert into public.order_status_history (
@@ -2530,9 +2600,19 @@ begin
     raise exception 'FAIL: admin cannot UPDATE inventory';
   end if;
 
-  update public.orders set status = 'preparing' where id = v_order_a;
-  if not found then
-    raise exception 'FAIL: admin cannot UPDATE order';
+  perform pg_temp.assert_privilege_error(
+    'admin direct order UPDATE',
+    format(
+      $q$update public.orders set status = 'preparing' where id = %L$q$,
+      v_order_a
+    )
+  );
+
+  perform public.transition_cms_order_status(v_order_a, 'preparing', null);
+  if (
+    select status from public.orders where id = v_order_a
+  ) is distinct from 'preparing' then
+    raise exception 'FAIL: admin transition_cms_order_status did not persist';
   end if;
 
   insert into public.order_status_history (

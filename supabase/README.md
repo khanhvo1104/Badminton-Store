@@ -55,7 +55,8 @@ Highlights:
 - `anon`: SELECT on safe catalog tables/views only; column-level SELECT on
   `product_variants` excluding `cost_price`; no customer/order/inventory access
 - `authenticated`: catalog-safe reads; own profile/address/favorite/cart flows;
-  own order history reads; staff DML grants paired with existing RLS
+  own order history reads; staff SELECT/INSERT on orders with status changes
+  via `transition_cms_order_status` only (authenticated UPDATE revoked)
 - `service_role`: explicit ALL on application tables/views for trusted backend
   (never ship this key to Flutter)
 - Function contracts from TASK-002/004/007 are restated (public catalog RPCs,
@@ -90,6 +91,8 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/09_cms_invent
 bash supabase/tests/database/09_cms_inventory_adjustments_concurrency.sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/10_cms_product_media.sql
 bash supabase/tests/database/10_cms_product_media_concurrency.sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/11_cms_order_operations.sql
+bash supabase/tests/database/11_cms_order_operations_concurrency.sh
 ```
 
 ### RLS / Storage / RPC suite (TASK-006)

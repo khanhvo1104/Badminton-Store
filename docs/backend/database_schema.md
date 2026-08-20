@@ -61,7 +61,7 @@ XOR owner (`user_id` XOR `guest_token`); one active cart per user; unique (cart_
 
 ## orders / order_items / order_status_history
 
-Order number `BDM-YYYYMMDD-XXXXXX`; grand_total math check; shipping_address jsonb snapshot; line_total = unit_price * quantity; status history via trigger.
+Order number `BDM-YYYYMMDD-XXXXXX`; grand_total math check; shipping_address jsonb snapshot; line_total = unit_price * quantity; status history via trigger. Authenticated roles have SELECT/INSERT on `orders` but not UPDATE; status transitions use `transition_cms_order_status`.
 
 ## Views / RPCs
 
@@ -76,6 +76,8 @@ Order number `BDM-YYYYMMDD-XXXXXX`; grand_total math check; shipping_address jso
   - Does not change variant RLS or grant `SELECT(cost_price)` to public API roles
 - `list_cms_inventory(text, text, text, int, int)` — STABLE SECURITY INVOKER, empty search_path, staff/admin only
 - `adjust_cms_inventory(uuid, text, int, bool, text, text)` — VOLATILE SECURITY DEFINER, empty search_path, staff/admin only, history + inventory in one transaction, returns only `variant_id`
+- `list_cms_orders(text, text, text, timestamptz, timestamptz, text, int, int)` — STABLE SECURITY INVOKER, empty search_path, staff/admin only
+- `transition_cms_order_status(uuid, text, text)` — VOLATILE SECURITY DEFINER, empty search_path, staff/admin only, locks order + inventory, enforces transition graph and inventory effects, returns only `order_id`
 - `set_cms_product_image_primary(uuid, uuid)` — VOLATILE SECURITY INVOKER, empty search_path, staff/admin only, serializes unique primary switches, returns only `image_id`
 - `reorder_cms_product_images(uuid, uuid[])` — VOLATILE SECURITY INVOKER, empty search_path, staff/admin only, bounded complete id list, returns only `product_id`
 - `insert_cms_product_image(uuid, text, text, uuid, boolean)` — VOLATILE SECURITY INVOKER, empty search_path, staff/admin only, insert + optional primary in one transaction, returns only `image_id`

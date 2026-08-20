@@ -17,7 +17,7 @@ export default function DashboardOverviewPage() {
           Catalog management workspace
         </h1>
         <p className="max-w-3xl text-base leading-7 text-slate-300">
-          This shell prepares staff and admins for catalog and inventory
+          This shell prepares staff and admins for catalog, inventory, and order
           workflows. No live sales totals or business metrics are loaded here.
         </p>
       </header>
@@ -30,9 +30,9 @@ export default function DashboardOverviewPage() {
           Current CMS scope
         </h2>
         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-          Use the navigation to reach protected catalog and inventory areas.
-          Authorization continues to run on the server for every protected
-          request.
+          Use the navigation to reach protected catalog, inventory, and order
+          areas. Authorization continues to run on the server for every
+          protected request.
         </p>
       </section>
 

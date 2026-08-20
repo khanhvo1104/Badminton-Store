@@ -174,6 +174,19 @@ re-authorizes, binds `variantId` from the route, and calls
 quantity is read-only. History is listed from `inventory_history` after the
 same authorization check.
 
+### Order operations
+
+`/dashboard/orders` lists orders with server-side pagination, search by order
+number / recipient name / phone, filters for order status, payment status, and
+placed date range, plus stable sorting. Detail lives at
+`/dashboard/orders/[orderId]` with trusted totals, a safe shipping snapshot,
+line-item snapshots, and append-only status history.
+
+Status changes use a confirmation dialog and the `transitionOrderStatus`
+Server Action, which binds `orderId` from the route and calls
+`transition_cms_order_status`. Payment status is read-only. Direct table
+`UPDATE` on `orders` is revoked for authenticated callers.
+
 Add new dashboard areas by extending
 `src/lib/navigation/dashboard-routes.ts` and placing pages under
 `src/app/dashboard/`. Do not trust client state or URL text for roles or

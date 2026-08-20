@@ -332,7 +332,7 @@ begin
   );
   -- Orders: SELECT/INSERT/UPDATE (no DELETE).
   perform pg_temp.assert_siud(
-    'authenticated', 'orders', true, true, true, false
+    'authenticated', 'orders', true, true, false, false
   );
   -- Order items / history: SELECT/INSERT only (no UPDATE/DELETE).
   perform pg_temp.assert_siud(
@@ -630,6 +630,66 @@ begin
     'EXECUTE'
   ) then
     raise exception 'FAIL: service_role missing EXECUTE on adjust_cms_inventory';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.list_cms_orders(text, text, text, timestamp with time zone, timestamp with time zone, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on list_cms_orders';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.list_cms_orders(text, text, text, timestamp with time zone, timestamp with time zone, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on list_cms_orders';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.list_cms_orders(text, text, text, timestamp with time zone, timestamp with time zone, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: authenticated missing EXECUTE on list_cms_orders';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.list_cms_orders(text, text, text, timestamp with time zone, timestamp with time zone, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role missing EXECUTE on list_cms_orders';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.transition_cms_order_status(uuid, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on transition_cms_order_status';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.transition_cms_order_status(uuid, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on transition_cms_order_status';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.transition_cms_order_status(uuid, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on transition_cms_order_status';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.transition_cms_order_status(uuid, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on transition_cms_order_status';
   end if;
 
   if has_function_privilege(
@@ -1596,19 +1656,45 @@ begin
     200, 1, 200
   );
 
-  -- Staff order UPDATE + status-history INSERT (trusted workflows).
+  -- Staff order status changes require transition_cms_order_status; direct
+  -- UPDATE is revoked. Explicit status-history INSERT must still work.
   select status into v_status from public.orders where id = v_order_a;
   select count(*) into v_history_count
   from public.order_status_history where order_id = v_order_a;
 
-  update public.orders
-  set status = 'confirmed'
-  where id = v_order_a;
-  if not found then
-    raise exception 'FAIL: staff cannot UPDATE order status';
+  v_denied := false;
+  begin
+    update public.orders
+    set status = 'confirmed'
+    where id = v_order_a;
+    if found then
+      v_denied := false;
+    end if;
+  exception
+    when insufficient_privilege then
+      v_denied := true;
+    when others then
+      if sqlstate = '42501' then
+        v_denied := true;
+      else
+        perform pg_temp.grants_clear_auth();
+        raise exception
+          'FAIL: staff direct order UPDATE unexpected SQLSTATE %: %',
+          sqlstate, sqlerrm;
+      end if;
+  end;
+  if not v_denied then
+    perform pg_temp.grants_clear_auth();
+    raise exception 'FAIL: staff direct UPDATE on orders succeeded';
   end if;
 
-  -- Trigger may already append history; explicit staff INSERT must still work.
+  perform public.transition_cms_order_status(v_order_a, 'confirmed', null);
+  if (
+    select status from public.orders where id = v_order_a
+  ) is distinct from 'confirmed' then
+    raise exception 'FAIL: staff transition_cms_order_status did not persist';
+  end if;
+
   insert into public.order_status_history (
     id, order_id, from_status, to_status, changed_by, note
   ) values (
@@ -1683,11 +1769,37 @@ begin
     raise exception 'FAIL: admin cannot UPDATE inventory';
   end if;
 
-  update public.orders
-  set status = 'preparing'
-  where id = v_order_a;
-  if not found then
-    raise exception 'FAIL: admin cannot UPDATE order status';
+  v_denied := false;
+  begin
+    update public.orders
+    set status = 'preparing'
+    where id = v_order_a;
+    if found then
+      v_denied := false;
+    end if;
+  exception
+    when insufficient_privilege then
+      v_denied := true;
+    when others then
+      if sqlstate = '42501' then
+        v_denied := true;
+      else
+        perform pg_temp.grants_clear_auth();
+        raise exception
+          'FAIL: admin direct order UPDATE unexpected SQLSTATE %: %',
+          sqlstate, sqlerrm;
+      end if;
+  end;
+  if not v_denied then
+    perform pg_temp.grants_clear_auth();
+    raise exception 'FAIL: admin direct UPDATE on orders succeeded';
+  end if;
+
+  perform public.transition_cms_order_status(v_order_a, 'preparing', null);
+  if (
+    select status from public.orders where id = v_order_a
+  ) is distinct from 'preparing' then
+    raise exception 'FAIL: admin transition_cms_order_status did not persist';
   end if;
 
   insert into public.order_status_history (

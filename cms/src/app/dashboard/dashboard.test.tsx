@@ -115,6 +115,10 @@ describe("DashboardOverviewPage", () => {
       "href",
       "/dashboard/inventory",
     );
+    expect(screen.getByRole("link", { name: /^Orders\b/ })).toHaveAttribute(
+      "href",
+      "/dashboard/orders",
+    );
     expect(
       screen.queryByText(/live total|orders today|revenue/i),
     ).not.toBeInTheDocument();

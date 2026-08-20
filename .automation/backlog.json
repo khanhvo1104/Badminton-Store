@@ -266,6 +266,13 @@
       "task_file": ".automation/tasks/TASK-038-cms-product-media-manager.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-039",
+      "title": "Build CMS order operations",
+      "task_file": ".automation/tasks/TASK-039-cms-order-operations.md",
+      "risk": "high",
+      "status": "complete"
     }
   ]
 }
