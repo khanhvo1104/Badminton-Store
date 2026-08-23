@@ -7,6 +7,7 @@ import { DashboardNavigation } from "@/components/layout/dashboard-navigation";
 import { LogoutButton } from "@/components/layout/logout-button";
 import {
   getSafeDisplayName,
+  getDashboardNavItemsForRole,
   getTrustedRoleLabel,
   type SafeShellProfile,
 } from "@/lib/navigation/dashboard-routes";
@@ -19,6 +20,7 @@ type DashboardShellProps = {
 export function DashboardShell({ profile, children }: DashboardShellProps) {
   const displayName = getSafeDisplayName(profile);
   const roleLabel = getTrustedRoleLabel(profile.role);
+  const navItems = getDashboardNavItemsForRole(profile.role);
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -39,7 +41,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
           </div>
           <div className="lg:mt-8">
             <Suspense fallback={<NavigationFallback />}>
-              <DashboardNavigation />
+              <DashboardNavigation items={navItems} />
             </Suspense>
           </div>
         </div>

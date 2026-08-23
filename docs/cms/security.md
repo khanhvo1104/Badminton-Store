@@ -59,9 +59,36 @@ entry points. Database enforcement is mandatory even when server checks exist.
 
 ## First admin prerequisite
 
-The CMS does not include self-signup, invitations, or role-editing tools. The
-first active `admin` must be created or promoted manually by a trusted operator
-outside the CMS before staff can sign in successfully.
+Before TASK-041, the first active `admin` had to be created or promoted manually
+by a trusted operator outside the CMS. The admin-only `/dashboard/staff` area
+now supports invitations and trusted role/activation changes, but at least one
+active admin must still exist to use it.
+
+## Staff management (TASK-041)
+
+Admin-only staff operations use trusted database RPCs plus an Edge Function
+invitation boundary:
+
+- `public.list_cms_staff(...)` — SECURITY DEFINER, `is_admin()` only, bounded
+  pagination/search, PII-minimized fields (`profile_id`, `full_name`, `email`,
+  `role`, `is_active`, `created_at`). Never returns customer profiles or phone/
+  avatar metadata.
+- `public.update_cms_staff(p_target_id, p_role, p_is_active)` — SECURITY
+  DEFINER, `is_admin()` only, blocks self-deactivation/self-demotion, and
+  prevents removing the last active admin under concurrency via advisory lock +
+  `FOR UPDATE` counting. Writes immutable `staff_management_events`.
+- Direct authenticated `UPDATE` on `profiles.role` / `profiles.is_active` is
+  blocked by `profiles_enforce_staff_management_boundary` unless the trusted RPC
+  sets `app.trusted_staff_management=1` or the caller is `service_role`.
+- `profiles_admin_update` replaces the prior staff-wide profile update policy;
+  cross-profile updates require active admin.
+- `invite-cms-staff` Edge Function validates the caller JWT, re-checks active
+  admin from `public.profiles`, then calls `auth.admin.inviteUserByEmail` with
+  the runtime service-role key only inside the function. The CMS Server Action
+  forwards the user access token; no secret keys ship in the browser bundle.
+  Redirect URLs come from server `CMS_SITE_URL` and must be Auth allow-listed.
+  Default SMTP rate limits surface as sanitized, actionable UI errors; tests never
+  send real invitations.
 
 ## Password recovery
 

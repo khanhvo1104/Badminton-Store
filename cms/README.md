@@ -190,6 +190,15 @@ Server Action, which binds `orderId` from the route and calls
 `transition_cms_order_status`. Payment status is read-only. Direct table
 `UPDATE` on `orders` is revoked for authenticated callers.
 
+### Staff management (TASK-041)
+
+`/dashboard/staff` is admin-only. The Server Component calls
+`list_cms_staff` after `authorizeCmsAdminRequest`. Activation and role changes
+use Server Actions that call `update_cms_staff`. Invitations use a Server Action
+that forwards the caller access token to the `invite-cms-staff` Edge Function;
+no service-role key is present in the CMS bundle. Navigation hides the Staff item
+from non-admin profiles.
+
 Add new dashboard areas by extending
 `src/lib/navigation/dashboard-routes.ts` and placing pages under
 `src/app/dashboard/`. Do not trust client state or URL text for roles or

@@ -94,6 +94,8 @@ bash supabase/tests/database/10_cms_product_media_concurrency.sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/11_cms_order_operations.sql
 bash supabase/tests/database/11_cms_order_operations_concurrency.sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/12_cms_operational_dashboard.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/13_cms_staff_management.sql
+bash supabase/tests/database/13_cms_staff_management_concurrency.sh
 ```
 
 ### RLS / Storage / RPC suite (TASK-006)
@@ -221,6 +223,26 @@ SQLSTATE `42501`.
 Excluded from this lockdown (intentional or already controlled):
 `set_updated_at`, `handle_new_user_profile`, `cart_items_enforce_active_cart`,
 `generate_order_number`, policy helpers, and public RPCs.
+
+### CMS staff management (TASK-041)
+
+`13_cms_staff_management.sql` plus `01`/`05` grant checks cover
+`list_cms_staff`, `update_cms_staff`, `staff_management_events`, the
+`profiles_enforce_staff_management_boundary` trigger, and admin-only profile
+update policy.
+
+- `list_cms_staff` — SECURITY DEFINER, STABLE, empty `search_path`,
+  `is_admin()` before any read, PII-minimized staff/admin directory with bounded
+  pagination/search, EXECUTE granted to `authenticated` only
+- `update_cms_staff` — SECURITY DEFINER, VOLATILE, empty `search_path`,
+  `is_admin()` + self-change denial + last-active-admin guard, audit insert,
+  returns only `profile_id`
+- Invitation boundary — `invite-cms-staff` Edge Function validates caller JWT,
+  re-checks active admin from trusted profiles, uses runtime service-role key
+  server-side only; CMS tests mock the boundary and never send real email
+
+`13_cms_staff_management_concurrency.sh` proves concurrent last-admin removal
+attempts cannot deactivate every active admin.
 
 ## Flutter env
 
