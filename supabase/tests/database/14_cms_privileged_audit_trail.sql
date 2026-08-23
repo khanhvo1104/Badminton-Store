@@ -339,6 +339,344 @@ $$;
 
 \echo 'PASS: audit immutability'
 
+create or replace function pg_temp.aud_assert_invalid(
+  p_label text,
+  p_sql text
+)
+returns void
+language plpgsql
+as $$
+declare
+  v_invalid boolean := false;
+begin
+  begin
+    execute p_sql;
+  exception
+    when others then
+      if sqlstate = '22023' and sqlerrm = 'invalid request' then
+        v_invalid := true;
+      else
+        raise exception
+          'FAIL: % raised unexpected SQLSTATE %: %',
+          p_label,
+          sqlstate,
+          sqlerrm;
+      end if;
+  end;
+
+  if not v_invalid then
+    raise exception 'FAIL: % expected invalid request', p_label;
+  end if;
+end;
+$$;
+
+-- Exact metadata validator rejects partial payloads
+do $$
+begin
+  if public.validate_cms_privileged_audit_metadata(
+    'category',
+    'create',
+    '{"slug":"demo","name":"Demo"}'::jsonb
+  ) then
+    raise exception 'FAIL: partial category metadata accepted';
+  end if;
+
+  if public.validate_cms_privileged_audit_metadata(
+    'order',
+    'status_transition',
+    jsonb_build_object(
+      'from_status', 'pending',
+      'to_status', 'confirmed',
+      'has_note', false,
+      'note', 'secret'
+    )
+  ) then
+    raise exception 'FAIL: order metadata accepted note key';
+  end if;
+end;
+$$;
+
+\echo 'PASS: exact metadata validation'
+
+-- service_role cannot call append helper directly
+do $$
+declare
+  v_admin uuid := 'a4200000-0000-4000-8000-000000000101';
+begin
+  begin
+    execute 'set local role service_role';
+    perform public.append_cms_privileged_audit_event(
+      v_admin,
+      'category',
+      '10000000-0000-4000-8000-000000000001',
+      'create',
+      jsonb_build_object(
+        'slug', 'forged-audit',
+        'name', 'Forged',
+        'is_active', true
+      )
+    );
+    raise exception 'FAIL: service_role append_cms_privileged_audit_event succeeded';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlstate <> '42501' then
+        raise;
+      end if;
+  end;
+  execute 'reset role';
+end;
+$$;
+
+\echo 'PASS: service_role append denied'
+
+-- Additional trusted sources: brand, product, variant, media, inventory, order
+do $$
+declare
+  v_admin uuid := 'a4200000-0000-4000-8000-000000000101';
+  v_staff uuid := 'a4200000-0000-4000-8000-000000000102';
+  v_brand uuid := '20000000-0000-4000-8000-000000000099';
+  v_product uuid := '30000000-0000-4000-8000-000000000099';
+  v_variant uuid := '40000000-0000-4000-8000-000000000099';
+  v_image uuid := '50000000-0000-4000-8000-000000000099';
+  v_seed_variant uuid := '40000000-0000-4000-8000-000000000001';
+  v_order uuid := 'a4200000-0000-4000-8000-000000000201';
+  v_customer uuid := 'a4200000-0000-4000-8000-000000000103';
+  v_before integer;
+  v_after integer;
+begin
+  perform pg_temp.aud_cleanup_events();
+  delete from public.product_images where id = v_image;
+  delete from public.product_variants where id = v_variant;
+  delete from public.products where id = v_product;
+  delete from public.brands where id = v_brand;
+  delete from public.order_status_history where order_id = v_order;
+  delete from public.order_items where order_id = v_order;
+  delete from public.orders where id = v_order;
+
+  perform pg_temp.aud_set_auth(v_admin);
+
+  insert into public.brands (id, name, slug, sort_order, is_active)
+  values (v_brand, 'Audit Brand', 'audit-brand', 999, true);
+
+  insert into public.products (
+    id, category_id, brand_id, name, slug, status, published_at
+  ) values (
+    v_product,
+    '10000000-0000-4000-8000-000000000001',
+    v_brand,
+    'Audit Product',
+    'audit-product',
+    'draft',
+    null
+  );
+
+  insert into public.product_variants (
+    id, product_id, sku, name, unit, price, is_default, is_active, sort_order
+  ) values (
+    v_variant, v_product, 'AUDIT-SKU-1', 'Audit Variant', 'item', 100.00, true, true, 1
+  );
+
+  insert into public.product_images (
+    id, product_id, storage_path, sort_order, is_primary
+  ) values (
+    v_image, v_product, 'product-images/audit-test/main.webp', 0, true
+  );
+
+  perform pg_temp.aud_clear_auth();
+  perform pg_temp.aud_set_auth(v_admin);
+  perform public.adjust_cms_inventory(
+    v_seed_variant,
+    'add_stock',
+    1,
+    null,
+    'count_correction',
+    null
+  );
+  perform pg_temp.aud_clear_auth();
+
+  insert into public.orders (
+    id,
+    order_number,
+    user_id,
+    status,
+    payment_method,
+    payment_status,
+    currency_code,
+    subtotal,
+    discount_total,
+    shipping_fee,
+    grand_total,
+    recipient_name,
+    recipient_phone,
+    shipping_address
+  ) values (
+    v_order,
+    'BDM-AUDIT-000001',
+    v_customer,
+    'pending',
+    'cod',
+    'unpaid',
+    'VND',
+    100.00,
+    0,
+    0,
+    100.00,
+    'Audit Recipient',
+    '0900000001',
+    '{"line1":"1 Audit St"}'::jsonb
+  );
+
+  select count(*) into v_before
+  from public.cms_privileged_audit_events
+  where entity_type = 'order';
+
+  insert into public.order_status_history (
+    order_id, from_status, to_status, changed_by
+  ) values (
+    v_order, null, 'pending', v_customer
+  );
+
+  select count(*) into v_after
+  from public.cms_privileged_audit_events
+  where entity_type = 'order';
+
+  if v_after is distinct from v_before then
+    raise exception 'FAIL: customer checkout seed wrote order audit row';
+  end if;
+
+  perform pg_temp.aud_set_auth(v_admin);
+  perform public.transition_cms_order_status(v_order, 'confirmed', null);
+  perform pg_temp.aud_clear_auth();
+
+  if not exists (
+    select 1
+    from public.cms_privileged_audit_events
+    where entity_type = 'order'
+      and action = 'status_transition'
+      and entity_id = v_order
+      and metadata->>'from_status' = 'pending'
+      and metadata->>'to_status' = 'confirmed'
+      and not (metadata ? 'note')
+  ) then
+    raise exception 'FAIL: staff order transition audit row missing';
+  end if;
+
+  if not exists (
+    select 1 from public.cms_privileged_audit_events where entity_type = 'brand'
+  ) or not exists (
+    select 1 from public.cms_privileged_audit_events where entity_type = 'product'
+  ) or not exists (
+    select 1 from public.cms_privileged_audit_events where entity_type = 'variant'
+  ) or not exists (
+    select 1 from public.cms_privileged_audit_events where entity_type = 'product_media'
+  ) or not exists (
+    select 1 from public.cms_privileged_audit_events where entity_type = 'inventory'
+  ) then
+    raise exception 'FAIL: expected brand/product/variant/media/inventory audit rows';
+  end if;
+
+  if exists (
+    select 1
+    from public.cms_privileged_audit_events
+    where metadata ? 'storage_path'
+       or metadata ? 'cost_price'
+       or metadata ? 'note'
+       or metadata ? 'email'
+  ) then
+    raise exception 'FAIL: audit metadata leaked forbidden fields';
+  end if;
+end;
+$$;
+
+\echo 'PASS: multi-source audit coverage'
+
+-- DELETE immutability and incomplete cursor denial
+do $$
+declare
+  v_admin uuid := 'a4200000-0000-4000-8000-000000000101';
+  v_event uuid;
+begin
+  select id into v_event
+  from public.cms_privileged_audit_events
+  order by occurred_at desc, id desc
+  limit 1;
+
+  begin
+    delete from public.cms_privileged_audit_events where id = v_event;
+    raise exception 'FAIL: audit DELETE succeeded';
+  exception
+    when others then
+      if sqlstate <> '55000' then
+        raise;
+      end if;
+  end;
+
+  perform pg_temp.aud_set_auth(v_admin);
+  perform pg_temp.aud_assert_invalid(
+    'half cursor',
+    $q$select event_id from public.list_cms_privileged_audit_events(
+      'all', 'all', null, null, null, timezone('utc', now()), null, 10
+    )$q$
+  );
+  perform pg_temp.aud_clear_auth();
+end;
+$$;
+
+\echo 'PASS: delete immutability and half-cursor denial'
+
+-- Pagination ordering and filters
+do $$
+declare
+  v_admin uuid := 'a4200000-0000-4000-8000-000000000101';
+  v_first timestamptz;
+  v_first_id uuid;
+  v_has_more boolean;
+  v_second timestamptz;
+  v_brand_count integer;
+begin
+  perform pg_temp.aud_set_auth(v_admin);
+
+  select occurred_at, event_id, has_more
+  into v_first, v_first_id, v_has_more
+  from public.list_cms_privileged_audit_events(
+    'all', 'all', null, null, null, null, null, 2
+  )
+  order by occurred_at desc, event_id desc
+  limit 1;
+
+  select count(*) into v_brand_count
+  from public.list_cms_privileged_audit_events(
+    'brand', 'all', null, null, null, null, null, 10
+  );
+
+  if v_brand_count < 1 then
+    raise exception 'FAIL: brand entity filter returned no rows';
+  end if;
+
+  if v_has_more is distinct from true then
+    raise exception 'FAIL: expected has_more on first audit page';
+  end if;
+
+  select occurred_at
+  into v_second
+  from public.list_cms_privileged_audit_events(
+    'all', 'all', null, null, null, v_first, v_first_id, 2
+  )
+  order by occurred_at desc, event_id desc
+  limit 1 offset 1;
+
+  if v_second is null or v_second > v_first then
+    raise exception 'FAIL: cursor pagination ordering broke';
+  end if;
+
+  perform pg_temp.aud_clear_auth();
+end;
+$$;
+
+\echo 'PASS: pagination and filters'
+
 do $$
 begin
   perform pg_temp.aud_cleanup_events();

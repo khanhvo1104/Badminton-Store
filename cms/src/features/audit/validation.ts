@@ -19,14 +19,20 @@ type SearchParamsInput =
 export function parseAuditExplorerQuery(
   searchParams: SearchParamsInput,
 ): AuditExplorerQuery {
+  const cursorOccurredAt = parseIsoDate(
+    readSearchParam(searchParams, "cursorAt"),
+  );
+  const cursorId = parseCursorId(readSearchParam(searchParams, "cursorId"));
+  const cursor = normalizeCursorPair(cursorOccurredAt, cursorId);
+
   return {
     entityType: parseEntityFilter(readSearchParam(searchParams, "entity")),
     action: parseActionFilter(readSearchParam(searchParams, "action")),
     actorId: parseActorId(readSearchParam(searchParams, "actor")),
     occurredFrom: parseIsoDate(readSearchParam(searchParams, "from")),
     occurredTo: parseIsoDate(readSearchParam(searchParams, "to")),
-    cursorOccurredAt: parseIsoDate(readSearchParam(searchParams, "cursorAt")),
-    cursorId: parseCursorId(readSearchParam(searchParams, "cursorId")),
+    cursorOccurredAt: cursor.occurredAt,
+    cursorId: cursor.id,
     limit: clampInt(
       parseStrictPositiveInt(readSearchParam(searchParams, "limit")),
       1,
@@ -34,6 +40,19 @@ export function parseAuditExplorerQuery(
       AUDIT_PAGE_SIZE_DEFAULT,
     ),
   };
+}
+
+export function normalizeCursorPair(
+  occurredAt: string | null,
+  id: string | null,
+): { occurredAt: string | null; id: string | null } {
+  if (occurredAt === null && id === null) {
+    return { occurredAt: null, id: null };
+  }
+  if (occurredAt !== null && id !== null) {
+    return { occurredAt, id };
+  }
+  return { occurredAt: null, id: null };
 }
 
 export function auditExplorerHasActiveFilters(

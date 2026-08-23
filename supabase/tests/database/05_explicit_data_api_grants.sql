@@ -452,9 +452,7 @@ declare
     'public.assign_order_number()',
     'public.record_order_status_change()',
     'public.validate_product_image_variant()',
-    'public.prevent_inventory_history_mutation()',
-    'public.prevent_cms_privileged_audit_mutation()',
-    'public.enforce_cms_privileged_audit_insert_boundary()'
+    'public.prevent_inventory_history_mutation()'
   ];
   sig text;
   grantee text;
@@ -797,6 +795,30 @@ begin
     raise exception
       'FAIL: service_role has EXECUTE on list_cms_privileged_audit_events';
   end if;
+
+  foreach sig in array array[
+    'public.append_cms_privileged_audit_event(uuid, text, uuid, text, jsonb, timestamptz)',
+    'public.validate_cms_privileged_audit_metadata(text, text, jsonb)',
+    'public.cms_audit_metadata_value_valid(text, text, jsonb)',
+    'public.cms_audit_resolve_staff_actor()',
+    'public.cms_audit_is_staff_profile(uuid)',
+    'public.cms_audit_record_category_change()',
+    'public.enforce_cms_privileged_audit_insert_boundary()',
+    'public.prevent_cms_privileged_audit_mutation()'
+  ] loop
+    if has_function_privilege('public', sig, 'EXECUTE') then
+      raise exception 'FAIL: PUBLIC has EXECUTE on %', sig;
+    end if;
+    if has_function_privilege('anon', sig, 'EXECUTE') then
+      raise exception 'FAIL: anon has EXECUTE on %', sig;
+    end if;
+    if has_function_privilege('authenticated', sig, 'EXECUTE') then
+      raise exception 'FAIL: authenticated has EXECUTE on %', sig;
+    end if;
+    if has_function_privilege('service_role', sig, 'EXECUTE') then
+      raise exception 'FAIL: service_role has EXECUTE on %', sig;
+    end if;
+  end loop;
 
   if has_function_privilege(
     'public',

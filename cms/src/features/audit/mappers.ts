@@ -16,6 +16,17 @@ import { isValidUuid } from "@/features/products/validation";
 const ENTITY_SET = new Set<string>(AUDIT_ENTITY_TYPES);
 const ACTION_SET = new Set<string>(AUDIT_ACTIONS);
 
+const ENTITY_ACTIONS: Record<AuditEntityType, readonly AuditAction[]> = {
+  category: ["create", "update", "activate", "deactivate"],
+  brand: ["create", "update", "activate", "deactivate"],
+  product: ["create", "update", "status_change"],
+  variant: ["create", "update", "activate", "deactivate"],
+  inventory: ["adjust"],
+  product_media: ["create", "update", "delete", "set_primary", "reorder"],
+  order: ["status_transition", "annotate_transition"],
+  staff: ["invite", "activate", "deactivate", "promote", "demote"],
+};
+
 const METADATA_SCHEMA: Record<
   AuditEntityType,
   Partial<Record<AuditAction, readonly string[]>>
@@ -61,8 +72,22 @@ const METADATA_SCHEMA: Record<
       "is_default_changed",
       "price_changed",
     ],
-    activate: ["product_id", "sku", "name", "is_active"],
-    deactivate: ["product_id", "sku", "name", "is_active"],
+    activate: [
+      "product_id",
+      "sku",
+      "name",
+      "is_active",
+      "is_default_changed",
+      "price_changed",
+    ],
+    deactivate: [
+      "product_id",
+      "sku",
+      "name",
+      "is_active",
+      "is_default_changed",
+      "price_changed",
+    ],
   },
   inventory: {
     adjust: [
@@ -124,6 +149,27 @@ const METADATA_SCHEMA: Record<
   },
 };
 
+const PRODUCT_STATUSES = new Set(["draft", "active", "inactive", "archived"]);
+const ORDER_STATUSES = new Set([
+  "pending",
+  "confirmed",
+  "preparing",
+  "shipping",
+  "delivered",
+  "cancelled",
+  "returned",
+]);
+const STAFF_ROLES = new Set(["customer", "staff", "admin"]);
+const STAFF_NEW_ROLES = new Set(["staff", "admin"]);
+const INVENTORY_OPERATIONS = new Set([
+  "add_stock",
+  "remove_stock",
+  "set_on_hand",
+  "set_reorder_level",
+  "set_allow_backorder",
+]);
+const MEDIA_SCOPES = new Set(["general", "variant"]);
+
 export function mapCmsAuditRpcRow(row: unknown): CmsAuditRpcRow | null {
   if (!isRecord(row)) {
     return null;
@@ -147,6 +193,7 @@ export function mapAuditEventItem(row: CmsAuditRpcRow): AuditEventItem | null {
     !row.event_id ||
     !isValidUuid(row.event_id) ||
     !row.occurred_at ||
+    !parseIsoTimestamp(row.occurred_at) ||
     !row.actor_id ||
     !isValidUuid(row.actor_id) ||
     !row.entity_id ||
@@ -169,15 +216,25 @@ export function mapAuditEventItem(row: CmsAuditRpcRow): AuditEventItem | null {
 
   const entityType = row.entity_type as AuditEntityType;
   const action = row.action as AuditAction;
+
+  if (!isValidEntityAction(entityType, action)) {
+    return null;
+  }
+
   const metadata = parseAuditMetadata(entityType, action, row.metadata);
   if (!metadata) {
+    return null;
+  }
+
+  const occurredAtLabel = formatTimestamp(row.occurred_at);
+  if (!occurredAtLabel) {
     return null;
   }
 
   return {
     eventId: row.event_id,
     occurredAt: row.occurred_at,
-    occurredAtLabel: formatTimestamp(row.occurred_at),
+    occurredAtLabel,
     actorId: row.actor_id,
     actorName: row.actor_name,
     entityType,
@@ -186,6 +243,13 @@ export function mapAuditEventItem(row: CmsAuditRpcRow): AuditEventItem | null {
     metadata,
     summary: buildAuditSummary(entityType, action, metadata),
   };
+}
+
+export function isValidEntityAction(
+  entityType: AuditEntityType,
+  action: AuditAction,
+): boolean {
+  return ENTITY_ACTIONS[entityType].includes(action);
 }
 
 export function parseAuditMetadata(
@@ -197,22 +261,25 @@ export function parseAuditMetadata(
     return null;
   }
 
-  const allowed = METADATA_SCHEMA[entityType]?.[action];
-  if (!allowed) {
+  const required = METADATA_SCHEMA[entityType]?.[action];
+  if (!required) {
     return null;
   }
 
   const keys = Object.keys(value);
-  if (keys.length === 0 || keys.length > allowed.length) {
+  if (keys.length !== required.length) {
     return null;
   }
 
-  const parsed: AuditMetadata = {};
-  for (const key of keys) {
-    if (!allowed.includes(key)) {
+  for (const key of required) {
+    if (!(key in value)) {
       return null;
     }
-    const parsedValue = parseMetadataValue(key, value[key]);
+  }
+
+  const parsed: AuditMetadata = {};
+  for (const key of required) {
+    const parsedValue = parseMetadataValue(entityType, action, key, value[key]);
     if (parsedValue === undefined) {
       return null;
     }
@@ -223,59 +290,100 @@ export function parseAuditMetadata(
 }
 
 function parseMetadataValue(
+  entityType: AuditEntityType,
+  action: AuditAction,
   key: string,
   value: unknown,
 ): string | number | boolean | null | undefined {
-  if (value === null) {
-    return key.endsWith("_id") || key === "name" || key === "sku"
-      ? null
-      : undefined;
+  if (key === "product_id" || key === "target_id") {
+    return typeof value === "string" && isValidUuid(value) ? value : undefined;
+  }
+
+  if (key === "name" && entityType === "variant") {
+    if (value === null) {
+      return null;
+    }
+    if (typeof value !== "string") {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    return trimmed.length >= 1 && trimmed.length <= 200 ? value : undefined;
   }
 
   if (typeof value === "boolean") {
-    return value;
+    if (
+      key.endsWith("_changed") ||
+      key === "is_active" ||
+      key === "is_primary" ||
+      key === "has_note" ||
+      key.startsWith("previous_is_") ||
+      key.startsWith("new_is_")
+    ) {
+      return value;
+    }
+    return undefined;
   }
 
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
+  if (typeof value === "number" && Number.isInteger(value)) {
+    if (key === "on_hand_before" || key === "on_hand_after") {
+      return value >= 0 ? value : undefined;
+    }
+    if (key === "sort_order") {
+      return value >= -1_000_000 && value <= 1_000_000 ? value : undefined;
+    }
+    return undefined;
   }
 
   if (typeof value !== "string") {
     return undefined;
   }
 
-  if (key.endsWith("_id")) {
-    return isValidUuid(value) ? value : undefined;
+  if (key === "slug") {
+    return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) && value.length <= 120
+      ? value
+      : undefined;
   }
 
-  if (key === "slug" && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) {
-    return undefined;
+  if (key === "name") {
+    const trimmed = value.trim();
+    return trimmed.length >= 1 && trimmed.length <= 120 ? value : undefined;
   }
 
-  if (
-    (key === "name" ||
-      key === "sku" ||
-      key === "reason" ||
-      key === "operation") &&
-    value.length > 200
-  ) {
-    return undefined;
+  if (key === "sku") {
+    const trimmed = value.trim();
+    return trimmed.length >= 1 && trimmed.length <= 80 ? value : undefined;
   }
 
-  if (
-    (key === "status" ||
-      key === "previous_status" ||
-      key === "from_status" ||
-      key === "to_status" ||
-      key === "previous_role" ||
-      key === "new_role" ||
-      key === "variant_scope") &&
-    value.length > 40
-  ) {
-    return undefined;
+  if (key === "reason") {
+    const trimmed = value.trim();
+    return trimmed.length >= 1 && trimmed.length <= 80 ? value : undefined;
   }
 
-  return value;
+  if (key === "operation") {
+    return INVENTORY_OPERATIONS.has(value) ? value : undefined;
+  }
+
+  if (key === "status" || key === "previous_status") {
+    return PRODUCT_STATUSES.has(value) ? value : undefined;
+  }
+
+  if (key === "from_status" || key === "to_status") {
+    return ORDER_STATUSES.has(value) ? value : undefined;
+  }
+
+  if (key === "previous_role") {
+    return STAFF_ROLES.has(value) ? value : undefined;
+  }
+
+  if (key === "new_role") {
+    return STAFF_NEW_ROLES.has(value) ? value : undefined;
+  }
+
+  if (key === "variant_scope") {
+    return MEDIA_SCOPES.has(value) ? value : undefined;
+  }
+
+  return undefined;
 }
 
 function buildAuditSummary(
@@ -305,12 +413,20 @@ function buildAuditSummary(
   return `${entityLabel}: ${actionLabel}`;
 }
 
-function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
+export function parseIsoTimestamp(value: string): string | null {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return null;
+  }
+  return new Date(parsed).toISOString();
+}
+
+function formatTimestamp(value: string): string | null {
+  if (!parseIsoTimestamp(value)) {
+    return null;
   }
 
+  const date = new Date(value);
   return new Intl.DateTimeFormat("en-GB", {
     dateStyle: "medium",
     timeStyle: "short",

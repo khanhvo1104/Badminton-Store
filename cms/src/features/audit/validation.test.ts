@@ -44,4 +44,12 @@ describe("audit validation", () => {
       false,
     );
   });
+
+  it("discards incomplete cursor pairs from search params", () => {
+    const query = parseAuditExplorerQuery({
+      cursorAt: "2026-08-23T10:00:00.000Z",
+    });
+    expect(query.cursorOccurredAt).toBeNull();
+    expect(query.cursorId).toBeNull();
+  });
 });
