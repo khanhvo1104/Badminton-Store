@@ -178,6 +178,7 @@ declare
   v_order_cancel uuid := 'b4040000-0000-4000-8000-000000000103';
   v_order_return uuid := 'b4040000-0000-4000-8000-000000000104';
   v_order_open uuid := 'b4040000-0000-4000-8000-000000000105';
+  v_order_eur_cancel uuid := 'b4040000-0000-4000-8000-000000000106';
   v_sig text := 'public.get_cms_operational_dashboard(integer)';
   v_rpc text;
   v_proconfig_arr text[];
@@ -189,6 +190,7 @@ declare
   v_low jsonb;
   v_usd_gross numeric;
   v_vnd_gross numeric;
+  v_eur_gross numeric;
   v_day_count integer;
   v_low_count integer;
   v_def text;
@@ -280,6 +282,13 @@ begin
     'Recipient Open', '0905555555',
     '{"recipient_name":"Recipient Open","phone_number":"0905555555"}'::jsonb,
     timezone('utc', now()) - interval '2 days'
+  ),
+  (
+    v_order_eur_cancel, 'BDM-DASH-EUR', v_customer, 'cancelled', 'EUR',
+    999, 0, 0, 999,
+    'Recipient EUR', '0906666666',
+    '{"recipient_name":"Recipient EUR","phone_number":"0906666666"}'::jsonb,
+    timezone('utc', now()) - interval '1 day'
   );
 
   select p.provolatile, p.prosecdef, p.proconfig
@@ -366,7 +375,7 @@ begin
   if v_row.range_days <> 7 then
     raise exception 'FAIL: dashboard range_days mismatch';
   end if;
-  if v_row.total_orders < 5 then
+  if v_row.total_orders < 6 then
     raise exception 'FAIL: dashboard total_orders too low';
   end if;
   if v_row.delivered_orders < 1 then
@@ -391,12 +400,23 @@ begin
     gross_order_value numeric
   )
   where entry.currency_code = 'VND';
+  select entry.gross_order_value
+  into v_eur_gross
+  from jsonb_to_recordset(v_gross) as entry(
+    currency_code text,
+    gross_order_value numeric
+  )
+  where entry.currency_code = 'EUR';
 
   if v_usd_gross is distinct from 150 then
     raise exception 'FAIL: USD gross_order_value mixed or miscomputed';
   end if;
   if v_vnd_gross is distinct from 420000 then
     raise exception 'FAIL: VND gross_order_value mixed or miscomputed';
+  end if;
+  if v_eur_gross is distinct from 0 then
+    raise exception
+      'FAIL: EUR gross_order_value should be zero for cancelled-only orders';
   end if;
 
   if exists (
@@ -405,9 +425,22 @@ begin
       currency_code text,
       gross_order_value numeric
     )
-    where entry.currency_code not in ('USD', 'VND')
+    where entry.currency_code not in ('EUR', 'USD', 'VND')
   ) then
     raise exception 'FAIL: unexpected currency in gross_order_value_by_currency';
+  end if;
+
+  if not exists (
+    select 1
+    from jsonb_to_recordset(v_gross) as entry(
+      currency_code text,
+      gross_order_value numeric
+    )
+    where entry.currency_code = 'EUR'
+      and entry.gross_order_value = 0
+  ) then
+    raise exception
+      'FAIL: cancelled-only EUR missing from gross_order_value_by_currency';
   end if;
 
   select coalesce(array_agg(entry.currency_code order by entry.currency_code), '{}')
@@ -428,6 +461,30 @@ begin
 
   if v_gross_codes is distinct from v_daily_codes then
     raise exception 'FAIL: gross and daily currency sets mismatch';
+  end if;
+
+  if v_gross_codes is distinct from array['EUR', 'USD', 'VND']::text[] then
+    raise exception 'FAIL: gross currency set missing cancelled-only EUR';
+  end if;
+
+  if not exists (
+    select 1
+    from jsonb_to_recordset(v_daily) as currency_block(
+      currency_code text,
+      series jsonb
+    )
+    cross join lateral jsonb_to_recordset(currency_block.series) as point(
+      date text,
+      order_count integer,
+      gross_order_value numeric
+    )
+    where currency_block.currency_code = 'EUR'
+      and point.date = to_char((timezone('utc', now()) - interval '1 day')::date, 'YYYY-MM-DD')
+      and point.order_count = 1
+      and point.gross_order_value = 0
+  ) then
+    raise exception
+      'FAIL: EUR daily series missing cancelled order with zero gross';
   end if;
 
   select jsonb_array_length(currency_block.series)

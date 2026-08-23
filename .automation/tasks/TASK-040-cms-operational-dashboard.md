@@ -43,9 +43,10 @@ Status: complete
 
 - **Window:** `[UTC now - range_days, UTC now]` for placed_at metrics.
 - **Total orders:** count of orders with `placed_at` in the window.
-- **Gross order value:** sum of `grand_total` per `currency_code` for orders
-  in the window where status is not `cancelled` or `returned`. Label as gross
-  order value, not recognized revenue. Never sum across currencies.
+- **Gross order value:** `gross_order_value_by_currency` includes every
+  `currency_code` present in `window_orders`. Cancelled/returned totals are
+  excluded from each per-currency sum and coalesce to zero. Label as gross order
+  value, not recognized revenue. Never sum across currencies.
 - **Delivered orders:** count with `status = delivered` and `placed_at` in the
   window.
 - **Open fulfillment backlog:** current global count in

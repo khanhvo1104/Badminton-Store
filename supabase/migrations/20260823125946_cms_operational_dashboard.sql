@@ -42,7 +42,7 @@ begin
       using errcode = '22023';
   end if;
 
-  v_window_end := timezone('utc', now());
+  v_window_end := now();
   v_window_start := v_window_end - (v_range_days || ' days')::interval;
 
   select pg_catalog.count(distinct order_row.currency_code)
@@ -73,17 +73,26 @@ begin
     where order_row.placed_at >= params.window_start
       and order_row.placed_at <= params.window_end
   ),
+  currencies as (
+    select distinct window_orders.currency_code
+    from window_orders
+    order by window_orders.currency_code asc
+  ),
   gross_by_currency as (
     select
-      window_orders.currency_code,
+      currencies.currency_code,
       coalesce(
-        pg_catalog.sum(window_orders.grand_total),
+        pg_catalog.sum(window_orders.grand_total)
+          filter (
+            where window_orders.status not in ('cancelled', 'returned')
+          ),
         0
       )::numeric(14, 2) as gross_order_value
-    from window_orders
-    where window_orders.status not in ('cancelled', 'returned')
-    group by window_orders.currency_code
-    order by window_orders.currency_code asc
+    from currencies
+    left join window_orders
+      on window_orders.currency_code = currencies.currency_code
+    group by currencies.currency_code
+    order by currencies.currency_code asc
   ),
   status_counts as (
     select
@@ -115,11 +124,6 @@ begin
     ) as status_axis(sort_order, status)
     left join status_counts
       on status_counts.status = status_axis.status
-  ),
-  currencies as (
-    select distinct window_orders.currency_code
-    from window_orders
-    order by window_orders.currency_code asc
   ),
   days as (
     select generate_series(
@@ -287,7 +291,8 @@ comment on function public.get_cms_operational_dashboard(integer) is
   'selects only status, currency_code, grand_total, and placed_at. Count '
   'metrics use placed_at in the window except open_fulfillment_count, which is '
   'the current global backlog in pending/confirmed/preparing/shipping. '
-  'gross_order_value excludes cancelled/returned orders and is returned per '
+  'gross_order_value_by_currency includes every currency in window_orders; '
+  'cancelled/returned totals are excluded from the sum and coalesce to zero per '
   'currency_code without cross-currency summation; more than 20 currencies in '
   'the window raises invalid request. daily_series_by_currency zero-fills every '
   'UTC day per currency independently. low_stock_variants is bounded to 10 rows '

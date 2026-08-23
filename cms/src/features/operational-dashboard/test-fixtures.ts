@@ -29,8 +29,8 @@ function buildDailyPoint(
   };
 }
 
-function buildCurrencySeries(
-  currencyCode: "USD" | "VND",
+export function buildCurrencySeries(
+  currencyCode: "EUR" | "USD" | "VND",
   pointOverrides: Record<
     string,
     Partial<{

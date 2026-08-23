@@ -12,8 +12,9 @@ import {
 } from "@/features/operational-dashboard/series";
 import {
   buildOperationalDashboardRpcPayload,
-  TEST_WINDOW,
+  buildCurrencySeries,
   TEST_VARIANT_ID,
+  TEST_WINDOW,
 } from "@/features/operational-dashboard/test-fixtures";
 
 describe("resolveUtcWindowBounds", () => {
@@ -200,6 +201,30 @@ describe("mapOperationalDashboardRpcRow", () => {
         }),
       ),
     ).toBeNull();
+  });
+
+  it("accepts zero gross for window currencies present only as cancelled or returned", () => {
+    const payload = buildOperationalDashboardRpcPayload({
+      gross_order_value_by_currency: [
+        { currency_code: "EUR", gross_order_value: 0 },
+        { currency_code: "USD", gross_order_value: 150 },
+        { currency_code: "VND", gross_order_value: 500000 },
+      ],
+      daily_series_by_currency: [
+        buildCurrencySeries("EUR", {
+          "2026-08-22": { order_count: 1, gross_order_value: 0 },
+        }),
+        buildCurrencySeries("USD", {
+          "2026-08-22": { order_count: 1, gross_order_value: 150 },
+        }),
+        buildCurrencySeries("VND", {
+          "2026-08-22": { order_count: 1, gross_order_value: 300000 },
+          "2026-08-23": { order_count: 1, gross_order_value: 200000 },
+        }),
+      ],
+    });
+
+    expect(mapOperationalDashboardRpcRow(payload)).not.toBeNull();
   });
 });
 
