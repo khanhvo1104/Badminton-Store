@@ -95,6 +95,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/11_cms_order_
 bash supabase/tests/database/11_cms_order_operations_concurrency.sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/12_cms_operational_dashboard.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/13_cms_staff_management.sql
+bash supabase/tests/database/13_cms_staff_management_postgrest.sh
 bash supabase/tests/database/13_cms_staff_management_concurrency.sh
 ```
 
@@ -227,7 +228,8 @@ Excluded from this lockdown (intentional or already controlled):
 ### CMS staff management (TASK-041)
 
 `13_cms_staff_management.sql` plus `01`/`05` grant checks cover
-`list_cms_staff`, `update_cms_staff`, `staff_management_events`, the
+`list_cms_staff`, `update_cms_staff`, `finalize_cms_staff_invitation`,
+`staff_management_events`, the
 `profiles_enforce_staff_management_boundary` trigger, and admin-only profile
 update policy.
 
@@ -239,7 +241,9 @@ update policy.
   returns only `profile_id`
 - Invitation boundary — `invite-cms-staff` Edge Function validates caller JWT,
   re-checks active admin from trusted profiles, uses runtime service-role key
-  server-side only; CMS tests mock the boundary and never send real email
+  server-side only, then finalizes through `finalize_cms_staff_invitation`
+  (service_role EXECUTE only) and compensates with `auth.admin.deleteUser` when
+  finalization fails; CMS tests mock the boundary and never send real email
 
 `13_cms_staff_management_concurrency.sh` proves concurrent last-admin removal
 attempts cannot deactivate every active admin.

@@ -1,5 +1,17 @@
 import { assertEquals } from "jsr:@std/assert@1";
 
+import { finalizeInvitedStaff } from "./invite-flow.ts";
+import {
+  buildInviteRedirectTo,
+  DUPLICATE_MESSAGE,
+  GENERIC_FAILURE_MESSAGE,
+  mapInviteError,
+  RATE_LIMIT_MESSAGE,
+  readEmail,
+  readFullName,
+  readRole,
+} from "./invite-helpers.ts";
+
 Deno.test("readEmail normalizes and validates addresses", () => {
   assertEquals(readEmail(" Staff@Example.COM "), "staff@example.com");
   assertEquals(readEmail("not-an-email"), null);
@@ -37,80 +49,61 @@ Deno.test("mapInviteError sanitizes provider failures", () => {
   assertEquals(mapInviteError({ message: "unexpected" }), GENERIC_FAILURE_MESSAGE);
 });
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const RATE_LIMIT_MESSAGE =
-  "Email sending is temporarily limited. Wait a few minutes and try again, or ask your operator to review SMTP rate limits.";
-const DUPLICATE_MESSAGE =
-  "That email already belongs to an account. Update the existing staff member instead of sending a new invitation.";
-const GENERIC_FAILURE_MESSAGE =
-  "We couldn't send that invitation. Try again later.";
+Deno.test("finalizeInvitedStaff compensates when RPC finalization fails", async () => {
+  let deleteCalled = false;
+  const adminClient = {
+    rpc: async () => ({ data: null, error: { message: "invalid request" } }),
+    auth: {
+      admin: {
+        inviteUserByEmail: async () => ({ data: { user: { id: "user-1" } }, error: null }),
+        deleteUser: async (userId: string) => {
+          deleteCalled = userId === "user-1";
+          return { error: null };
+        },
+      },
+    },
+  };
 
-function readEmail(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const normalized = value.trim().toLowerCase();
-  if (!normalized || normalized.length > 254 || !EMAIL_PATTERN.test(normalized)) {
-    return null;
-  }
-  return normalized;
-}
+  const result = await finalizeInvitedStaff({
+    adminClient,
+    actorId: "admin-1",
+    invitedUserId: "user-1",
+    email: "staff@example.invalid",
+    role: "staff",
+    fullName: null,
+  });
 
-function readRole(value: unknown): "staff" | "admin" | null {
-  if (value !== "staff" && value !== "admin") {
-    return null;
+  assertEquals(result.ok, false);
+  if (!result.ok) {
+    assertEquals(result.compensated, true);
   }
-  return value;
-}
+  assertEquals(deleteCalled, true);
+});
 
-function readFullName(value: unknown): string | null {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-  if (typeof value !== "string") {
-    return null;
-  }
-  const trimmed = value.trim().replace(/\s+/g, " ");
-  if (!trimmed || trimmed.length > 120) {
-    return null;
-  }
-  return trimmed;
-}
+Deno.test("finalizeInvitedStaff succeeds without compensation", async () => {
+  let deleteCalled = false;
+  const adminClient = {
+    rpc: async () => ({ data: "user-2", error: null }),
+    auth: {
+      admin: {
+        inviteUserByEmail: async () => ({ data: { user: { id: "user-2" } }, error: null }),
+        deleteUser: async () => {
+          deleteCalled = true;
+          return { error: null };
+        },
+      },
+    },
+  };
 
-function buildInviteRedirectTo(rawSiteUrl: string): string | null {
-  try {
-    const site = new URL(rawSiteUrl);
-    if (!["http:", "https:"].includes(site.protocol)) {
-      return null;
-    }
-    const callback = new URL("/auth/callback", site);
-    callback.searchParams.set("next", "/update-password");
-    return callback.toString();
-  } catch {
-    return null;
-  }
-}
+  const result = await finalizeInvitedStaff({
+    adminClient,
+    actorId: "admin-1",
+    invitedUserId: "user-2",
+    email: "staff@example.invalid",
+    role: "admin",
+    fullName: "Alex Coach",
+  });
 
-function mapInviteError(error: { message?: string; status?: number }): string {
-  const message = typeof error.message === "string" ? error.message.toLowerCase() : "";
-  const status = typeof error.status === "number" ? error.status : 0;
-
-  if (
-    status === 429 ||
-    message.includes("rate limit") ||
-    message.includes("too many requests") ||
-    message.includes("email rate limit")
-  ) {
-    return RATE_LIMIT_MESSAGE;
-  }
-
-  if (
-    message.includes("already been registered") ||
-    message.includes("already exists") ||
-    message.includes("user already registered")
-  ) {
-    return DUPLICATE_MESSAGE;
-  }
-
-  return GENERIC_FAILURE_MESSAGE;
-}
+  assertEquals(result, { ok: true, profileId: "user-2" });
+  assertEquals(deleteCalled, false);
+});

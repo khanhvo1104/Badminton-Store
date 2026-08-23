@@ -78,14 +78,19 @@ invitation boundary:
   prevents removing the last active admin under concurrency via advisory lock +
   `FOR UPDATE` counting. Writes immutable `staff_management_events`.
 - Direct authenticated `UPDATE` on `profiles.role` / `profiles.is_active` is
-  blocked by `profiles_enforce_staff_management_boundary` unless the trusted RPC
-  sets `app.trusted_staff_management=1` or the caller is `service_role`.
+  blocked by `profiles_enforce_staff_management_boundary` unless a trusted RPC
+  sets `app.trusted_staff_management=1`. PostgREST service-role JWTs keep
+  `session_user = authenticator`, so invitation finalization must call
+  `finalize_cms_staff_invitation` (EXECUTE granted to `service_role` only).
 - `profiles_admin_update` replaces the prior staff-wide profile update policy;
   cross-profile updates require active admin.
 - `invite-cms-staff` Edge Function validates the caller JWT, re-checks active
   admin from `public.profiles`, then calls `auth.admin.inviteUserByEmail` with
-  the runtime service-role key only inside the function. The CMS Server Action
-  forwards the user access token; no secret keys ship in the browser bundle.
+  the runtime service-role key only inside the function. After invite, it calls
+  `finalize_cms_staff_invitation` through PostgREST; on finalization failure it
+  deletes the newly created auth user before returning a sanitized error. The
+  CMS Server Action forwards the user access token; no secret keys ship in the
+  browser bundle.
   Redirect URLs come from server `CMS_SITE_URL` and must be Auth allow-listed.
   Default SMTP rate limits surface as sanitized, actionable UI errors; tests never
   send real invitations.

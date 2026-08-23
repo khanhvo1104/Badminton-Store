@@ -9,8 +9,6 @@
 \set ON_ERROR_STOP on
 \echo '== CMS staff management regression (TASK-041) =='
 
-begin;
-
 create or replace function pg_temp.stf_insert_user(
   p_user_id uuid,
   p_email text
@@ -112,6 +110,8 @@ begin
 end;
 $$;
 
+begin;
+
 -- Fixtures
 -- admin A (sole active admin under test), admin B (second admin), staff S, customer C
 do $$
@@ -164,6 +164,41 @@ begin
   end if;
   if not has_function_privilege('authenticated', 'public.update_cms_staff(uuid,text,boolean)', 'EXECUTE') then
     raise exception 'FAIL: authenticated missing update_cms_staff EXECUTE';
+  end if;
+  if has_function_privilege(
+    'service_role',
+    'public.list_cms_staff(text,text,text,text,integer,integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role may execute list_cms_staff';
+  end if;
+  if has_function_privilege(
+    'service_role',
+    'public.update_cms_staff(uuid,text,boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role may execute update_cms_staff';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.finalize_cms_staff_invitation(uuid,uuid,text,text,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon may execute finalize_cms_staff_invitation';
+  end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.finalize_cms_staff_invitation(uuid,uuid,text,text,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: authenticated may execute finalize_cms_staff_invitation';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.finalize_cms_staff_invitation(uuid,uuid,text,text,text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role missing finalize_cms_staff_invitation EXECUTE';
   end if;
 end;
 $$;
@@ -309,3 +344,4 @@ $$;
 rollback;
 
 \echo '== CMS staff management regression complete =='
+\echo 'PostgREST service_role JWT boundary: run 13_cms_staff_management_postgrest.sh'

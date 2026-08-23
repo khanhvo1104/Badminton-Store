@@ -20,8 +20,12 @@ import {
 import { toStaffMutationFailureMessage } from "@/features/staff/errors";
 import { readUpdatedStaffProfileId } from "@/features/staff/mappers";
 import { revalidateStaffPaths } from "@/features/staff/revalidate";
-import type { StaffMutationFormState, StaffRole } from "@/features/staff/types";
+import type { StaffMutationFormState } from "@/features/staff/types";
 import { isValidUuid } from "@/features/products/validation";
+import {
+  readOptionalActive,
+  readOptionalRole,
+} from "@/features/staff/actions/staff-mutation-parsers";
 
 export async function updateStaffMember(
   profileId: string,
@@ -54,6 +58,15 @@ export async function updateStaffMember(
 
   const nextRole = readOptionalRole(formData.get("role"));
   const nextActive = readOptionalActive(formData.get("is_active"));
+
+  if (nextRole === undefined || nextActive === undefined) {
+    return {
+      status: "error",
+      message: STAFF_GENERIC_FAILURE_MESSAGE,
+      fieldErrors: {},
+      values: { confirmed: true },
+    };
+  }
 
   if (nextRole === null && nextActive === null) {
     return {
@@ -126,40 +139,9 @@ export async function setStaffRole(
   return updateStaffMember(profileId, _previousState, formData);
 }
 
-function readOptionalRole(
-  value: FormDataEntryValue | null,
-): StaffRole | null | undefined {
-  if (value === null || value === "") {
-    return null;
-  }
-  if (value === "staff" || value === "admin") {
-    return value;
-  }
-  return undefined;
-}
-
-function readOptionalActive(
-  value: FormDataEntryValue | null,
-): boolean | null | undefined {
-  if (value === null || value === "") {
-    return null;
-  }
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const normalized = value.trim().toLowerCase();
-  if (["on", "true", "1", "yes"].includes(normalized)) {
-    return true;
-  }
-  if (["off", "false", "0", "no"].includes(normalized)) {
-    return false;
-  }
-  return undefined;
-}
-
 function resolveSuccessToken(
-  nextRole: StaffRole | null | undefined,
-  nextActive: boolean | null | undefined,
+  nextRole: ReturnType<typeof readOptionalRole>,
+  nextActive: ReturnType<typeof readOptionalActive>,
 ): string {
   if (nextActive === true) {
     return STAFF_SUCCESS_ACTIVATED;
