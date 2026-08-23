@@ -72,56 +72,19 @@ describe("DashboardLayout", () => {
 
     const { default: DashboardLayout } = await import("@/app/dashboard/layout");
     const element = await DashboardLayout({
-      children: <h1>Catalog management workspace</h1>,
+      children: <h1>Operational overview</h1>,
     });
 
     render(element);
 
     expect(
-      screen.getByRole("heading", { name: "Catalog management workspace" }),
+      screen.getByRole("heading", { name: "Operational overview" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /skip to content/i }),
     ).toHaveAttribute("href", "#main-content");
     expect(screen.getAllByText("Alex Coach").length).toBeGreaterThan(0);
     expect(screen.queryByText(/email|token|sql/i)).not.toBeInTheDocument();
-  });
-});
-
-describe("DashboardOverviewPage", () => {
-  it("links only to protected placeholder routes without live metrics", async () => {
-    const { default: DashboardOverviewPage } = await import(
-      "@/app/dashboard/page"
-    );
-
-    render(<DashboardOverviewPage />);
-
-    expect(
-      screen.getByRole("heading", { name: "Catalog management workspace" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /categories/i })).toHaveAttribute(
-      "href",
-      "/dashboard/categories",
-    );
-    expect(screen.getByRole("link", { name: /brands/i })).toHaveAttribute(
-      "href",
-      "/dashboard/brands",
-    );
-    expect(screen.getByRole("link", { name: /products/i })).toHaveAttribute(
-      "href",
-      "/dashboard/products",
-    );
-    expect(screen.getByRole("link", { name: /^Inventory\b/ })).toHaveAttribute(
-      "href",
-      "/dashboard/inventory",
-    );
-    expect(screen.getByRole("link", { name: /^Orders\b/ })).toHaveAttribute(
-      "href",
-      "/dashboard/orders",
-    );
-    expect(
-      screen.queryByText(/live total|orders today|revenue/i),
-    ).not.toBeInTheDocument();
   });
 });
 

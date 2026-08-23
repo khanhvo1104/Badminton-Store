@@ -78,6 +78,7 @@ Order number `BDM-YYYYMMDD-XXXXXX`; grand_total math check; shipping_address jso
 - `adjust_cms_inventory(uuid, text, int, bool, text, text)` — VOLATILE SECURITY DEFINER, empty search_path, staff/admin only, history + inventory in one transaction, returns only `variant_id`
 - `list_cms_orders(text, text, text, timestamptz, timestamptz, text, int, int)` — STABLE SECURITY INVOKER, empty search_path, staff/admin only
 - `transition_cms_order_status(uuid, text, text)` — VOLATILE SECURITY DEFINER, empty search_path, staff/admin only, locks order + inventory, enforces transition graph and inventory effects, returns only `order_id`
+- `get_cms_operational_dashboard(int)` — STABLE SECURITY INVOKER, empty search_path, staff/admin only, currency-aware gross metrics and daily series without cross-currency summation, bounded low-stock variants
 - `set_cms_product_image_primary(uuid, uuid)` — VOLATILE SECURITY INVOKER, empty search_path, staff/admin only, serializes unique primary switches, returns only `image_id`
 - `reorder_cms_product_images(uuid, uuid[])` — VOLATILE SECURITY INVOKER, empty search_path, staff/admin only, bounded complete id list, returns only `product_id`
 - `insert_cms_product_image(uuid, text, text, uuid, boolean)` — VOLATILE SECURITY INVOKER, empty search_path, staff/admin only, insert + optional primary in one transaction, returns only `image_id`

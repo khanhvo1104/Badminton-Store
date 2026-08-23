@@ -110,6 +110,11 @@ Router layout. The shell provides:
 - safe display-name and trusted role context with POST logout;
 - reusable loading, empty, sanitized error/retry, and confirmation primitives.
 
+The overview at `/dashboard` loads operational metrics from
+`get_cms_operational_dashboard` with a 7/30/90-day range selector (default 30).
+Gross order value is grouped by `currency_code` without cross-currency summation;
+daily series are zero-filled per currency in UTC.
+
 `/dashboard/inventory` is a production inventory explorer with server-side
 pagination, product/variant/SKU search, stock filters, and stable sorting.
 Staff adjust a variant at `/dashboard/inventory/[variantId]` through

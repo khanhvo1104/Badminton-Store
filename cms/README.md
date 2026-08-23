@@ -83,7 +83,10 @@ Protected routes under `/dashboard` share one authorized layout shell with:
 - desktop sidebar and mobile open/close navigation;
 - skip link, breadcrumbs, and `aria-current` page treatment from typed routes;
 - safe account display plus POST logout with pending state;
-- overview cards that link to catalog areas;
+- operational overview metrics from `get_cms_operational_dashboard` with
+  currency-aware gross totals (never summed across currencies), global order
+  counts, open fulfillment backlog, status breakdown, UTC zero-filled daily
+  series per currency, and bounded low-stock variants;
 - shared loading, empty, error/retry, and confirmation primitives.
 
 ### Category management
