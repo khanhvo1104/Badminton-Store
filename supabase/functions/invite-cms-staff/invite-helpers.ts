@@ -35,18 +35,51 @@ export function readRole(value: unknown): "staff" | "admin" | null {
   return value;
 }
 
-export function readFullName(value: unknown): string | null {
+export function readFullName(value: unknown): string | null | undefined {
   if (value === null || value === undefined || value === "") {
     return null;
   }
   if (typeof value !== "string") {
-    return null;
+    return undefined;
   }
   const trimmed = value.trim().replace(/\s+/g, " ");
-  if (!trimmed || trimmed.length > 120) {
+  if (!trimmed) {
     return null;
   }
+  if (trimmed.length > 120) {
+    return undefined;
+  }
   return trimmed;
+}
+
+export type InviteBodyInput = {
+  email?: unknown;
+  role?: unknown;
+  fullName?: unknown;
+};
+
+export type ParsedInviteBody =
+  | {
+      ok: true;
+      email: string;
+      role: "staff" | "admin";
+      fullName: string | null;
+    }
+  | { ok: false };
+
+export function parseInviteBody(body: InviteBodyInput): ParsedInviteBody {
+  const fullName = readFullName(body.fullName);
+  if (fullName === undefined) {
+    return { ok: false };
+  }
+
+  const email = readEmail(body.email);
+  const role = readRole(body.role);
+  if (!email || !role) {
+    return { ok: false };
+  }
+
+  return { ok: true, email, role, fullName };
 }
 
 export function buildInviteRedirectTo(rawSiteUrl: string): string | null {

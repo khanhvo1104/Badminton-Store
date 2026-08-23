@@ -1,5 +1,5 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { withSupabase } from "@supabase/server";
 
 import { finalizeFailureMessage, finalizeInvitedStaff } from "./invite-flow.ts";
@@ -9,17 +9,10 @@ import {
   INVALID_REQUEST_MESSAGE,
   mapInviteError,
   mapInviteStatus,
-  readEmail,
-  readFullName,
-  readRole,
+  parseInviteBody,
   readSubject,
+  type InviteBodyInput,
 } from "./invite-helpers.ts";
-
-type InviteBody = {
-  email?: unknown;
-  role?: unknown;
-  fullName?: unknown;
-};
 
 export default {
   fetch: withSupabase({ auth: "user" }, async (req, ctx) => {
@@ -68,20 +61,19 @@ export default {
       return json({ error: AUTH_DENIED_MESSAGE }, 403);
     }
 
-    let body: InviteBody;
+    let body: InviteBodyInput;
     try {
-      body = (await req.json()) as InviteBody;
+      body = (await req.json()) as InviteBodyInput;
     } catch {
       return json({ error: INVALID_REQUEST_MESSAGE }, 400);
     }
 
-    const email = readEmail(body.email);
-    const role = readRole(body.role);
-    const fullName = readFullName(body.fullName);
-
-    if (!email || !role) {
+    const parsed = parseInviteBody(body);
+    if (!parsed.ok) {
       return json({ error: INVALID_REQUEST_MESSAGE }, 400);
     }
+
+    const { email, role, fullName } = parsed;
 
     const redirectTo = buildInviteRedirectTo(cmsSiteUrl);
     if (!redirectTo) {

@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert@1";
+import { assertEquals } from "jsr:@std/assert@1.0.19";
 
 import { finalizeInvitedStaff } from "./invite-flow.ts";
 import {
@@ -6,6 +6,7 @@ import {
   DUPLICATE_MESSAGE,
   GENERIC_FAILURE_MESSAGE,
   mapInviteError,
+  parseInviteBody,
   RATE_LIMIT_MESSAGE,
   readEmail,
   readFullName,
@@ -24,9 +25,64 @@ Deno.test("readRole accepts staff and admin only", () => {
   assertEquals(readRole("customer"), null);
 });
 
-Deno.test("readFullName trims and bounds length", () => {
+Deno.test("readFullName trims valid names and treats absent input as null", () => {
   assertEquals(readFullName("  Alex   Coach  "), "Alex Coach");
-  assertEquals(readFullName("x".repeat(121)), null);
+  assertEquals(readFullName(null), null);
+  assertEquals(readFullName(undefined), null);
+  assertEquals(readFullName(""), null);
+  assertEquals(readFullName("   "), null);
+});
+
+Deno.test("readFullName rejects invalid non-empty input", () => {
+  assertEquals(readFullName("x".repeat(121)), undefined);
+  assertEquals(readFullName(123), undefined);
+});
+
+Deno.test("parseInviteBody rejects invalid non-empty fullName before invite", () => {
+  assertEquals(
+    parseInviteBody({
+      email: "staff@example.invalid",
+      role: "staff",
+      fullName: "x".repeat(121),
+    }),
+    { ok: false },
+  );
+  assertEquals(
+    parseInviteBody({
+      email: "staff@example.invalid",
+      role: "staff",
+      fullName: 123,
+    }),
+    { ok: false },
+  );
+});
+
+Deno.test("parseInviteBody accepts omitted or valid fullName", () => {
+  assertEquals(
+    parseInviteBody({
+      email: "staff@example.invalid",
+      role: "staff",
+    }),
+    {
+      ok: true,
+      email: "staff@example.invalid",
+      role: "staff",
+      fullName: null,
+    },
+  );
+  assertEquals(
+    parseInviteBody({
+      email: "staff@example.invalid",
+      role: "admin",
+      fullName: "Alex Coach",
+    }),
+    {
+      ok: true,
+      email: "staff@example.invalid",
+      role: "admin",
+      fullName: "Alex Coach",
+    },
+  );
 });
 
 Deno.test("buildInviteRedirectTo uses CMS callback contract", () => {
