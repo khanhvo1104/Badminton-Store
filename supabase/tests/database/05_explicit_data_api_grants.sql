@@ -427,9 +427,13 @@ begin
     end if;
   end loop;
 
-  -- service_role retains full SIUD on every application table/view + cost_price.
+  -- service_role retains full SIUD on application tables except the audit ledger.
   foreach t in array app_objects loop
-    perform pg_temp.assert_siud('service_role', t, true, true, true, true);
+    if t = 'cms_privileged_audit_events' then
+      perform pg_temp.assert_siud('service_role', t, true, false, false, false);
+    else
+      perform pg_temp.assert_siud('service_role', t, true, true, true, true);
+    end if;
   end loop;
 
   if not has_column_privilege(

@@ -10,6 +10,7 @@ import type {
   AuditEntityFilter,
   AuditExplorerQuery,
 } from "@/features/audit/types";
+import { parseIsoTimestamp } from "@/features/audit/mappers";
 import { isValidUuid } from "@/features/products/validation";
 
 type SearchParamsInput =
@@ -147,11 +148,7 @@ function parseIsoDate(value: string | undefined): string | null {
   if (!value) {
     return null;
   }
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) {
-    return null;
-  }
-  return new Date(parsed).toISOString();
+  return parseIsoTimestamp(value);
 }
 
 function readSearchParam(

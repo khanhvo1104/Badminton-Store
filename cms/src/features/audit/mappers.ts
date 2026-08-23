@@ -413,12 +413,21 @@ function buildAuditSummary(
   return `${entityLabel}: ${actionLabel}`;
 }
 
+const TIMESTAMPTZ_ISO =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
+
 export function parseIsoTimestamp(value: string): string | null {
-  const parsed = Date.parse(value);
+  const trimmed = value.trim();
+  if (!TIMESTAMPTZ_ISO.test(trimmed)) {
+    return null;
+  }
+
+  const parsed = Date.parse(trimmed);
   if (Number.isNaN(parsed)) {
     return null;
   }
-  return new Date(parsed).toISOString();
+
+  return trimmed;
 }
 
 function formatTimestamp(value: string): string | null {

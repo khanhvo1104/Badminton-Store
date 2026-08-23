@@ -25,7 +25,7 @@ describe("audit validation", () => {
     const href = auditExplorerHref(
       parseAuditExplorerQuery({ entity: "staff" }),
       {
-        occurredAt: "2026-08-23T10:00:00.000Z",
+        occurredAt: "2026-08-23T10:00:00+00:00",
         id: "10000000-0000-4000-8000-000000000001",
       },
     );
@@ -47,7 +47,16 @@ describe("audit validation", () => {
 
   it("discards incomplete cursor pairs from search params", () => {
     const query = parseAuditExplorerQuery({
-      cursorAt: "2026-08-23T10:00:00.000Z",
+      cursorAt: "2026-08-23T10:00:00+00:00",
+    });
+    expect(query.cursorOccurredAt).toBeNull();
+    expect(query.cursorId).toBeNull();
+  });
+
+  it("rejects timezone-less cursor timestamps", () => {
+    const query = parseAuditExplorerQuery({
+      cursorAt: "2026-08-23T10:00:00",
+      cursorId: "10000000-0000-4000-8000-000000000001",
     });
     expect(query.cursorOccurredAt).toBeNull();
     expect(query.cursorId).toBeNull();

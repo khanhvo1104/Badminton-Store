@@ -141,6 +141,16 @@ begin
     raise exception 'FAIL: authenticated missing SELECT grant on cms_privileged_audit_events';
   end if;
 
+  if has_table_privilege('service_role', 'public.cms_privileged_audit_events', 'INSERT') then
+    raise exception 'FAIL: service_role may INSERT cms_privileged_audit_events';
+  end if;
+  if has_table_privilege('service_role', 'public.cms_privileged_audit_events', 'UPDATE') then
+    raise exception 'FAIL: service_role may UPDATE cms_privileged_audit_events';
+  end if;
+  if has_table_privilege('service_role', 'public.cms_privileged_audit_events', 'DELETE') then
+    raise exception 'FAIL: service_role may DELETE cms_privileged_audit_events';
+  end if;
+
   if has_function_privilege(
     'public',
     'public.list_cms_privileged_audit_events(text,text,uuid,timestamptz,timestamptz,timestamptz,uuid,integer)',
@@ -431,6 +441,42 @@ $$;
 
 \echo 'PASS: service_role append denied'
 
+-- service_role cannot forge rows via GUC + direct INSERT (table privilege denial)
+do $$
+declare
+  v_admin uuid := 'a4200000-0000-4000-8000-000000000101';
+begin
+  begin
+    execute 'set local role service_role';
+    perform set_config('app.cms_audit_internal', '1', true);
+    insert into public.cms_privileged_audit_events (
+      actor_id, entity_type, entity_id, action, metadata
+    ) values (
+      v_admin,
+      'category',
+      '10000000-0000-4000-8000-000000000001',
+      'create',
+      jsonb_build_object(
+        'slug', 'forged-audit',
+        'name', 'Forged',
+        'is_active', true
+      )
+    );
+    raise exception 'FAIL: service_role GUC direct INSERT succeeded';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlstate <> '42501' then
+        raise;
+      end if;
+  end;
+  execute 'reset role';
+end;
+$$;
+
+\echo 'PASS: service_role GUC direct INSERT denied'
+
 -- Additional trusted sources: brand, product, variant, media, inventory, order
 do $$
 declare
@@ -686,3 +732,4 @@ $$;
 rollback;
 
 \echo 'PASS: CMS privileged audit trail regression complete'
+\echo 'PostgREST service_role GUC boundary: run 14_cms_privileged_audit_trail_postgrest.sh'

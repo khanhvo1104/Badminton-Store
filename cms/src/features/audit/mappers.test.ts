@@ -11,7 +11,7 @@ describe("audit mappers", () => {
   it("maps a valid inventory adjustment event with exact metadata", () => {
     const mapped = mapAuditEventItem({
       event_id: "10000000-0000-4000-8000-000000000001",
-      occurred_at: "2026-08-23T10:00:00.000Z",
+      occurred_at: "2026-08-23T10:00:00+00:00",
       actor_id: "20000000-0000-4000-8000-000000000001",
       actor_name: "Admin User",
       entity_type: "inventory",
@@ -56,7 +56,7 @@ describe("audit mappers", () => {
     expect(
       mapAuditEventItem({
         event_id: "10000000-0000-4000-8000-000000000001",
-        occurred_at: "2026-08-23T10:00:00.000Z",
+        occurred_at: "2026-08-23T10:00:00+00:00",
         actor_id: "20000000-0000-4000-8000-000000000001",
         actor_name: "Admin User",
         entity_type: "inventory",
@@ -77,10 +77,15 @@ describe("audit mappers", () => {
 
   it("rejects malformed timestamps and entity ids", () => {
     expect(parseIsoTimestamp("not-a-date")).toBeNull();
+    expect(parseIsoTimestamp("2026-08-23T10:00:00")).toBeNull();
+    expect(parseIsoTimestamp("2026-08-23 10:00:00+00:00")).toBeNull();
+    expect(parseIsoTimestamp("2026-08-23T10:00:00+00:00")).toBe(
+      "2026-08-23T10:00:00+00:00",
+    );
     expect(
       mapAuditEventItem({
         event_id: "not-a-uuid",
-        occurred_at: "2026-08-23T10:00:00.000Z",
+        occurred_at: "2026-08-23T10:00:00+00:00",
         actor_id: "20000000-0000-4000-8000-000000000001",
         actor_name: "Admin User",
         entity_type: "staff",
@@ -120,7 +125,7 @@ describe("audit mappers", () => {
 
 describe("audit cursor parsing", () => {
   it("discards incomplete cursor pairs", () => {
-    expect(normalizeCursorPair("2026-08-23T10:00:00.000Z", null)).toEqual({
+    expect(normalizeCursorPair("2026-08-23T10:00:00+00:00", null)).toEqual({
       occurredAt: null,
       id: null,
     });

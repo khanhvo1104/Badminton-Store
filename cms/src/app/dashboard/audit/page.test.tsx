@@ -60,7 +60,7 @@ describe("AuditPage", () => {
         items: [
           {
             eventId: "10000000-0000-4000-8000-000000000001",
-            occurredAt: "2026-08-23T10:00:00.000Z",
+            occurredAt: "2026-08-23T10:00:00+00:00",
             occurredAtLabel: "23 Aug 2026, 17:00",
             actorId: "20000000-0000-4000-8000-000000000001",
             actorName: "Admin User",
