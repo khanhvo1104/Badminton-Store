@@ -22,7 +22,9 @@ declare
     'public.assign_order_number()',
     'public.record_order_status_change()',
     'public.validate_product_image_variant()',
-    'public.prevent_inventory_history_mutation()'
+    'public.prevent_inventory_history_mutation()',
+    'public.prevent_cms_privileged_audit_mutation()',
+    'public.enforce_cms_privileged_audit_insert_boundary()'
   ];
   sig text;
   grantee text;

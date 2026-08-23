@@ -80,6 +80,7 @@ Completion of TASK-034 defines the product-management MVP.
 - **TASK-037:** admin-only staff invitation, activation, and role management.
   Delivered as TASK-041 in the automation backlog.
 - **TASK-038:** immutable audit trail for privileged changes.
+  Delivered as TASK-042 in the automation backlog.
 
 ## Milestone 4: production readiness
 

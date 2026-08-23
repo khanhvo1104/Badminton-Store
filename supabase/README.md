@@ -97,6 +97,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/12_cms_operat
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/13_cms_staff_management.sql
 bash supabase/tests/database/13_cms_staff_management_postgrest.sh
 bash supabase/tests/database/13_cms_staff_management_concurrency.sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/14_cms_privileged_audit_trail.sql
 ```
 
 ### RLS / Storage / RPC suite (TASK-006)
@@ -247,6 +248,18 @@ update policy.
 
 `13_cms_staff_management_concurrency.sh` proves concurrent last-admin removal
 attempts cannot deactivate every active admin.
+
+### CMS privileged audit trail (TASK-042)
+
+`14_cms_privileged_audit_trail.sql` plus updated `01`/`04`/`05` checks cover
+`cms_privileged_audit_events`, trusted append helpers, immutability triggers,
+source-table audit mirrors, and admin-only `list_cms_privileged_audit_events`.
+
+- Canonical ledger — append-only rows with allowlisted metadata; direct client
+  INSERT/UPDATE/DELETE revoked; checkout seed order history excluded
+- `list_cms_privileged_audit_events` — SECURITY DEFINER, STABLE, empty
+  `search_path`, `is_admin()` only, bounded cursor pagination and filters,
+  EXECUTE granted to `authenticated` only
 
 ## Flutter env
 

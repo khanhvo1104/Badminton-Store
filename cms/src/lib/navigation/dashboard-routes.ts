@@ -8,7 +8,8 @@ export type DashboardNavItemId =
   | "products"
   | "inventory"
   | "orders"
-  | "staff";
+  | "staff"
+  | "audit";
 
 export type DashboardNavItem = {
   id: DashboardNavItemId;
@@ -65,6 +66,14 @@ export const DASHBOARD_NAV_ITEMS: readonly DashboardNavItem[] = [
     label: "Staff",
     description:
       "Admin-only invitations, activation, and trusted role management.",
+    adminOnly: true,
+  },
+  {
+    id: "audit",
+    href: `${DASHBOARD_ROOT_PATH}/audit`,
+    label: "Audit",
+    description:
+      "Admin-only immutable ledger of privileged CMS catalog, inventory, order, media, and staff changes.",
     adminOnly: true,
   },
 ] as const;

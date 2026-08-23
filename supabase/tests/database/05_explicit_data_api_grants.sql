@@ -209,7 +209,8 @@ declare
     'product_variants', 'product_images', 'inventory', 'inventory_history',
     'favorites',
     'carts', 'cart_items', 'orders', 'order_items', 'order_status_history',
-    'notifications', 'product_catalog', 'inventory_availability'
+    'notifications', 'product_catalog', 'inventory_availability',
+    'staff_management_events', 'cms_privileged_audit_events'
   ];
   t text;
   priv text;
@@ -255,6 +256,12 @@ begin
   perform pg_temp.assert_siud('anon', 'inventory', false, false, false, false);
   perform pg_temp.assert_siud(
     'anon', 'inventory_history', false, false, false, false
+  );
+  perform pg_temp.assert_siud(
+    'anon', 'staff_management_events', false, false, false, false
+  );
+  perform pg_temp.assert_siud(
+    'anon', 'cms_privileged_audit_events', false, false, false, false
   );
   perform pg_temp.assert_siud(
     'anon', 'inventory_availability', false, false, false, false
@@ -319,6 +326,12 @@ begin
   );
   perform pg_temp.assert_siud(
     'authenticated', 'inventory_history', true, false, false, false
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'staff_management_events', true, false, false, false
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'cms_privileged_audit_events', true, false, false, false
   );
   -- Favorites: SELECT/INSERT/DELETE only (no UPDATE grant).
   perform pg_temp.assert_siud(
@@ -439,7 +452,9 @@ declare
     'public.assign_order_number()',
     'public.record_order_status_change()',
     'public.validate_product_image_variant()',
-    'public.prevent_inventory_history_mutation()'
+    'public.prevent_inventory_history_mutation()',
+    'public.prevent_cms_privileged_audit_mutation()',
+    'public.enforce_cms_privileged_audit_insert_boundary()'
   ];
   sig text;
   grantee text;
@@ -750,6 +765,37 @@ begin
     'EXECUTE'
   ) then
     raise exception 'FAIL: service_role has EXECUTE on list_cms_staff';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.list_cms_privileged_audit_events(text, text, uuid, timestamptz, timestamptz, timestamptz, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on list_cms_privileged_audit_events';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.list_cms_privileged_audit_events(text, text, uuid, timestamptz, timestamptz, timestamptz, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on list_cms_privileged_audit_events';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.list_cms_privileged_audit_events(text, text, uuid, timestamptz, timestamptz, timestamptz, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on list_cms_privileged_audit_events';
+  end if;
+  if has_function_privilege(
+    'service_role',
+    'public.list_cms_privileged_audit_events(text, text, uuid, timestamptz, timestamptz, timestamptz, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role has EXECUTE on list_cms_privileged_audit_events';
   end if;
 
   if has_function_privilege(

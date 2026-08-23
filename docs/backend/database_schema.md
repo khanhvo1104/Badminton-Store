@@ -86,3 +86,26 @@ Order number `BDM-YYYYMMDD-XXXXXX`; grand_total math check; shipping_address jso
 - `search_products(text, int)`
 - `generate_order_number()`
 - `is_staff_or_admin()` / `is_admin()`
+
+## cms_privileged_audit_events
+
+Canonical immutable ledger for privileged CMS mutations. Rows are appended only by
+trusted trigger helpers calling `append_cms_privileged_audit_event` (SECURITY
+DEFINER, empty search_path, EXECUTE revoked from client roles). Columns:
+`occurred_at`, `actor_id`, `entity_type`, `entity_id`, `action`, allowlisted
+`metadata` jsonb.
+
+Sources mirrored transactionally:
+
+- category / brand / product / variant / product_images staff writes
+- `inventory_history` adjustments
+- staff-only `order_status_history` transitions (checkout seed rows excluded)
+- `staff_management_events` (actor from trusted column; no target email in metadata)
+
+Direct INSERT/UPDATE/DELETE are denied for PUBLIC/anon/authenticated. UPDATE/DELETE
+are blocked by `prevent_cms_privileged_audit_mutation`; test cleanup uses
+`app.cms_audit_test_cleanup=1` with `session_user = postgres` only.
+
+- `list_cms_privileged_audit_events(...)` — STABLE SECURITY DEFINER,
+  `is_admin()` only, bounded cursor pagination and filters, returns actor display
+  name plus allowlisted metadata only

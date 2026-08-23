@@ -94,6 +94,8 @@ describe("dashboard routes", () => {
     const adminItems = getDashboardNavItemsForRole("admin");
 
     expect(staffItems.some((item) => item.id === "staff")).toBe(false);
+    expect(staffItems.some((item) => item.id === "audit")).toBe(false);
     expect(adminItems.some((item) => item.id === "staff")).toBe(true);
+    expect(adminItems.some((item) => item.id === "audit")).toBe(true);
   });
 });

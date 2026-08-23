@@ -287,6 +287,13 @@
       "task_file": ".automation/tasks/TASK-041-cms-staff-management.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-042",
+      "title": "Build immutable CMS privileged audit trail",
+      "task_file": ".automation/tasks/TASK-042-cms-immutable-audit-trail.md",
+      "risk": "high",
+      "status": "complete"
     }
   ]
 }
