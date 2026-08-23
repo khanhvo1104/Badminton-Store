@@ -1,11 +1,14 @@
 import {
   DASHBOARD_FORBIDDEN_RPC_KEYS,
   DASHBOARD_MAX_CURRENCIES,
-  DASHBOARD_MAX_DAILY_POINTS,
   DASHBOARD_MAX_LOW_STOCK_VARIANTS,
   DASHBOARD_RPC_ROW_KEYS,
   ORDER_STATUS_LABELS,
 } from "@/features/operational-dashboard/constants";
+import {
+  buildUtcDateSeries,
+  resolveUtcWindowBounds,
+} from "@/features/operational-dashboard/series";
 import type {
   DashboardCurrencyGross,
   DashboardDailyPoint,
@@ -91,6 +94,10 @@ export function mapOperationalDashboardRpcRow(
 
   const windowStart = asIsoDateTime(row.window_start);
   const windowEnd = asIsoDateTime(row.window_end);
+  const windowBounds =
+    windowStart !== null && windowEnd !== null
+      ? resolveUtcWindowBounds(rangeDays, windowStart, windowEnd)
+      : null;
   const totalOrders = asNonNegativeInteger(row.total_orders);
   const deliveredOrders = asNonNegativeInteger(row.delivered_orders);
   const openFulfillmentCount = asNonNegativeInteger(row.open_fulfillment_count);
@@ -98,6 +105,7 @@ export function mapOperationalDashboardRpcRow(
   if (
     windowStart === null ||
     windowEnd === null ||
+    windowBounds === null ||
     totalOrders === null ||
     deliveredOrders === null ||
     openFulfillmentCount === null
@@ -119,6 +127,12 @@ export function mapOperationalDashboardRpcRow(
 
   const dailySeriesByCurrency = mapDailySeriesByCurrency(
     row.daily_series_by_currency,
+    {
+      windowBounds,
+      grossCurrencyCodes: grossOrderValueByCurrency.map(
+        (entry) => entry.currency_code,
+      ),
+    },
   );
   if (dailySeriesByCurrency === null) {
     return null;
@@ -282,6 +296,14 @@ function mapStatusBreakdown(
 
 function mapDailySeriesByCurrency(
   value: unknown,
+  context: {
+    windowBounds: {
+      startDate: string;
+      endDate: string;
+      expectedSeriesLength: number;
+    };
+    grossCurrencyCodes: string[];
+  },
 ): CmsOperationalDashboardRpcRow["daily_series_by_currency"] | null {
   if (!Array.isArray(value)) {
     return null;
@@ -302,7 +324,7 @@ function mapDailySeriesByCurrency(
       return null;
     }
 
-    const series = mapDailySeries(entry.series);
+    const series = mapDailySeries(entry.series, context.windowBounds);
     if (series === null) {
       return null;
     }
@@ -310,7 +332,11 @@ function mapDailySeriesByCurrency(
     mapped.push({ currency_code: currencyCode, series });
   }
 
-  if (!isSortedUnique(mapped.map((entry) => entry.currency_code))) {
+  const dailyCurrencyCodes = mapped.map((entry) => entry.currency_code);
+  if (!isSortedUnique(dailyCurrencyCodes)) {
+    return null;
+  }
+  if (!haveSameCurrencySet(dailyCurrencyCodes, context.grossCurrencyCodes)) {
     return null;
   }
 
@@ -319,21 +345,34 @@ function mapDailySeriesByCurrency(
 
 function mapDailySeries(
   value: unknown,
+  windowBounds: {
+    startDate: string;
+    endDate: string;
+    expectedSeriesLength: number;
+  },
 ):
   | CmsOperationalDashboardRpcRow["daily_series_by_currency"][number]["series"]
   | null {
   if (!Array.isArray(value)) {
     return null;
   }
-  if (value.length < 1 || value.length > DASHBOARD_MAX_DAILY_POINTS) {
+  if (value.length !== windowBounds.expectedSeriesLength) {
+    return null;
+  }
+
+  const expectedDates = buildUtcDateSeries(
+    windowBounds.startDate,
+    windowBounds.expectedSeriesLength,
+  );
+  if (expectedDates.length !== windowBounds.expectedSeriesLength) {
     return null;
   }
 
   const mapped: CmsOperationalDashboardRpcRow["daily_series_by_currency"][number]["series"] =
     [];
-  let previousDate: string | null = null;
 
-  for (const entry of value) {
+  for (let index = 0; index < value.length; index += 1) {
+    const entry = value[index];
     if (
       !isRecord(entry) ||
       !hasExactKeys(entry, ["date", "order_count", "gross_order_value"])
@@ -349,21 +388,24 @@ function mapDailySeries(
       date === null ||
       orderCount === null ||
       grossOrderValue === null ||
-      grossOrderValue < 0
+      grossOrderValue < 0 ||
+      date !== expectedDates[index]
     ) {
       return null;
     }
-
-    if (previousDate !== null && date <= previousDate) {
-      return null;
-    }
-    previousDate = date;
 
     mapped.push({
       date,
       order_count: orderCount,
       gross_order_value: grossOrderValue,
     });
+  }
+
+  if (
+    mapped[0]?.date !== windowBounds.startDate ||
+    mapped[mapped.length - 1]?.date !== windowBounds.endDate
+  ) {
+    return null;
   }
 
   return mapped;
@@ -407,7 +449,7 @@ function mapLowStockVariants(
     const sku = asNonEmptyText(entry.sku);
     const quantityOnHand = asNonNegativeInteger(entry.quantity_on_hand);
     const quantityReserved = asNonNegativeInteger(entry.quantity_reserved);
-    const quantityAvailable = asNonNegativeInteger(entry.quantity_available);
+    const quantityAvailable = asSignedInteger(entry.quantity_available);
     const reorderLevel = asNonNegativeInteger(entry.reorder_level);
     const allowBackorder = entry.allow_backorder;
 
@@ -420,7 +462,9 @@ function mapLowStockVariants(
       quantityReserved === null ||
       quantityAvailable === null ||
       reorderLevel === null ||
-      typeof allowBackorder !== "boolean"
+      typeof allowBackorder !== "boolean" ||
+      quantityAvailable !== quantityOnHand - quantityReserved ||
+      quantityAvailable > reorderLevel
     ) {
       return null;
     }
@@ -481,6 +525,18 @@ function isSortedUnique(values: string[]): boolean {
   return true;
 }
 
+function haveSameCurrencySet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function hasExactKeys(
   value: Record<string, unknown>,
   keys: readonly string[],
@@ -509,6 +565,10 @@ function asNonNegativeInteger(value: unknown): number | null {
     return null;
   }
   return parsed;
+}
+
+function asSignedInteger(value: unknown): number | null {
+  return asInteger(value);
 }
 
 function asMoney(value: unknown): number | null {

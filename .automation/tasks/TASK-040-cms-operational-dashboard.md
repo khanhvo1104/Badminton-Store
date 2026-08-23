@@ -54,9 +54,14 @@ Status: complete
 - **Daily series:** per currency, every UTC calendar day in the window with
   zero-filled `order_count` and `gross_order_value` (cancelled/returned
   excluded from gross only).
-- **Low stock:** up to 10 variants where
-  `available = greatest(on_hand - reserved, 0) <= reorder_level`; include
-  `allow_backorder` rows; include inactive catalog rows when inventory exists.
+- **Low stock:** up to 10 variants where signed
+  `available = quantity_on_hand - quantity_reserved` is `<= reorder_level`;
+  include `allow_backorder` rows; include inactive catalog rows when inventory
+  exists.
+- **Daily series contract:** `range_days + 1` consecutive UTC dates from
+  `window_start` through `window_end` dates, independently zero-filled per
+  currency; gross and daily currency sets must match exactly; more than 20
+  window currencies raises `invalid request`.
 
 ## Allowed paths
 

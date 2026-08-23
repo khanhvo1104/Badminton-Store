@@ -4,6 +4,7 @@ import {
   DASHBOARD_AUTH_DENIED_MESSAGE,
   DASHBOARD_LOAD_FAILURE_MESSAGE,
 } from "@/features/operational-dashboard/constants";
+import { buildOperationalDashboardRpcPayload } from "@/features/operational-dashboard/test-fixtures";
 
 const authorizeCmsRequest = vi.hoisted(() => vi.fn());
 
@@ -13,47 +14,6 @@ vi.mock("@/lib/auth/authorization", async () => {
   >("@/lib/auth/authorization");
   return { ...actual, authorizeCmsRequest };
 });
-
-function buildRpcPayload() {
-  return [
-    {
-      range_days: 30,
-      window_start: "2026-07-24T12:00:00.000Z",
-      window_end: "2026-08-23T12:00:00.000Z",
-      total_orders: 2,
-      gross_order_value_by_currency: [
-        { currency_code: "USD", gross_order_value: 150 },
-        { currency_code: "VND", gross_order_value: 500000 },
-      ],
-      delivered_orders: 1,
-      open_fulfillment_count: 1,
-      status_breakdown: [
-        { status: "pending", order_count: 1 },
-        { status: "confirmed", order_count: 0 },
-        { status: "preparing", order_count: 0 },
-        { status: "shipping", order_count: 0 },
-        { status: "delivered", order_count: 1 },
-        { status: "cancelled", order_count: 0 },
-        { status: "returned", order_count: 0 },
-      ],
-      daily_series_by_currency: [
-        {
-          currency_code: "USD",
-          series: [
-            { date: "2026-08-23", order_count: 1, gross_order_value: 150 },
-          ],
-        },
-        {
-          currency_code: "VND",
-          series: [
-            { date: "2026-08-23", order_count: 1, gross_order_value: 500000 },
-          ],
-        },
-      ],
-      low_stock_variants: [],
-    },
-  ];
-}
 
 describe("getOperationalDashboard", () => {
   beforeEach(() => {
@@ -69,7 +29,7 @@ describe("getOperationalDashboard", () => {
     );
     const result = await getOperationalDashboard({
       supabase: { auth: { getClaims: vi.fn() }, rpc } as never,
-      query: { rangeDays: 30 },
+      query: { rangeDays: 7 },
     });
 
     expect(result).toEqual({
@@ -97,11 +57,65 @@ describe("getOperationalDashboard", () => {
       supabase: {
         auth: { getClaims: vi.fn() },
         rpc: vi.fn().mockResolvedValue({
-          data: [{ range_days: 30 }],
+          data: [{ range_days: 7 }],
           error: null,
         }),
       } as never,
-      query: { rangeDays: 30 },
+      query: { rangeDays: 7 },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      message: DASHBOARD_LOAD_FAILURE_MESSAGE,
+    });
+  });
+
+  it("fails closed when the RPC returns an incomplete daily series", async () => {
+    authorizeCmsRequest.mockResolvedValue({
+      kind: "authorized",
+      profile: {
+        id: "staff-1",
+        fullName: "Alex Coach",
+        role: "staff",
+        isActive: true,
+      },
+    });
+
+    const { getOperationalDashboard } = await import(
+      "@/features/operational-dashboard/queries"
+    );
+    const result = await getOperationalDashboard({
+      supabase: {
+        auth: { getClaims: vi.fn() },
+        rpc: vi.fn().mockResolvedValue({
+          data: buildOperationalDashboardRpcPayload({
+            daily_series_by_currency: [
+              {
+                currency_code: "USD",
+                series: [
+                  {
+                    date: "2026-08-23",
+                    order_count: 1,
+                    gross_order_value: 150,
+                  },
+                ],
+              },
+              {
+                currency_code: "VND",
+                series: [
+                  {
+                    date: "2026-08-23",
+                    order_count: 1,
+                    gross_order_value: 500000,
+                  },
+                ],
+              },
+            ],
+          }),
+          error: null,
+        }),
+      } as never,
+      query: { rangeDays: 7 },
     });
 
     expect(result).toEqual({
@@ -128,11 +142,11 @@ describe("getOperationalDashboard", () => {
       supabase: {
         auth: { getClaims: vi.fn() },
         rpc: vi.fn().mockResolvedValue({
-          data: buildRpcPayload(),
+          data: buildOperationalDashboardRpcPayload(),
           error: null,
         }),
       } as never,
-      query: { rangeDays: 30 },
+      query: { rangeDays: 7 },
     });
 
     expect(result.ok).toBe(true);
@@ -150,6 +164,7 @@ describe("getOperationalDashboard", () => {
         grossOrderValue: 500000,
       }),
     ]);
+    expect(result.snapshot.dailySeriesByCurrency[0]?.series).toHaveLength(8);
     expect(
       result.snapshot.grossOrderValueByCurrency[0]?.grossOrderValueLabel,
     ).toContain("US$");

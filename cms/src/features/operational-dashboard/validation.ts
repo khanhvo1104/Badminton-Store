@@ -24,9 +24,9 @@ export function isDashboardRangeDays(
 export function parseDashboardRangeDays(
   raw: string | undefined,
 ): DashboardRangeDays {
-  const parsed = Number.parseInt((raw ?? "").trim(), 10);
-  if (isDashboardRangeDays(parsed)) {
-    return parsed;
+  const trimmed = (raw ?? "").trim();
+  if (trimmed === "7" || trimmed === "30" || trimmed === "90") {
+    return Number(trimmed) as DashboardRangeDays;
   }
   return DASHBOARD_DEFAULT_RANGE_DAYS;
 }

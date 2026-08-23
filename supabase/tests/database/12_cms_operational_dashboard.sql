@@ -191,6 +191,11 @@ declare
   v_vnd_gross numeric;
   v_day_count integer;
   v_low_count integer;
+  v_def text;
+  v_gross_codes text[];
+  v_daily_codes text[];
+  v_first_usd_date text;
+  v_last_usd_date text;
 begin
   perform pg_temp.dash_insert_user(v_staff, 'dash-staff@example.invalid');
   perform pg_temp.dash_insert_user(v_admin, 'dash-admin@example.invalid');
@@ -234,7 +239,7 @@ begin
     variant_id, quantity_on_hand, quantity_reserved, reorder_level, allow_backorder
   ) values
   (v_variant_low, 4, 3, 2, false),
-  (v_variant_backorder, 1, 0, 1, true);
+  (v_variant_backorder, 2, 5, 0, true);
 
   insert into public.orders (
     id, order_number, user_id, status, currency_code,
@@ -297,6 +302,32 @@ begin
      )
   then
     raise exception 'FAIL: get_cms_operational_dashboard search_path is not empty';
+  end if;
+
+  select pg_catalog.pg_get_functiondef(p.oid)
+  into v_def
+  from pg_catalog.pg_proc p
+  join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.proname = 'get_cms_operational_dashboard';
+
+  if v_def is null then
+    raise exception 'FAIL: dashboard function definition missing';
+  end if;
+  if v_def not like '%order_row.status%'
+     or v_def not like '%order_row.currency_code%'
+     or v_def not like '%order_row.grand_total%'
+     or v_def not like '%order_row.placed_at%' then
+    raise exception 'FAIL: window_orders missing required non-PII columns';
+  end if;
+  if v_def like '%order_row.user_id%'
+     or v_def like '%order_row.recipient_name%'
+     or v_def like '%order_row.shipping_address%'
+     or v_def like '%order_row.customer_note%' then
+    raise exception 'FAIL: window_orders selects order PII';
+  end if;
+  if v_def like '%greatest(%inventory_row.quantity_on_hand - inventory_row.quantity_reserved%' then
+    raise exception 'FAIL: low_stock availability is clamped instead of signed';
   end if;
 
   if has_function_privilege('public', v_sig, 'EXECUTE')
@@ -379,7 +410,26 @@ begin
     raise exception 'FAIL: unexpected currency in gross_order_value_by_currency';
   end if;
 
+  select coalesce(array_agg(entry.currency_code order by entry.currency_code), '{}')
+  into v_gross_codes
+  from jsonb_to_recordset(v_gross) as entry(
+    currency_code text,
+    gross_order_value numeric
+  );
+
   v_daily := v_row.daily_series_by_currency;
+
+  select coalesce(array_agg(currency_block.currency_code order by currency_block.currency_code), '{}')
+  into v_daily_codes
+  from jsonb_to_recordset(v_daily) as currency_block(
+    currency_code text,
+    series jsonb
+  );
+
+  if v_gross_codes is distinct from v_daily_codes then
+    raise exception 'FAIL: gross and daily currency sets mismatch';
+  end if;
+
   select jsonb_array_length(currency_block.series)
   into v_day_count
   from jsonb_to_recordset(v_daily) as currency_block(
@@ -390,6 +440,41 @@ begin
 
   if v_day_count <> 8 then
     raise exception 'FAIL: USD daily series not zero-filled for 7-day window';
+  end if;
+
+  select point.date
+  into v_first_usd_date
+  from jsonb_to_recordset(v_daily) as currency_block(
+    currency_code text,
+    series jsonb
+  )
+  cross join lateral jsonb_to_recordset(currency_block.series) as point(
+    date text,
+    order_count integer,
+    gross_order_value numeric
+  )
+  where currency_block.currency_code = 'USD'
+  order by point.date asc
+  limit 1;
+
+  select point.date
+  into v_last_usd_date
+  from jsonb_to_recordset(v_daily) as currency_block(
+    currency_code text,
+    series jsonb
+  )
+  cross join lateral jsonb_to_recordset(currency_block.series) as point(
+    date text,
+    order_count integer,
+    gross_order_value numeric
+  )
+  where currency_block.currency_code = 'USD'
+  order by point.date desc
+  limit 1;
+
+  if v_first_usd_date is distinct from to_char((v_row.window_start at time zone 'UTC')::date, 'YYYY-MM-DD')
+     or v_last_usd_date is distinct from to_char((v_row.window_end at time zone 'UTC')::date, 'YYYY-MM-DD') then
+    raise exception 'FAIL: USD daily series endpoints mismatch window UTC dates';
   end if;
 
   if exists (
@@ -452,6 +537,69 @@ begin
       and entry.quantity_available <> 1
   ) then
     raise exception 'FAIL: low_stock available quantity mismatch';
+  end if;
+
+  if not exists (
+    select 1
+    from jsonb_to_recordset(v_low) as entry(
+      variant_id uuid,
+      product_id uuid,
+      product_name text,
+      variant_name text,
+      sku text,
+      quantity_on_hand integer,
+      quantity_reserved integer,
+      quantity_available integer,
+      reorder_level integer,
+      allow_backorder boolean
+    )
+    where entry.variant_id = v_variant_backorder
+      and entry.quantity_on_hand = 2
+      and entry.quantity_reserved = 5
+      and entry.quantity_available = -3
+      and entry.reorder_level = 0
+  ) then
+    raise exception 'FAIL: signed negative availability not surfaced';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_to_recordset(v_low) as entry(
+      variant_id uuid,
+      product_id uuid,
+      product_name text,
+      variant_name text,
+      sku text,
+      quantity_on_hand integer,
+      quantity_reserved integer,
+      quantity_available integer,
+      reorder_level integer,
+      allow_backorder boolean
+    )
+    where entry.quantity_available <> (
+      entry.quantity_on_hand - entry.quantity_reserved
+    )
+  ) then
+    raise exception 'FAIL: low_stock available is not on_hand - reserved';
+  end if;
+
+  if exists (
+    select 1
+    from jsonb_to_recordset(v_low) as entry(
+      variant_id uuid,
+      product_id uuid,
+      product_name text,
+      variant_name text,
+      sku text,
+      quantity_on_hand integer,
+      quantity_reserved integer,
+      quantity_available integer,
+      reorder_level integer,
+      allow_backorder boolean
+    )
+    where entry.quantity_available > entry.reorder_level
+  ) then
+    raise exception 'FAIL: low_stock row exceeds reorder level';
   end if;
 
   if v_gross::text ilike '%recipient%'

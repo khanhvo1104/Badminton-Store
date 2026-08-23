@@ -1,9 +1,9 @@
 -- TASK-040: CMS operational dashboard metrics.
 --
 -- get_cms_operational_dashboard is SECURITY INVOKER so existing orders,
--- inventory, and catalog RLS/grants still apply. It never selects protected
--- catalog fields, order PII, or cost_price. Monetary metrics are grouped by
--- currency_code; no cross-currency aggregation.
+-- inventory, and catalog RLS/grants still apply. window_orders selects only
+-- status, currency_code, grand_total, and placed_at. Monetary metrics are
+-- grouped by currency_code; no cross-currency aggregation.
 
 create or replace function public.get_cms_operational_dashboard(
   p_range_days integer default 30
@@ -29,6 +29,7 @@ declare
   v_range_days integer;
   v_window_end timestamptz;
   v_window_start timestamptz;
+  v_currency_count integer;
 begin
   if not public.is_staff_or_admin() then
     raise exception 'not authorized'
@@ -44,6 +45,17 @@ begin
   v_window_end := timezone('utc', now());
   v_window_start := v_window_end - (v_range_days || ' days')::interval;
 
+  select pg_catalog.count(distinct order_row.currency_code)
+  into v_currency_count
+  from public.orders as order_row
+  where order_row.placed_at >= v_window_start
+    and order_row.placed_at <= v_window_end;
+
+  if v_currency_count > 20 then
+    raise exception 'invalid request'
+      using errcode = '22023';
+  end if;
+
   return query
   with params as (
     select
@@ -52,7 +64,11 @@ begin
       v_window_end as window_end
   ),
   window_orders as (
-    select order_row.*
+    select
+      order_row.status,
+      order_row.currency_code,
+      order_row.grand_total,
+      order_row.placed_at
     from public.orders as order_row, params
     where order_row.placed_at >= params.window_start
       and order_row.placed_at <= params.window_end
@@ -68,7 +84,6 @@ begin
     where window_orders.status not in ('cancelled', 'returned')
     group by window_orders.currency_code
     order by window_orders.currency_code asc
-    limit 20
   ),
   status_counts as (
     select
@@ -105,7 +120,6 @@ begin
     select distinct window_orders.currency_code
     from window_orders
     order by window_orders.currency_code asc
-    limit 20
   ),
   days as (
     select generate_series(
@@ -167,9 +181,8 @@ begin
       variant_row.sku,
       inventory_row.quantity_on_hand,
       inventory_row.quantity_reserved,
-      pg_catalog.greatest(
-        inventory_row.quantity_on_hand - inventory_row.quantity_reserved,
-        0
+      (
+        inventory_row.quantity_on_hand - inventory_row.quantity_reserved
       ) as quantity_available,
       inventory_row.reorder_level,
       inventory_row.allow_backorder
@@ -178,19 +191,16 @@ begin
       on product_row.id = variant_row.product_id
     inner join public.inventory as inventory_row
       on inventory_row.variant_id = variant_row.id
-    where pg_catalog.greatest(
-      inventory_row.quantity_on_hand - inventory_row.quantity_reserved,
-      0
+    where (
+      inventory_row.quantity_on_hand - inventory_row.quantity_reserved
     ) <= inventory_row.reorder_level
     order by
-      pg_catalog.greatest(
-        inventory_row.quantity_on_hand - inventory_row.quantity_reserved,
-        0
+      (
+        inventory_row.quantity_on_hand - inventory_row.quantity_reserved
       ) asc,
       (
-        pg_catalog.greatest(
-          inventory_row.quantity_on_hand - inventory_row.quantity_reserved,
-          0
+        (
+          inventory_row.quantity_on_hand - inventory_row.quantity_reserved
         ) - inventory_row.reorder_level
       ) asc,
       variant_row.sku asc,
@@ -273,16 +283,18 @@ $$;
 comment on function public.get_cms_operational_dashboard(integer) is
   'CMS operational dashboard. SECURITY INVOKER, STABLE, empty search_path. '
   'Authorizes active trusted profiles.role staff/admin via is_staff_or_admin(). '
-  'Range is 7, 30, or 90 days (default 30) ending at UTC now. Count metrics '
-  'use placed_at in the window except open_fulfillment_count, which is the '
-  'current global backlog in pending/confirmed/preparing/shipping. '
+  'Range is 7, 30, or 90 days (default 30) ending at UTC now. window_orders '
+  'selects only status, currency_code, grand_total, and placed_at. Count '
+  'metrics use placed_at in the window except open_fulfillment_count, which is '
+  'the current global backlog in pending/confirmed/preparing/shipping. '
   'gross_order_value excludes cancelled/returned orders and is returned per '
-  'currency_code without cross-currency summation. daily_series_by_currency '
-  'zero-fills every UTC day per currency independently. low_stock_variants is '
-  'bounded to 10 rows where available <= reorder_level (allow_backorder still '
-  'signals). Includes inactive catalog rows when inventory exists. Never '
-  'returns cost_price, user_id, shipping/recipient PII, or customer notes. '
-  'EXECUTE granted to authenticated and service_role only.';
+  'currency_code without cross-currency summation; more than 20 currencies in '
+  'the window raises invalid request. daily_series_by_currency zero-fills every '
+  'UTC day per currency independently. low_stock_variants is bounded to 10 rows '
+  'where signed available = on_hand - reserved is <= reorder_level '
+  '(allow_backorder still signals). Includes inactive catalog rows when '
+  'inventory exists. Never returns cost_price, user_id, shipping/recipient '
+  'PII, or customer notes. EXECUTE granted to authenticated and service_role only.';
 
 revoke all on function public.get_cms_operational_dashboard(integer) from public;
 revoke all on function public.get_cms_operational_dashboard(integer) from anon;
