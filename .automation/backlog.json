@@ -273,6 +273,13 @@
       "task_file": ".automation/tasks/TASK-039-cms-order-operations.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-040",
+      "title": "Build CMS operational dashboard",
+      "task_file": ".automation/tasks/TASK-040-cms-operational-dashboard.md",
+      "risk": "high",
+      "status": "complete"
     }
   ]
 }

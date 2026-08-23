@@ -694,6 +694,37 @@ begin
 
   if has_function_privilege(
     'public',
+    'public.get_cms_operational_dashboard(integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on get_cms_operational_dashboard';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.get_cms_operational_dashboard(integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on get_cms_operational_dashboard';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.get_cms_operational_dashboard(integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on get_cms_operational_dashboard';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.get_cms_operational_dashboard(integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on get_cms_operational_dashboard';
+  end if;
+
+  if has_function_privilege(
+    'public',
     'public.set_cms_product_image_primary(uuid, uuid)',
     'EXECUTE'
   ) then

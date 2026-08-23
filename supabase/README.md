@@ -93,6 +93,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/10_cms_produc
 bash supabase/tests/database/10_cms_product_media_concurrency.sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/11_cms_order_operations.sql
 bash supabase/tests/database/11_cms_order_operations_concurrency.sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/12_cms_operational_dashboard.sql
 ```
 
 ### RLS / Storage / RPC suite (TASK-006)

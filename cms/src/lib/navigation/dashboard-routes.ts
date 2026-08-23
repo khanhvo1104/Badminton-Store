@@ -21,7 +21,8 @@ export const DASHBOARD_NAV_ITEMS: readonly DashboardNavItem[] = [
     id: "overview",
     href: DASHBOARD_ROOT_PATH,
     label: "Overview",
-    description: "CMS scope and quick access to catalog areas.",
+    description:
+      "Operational sales signals, low-stock alerts, and quick access to catalog areas.",
   },
   {
     id: "categories",
