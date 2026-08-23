@@ -9,17 +9,27 @@ export const CMS_PROFILE_COLUMNS = "id, full_name, role, is_active";
 export const AUTH_FAILURE_MESSAGE =
   "We couldn't sign you in with those credentials.";
 
+export type AuthorizedCmsProfile = {
+  id: string;
+  fullName: string | null;
+  role: "staff" | "admin";
+  isActive: true;
+};
+
 export type CmsAuthorizationResult =
   | { kind: "anonymous" }
   | { kind: "unauthorized" }
   | {
       kind: "authorized";
-      profile: {
-        id: string;
-        fullName: string | null;
-        role: "staff" | "admin";
-        isActive: true;
-      };
+      profile: AuthorizedCmsProfile;
+    };
+
+export type CmsAdminAuthorizationResult =
+  | { kind: "anonymous" }
+  | { kind: "unauthorized" }
+  | {
+      kind: "authorized";
+      profile: AuthorizedCmsProfile & { role: "admin" };
     };
 
 type ClaimsResponse = {
@@ -103,6 +113,27 @@ export function isVerifiedRecoverySession(claims: unknown): boolean {
   }
 
   return isRecord(claims) && amrIncludesRecovery(claims.amr);
+}
+
+export async function authorizeCmsAdminRequest(
+  supabase: AuthorizationSupabaseClient,
+): Promise<CmsAdminAuthorizationResult> {
+  const authorization = await authorizeCmsRequest(supabase);
+  if (authorization.kind !== "authorized") {
+    return authorization;
+  }
+
+  if (authorization.profile.role !== "admin") {
+    return { kind: "unauthorized" };
+  }
+
+  return {
+    kind: "authorized",
+    profile: {
+      ...authorization.profile,
+      role: "admin",
+    },
+  };
 }
 
 export async function authorizeCmsRequest(

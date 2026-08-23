@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  authorizeCmsAdminRequest,
   authorizeCmsRequest,
   CMS_PROFILE_COLUMNS,
   getVerifiedSubject,
@@ -136,6 +137,42 @@ describe("authorizeCmsRequest", () => {
       profile: {
         id: "admin-1",
         fullName: null,
+        role: "admin",
+        isActive: true,
+      },
+    });
+  });
+
+  it("requires admin role for admin-only authorization", async () => {
+    const staffClient = createSupabaseDouble({
+      claimsSub: "staff-1",
+      profileData: {
+        id: "staff-1",
+        full_name: "Staff",
+        role: "staff",
+        is_active: true,
+      },
+    }).client;
+
+    await expect(authorizeCmsAdminRequest(staffClient)).resolves.toEqual({
+      kind: "unauthorized",
+    });
+
+    const adminClient = createSupabaseDouble({
+      claimsSub: "admin-1",
+      profileData: {
+        id: "admin-1",
+        full_name: "Admin",
+        role: "admin",
+        is_active: true,
+      },
+    }).client;
+
+    await expect(authorizeCmsAdminRequest(adminClient)).resolves.toEqual({
+      kind: "authorized",
+      profile: {
+        id: "admin-1",
+        fullName: "Admin",
         role: "admin",
         isActive: true,
       },

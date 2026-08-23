@@ -7,13 +7,15 @@ export type DashboardNavItemId =
   | "brands"
   | "products"
   | "inventory"
-  | "orders";
+  | "orders"
+  | "staff";
 
 export type DashboardNavItem = {
   id: DashboardNavItemId;
   href: string;
   label: string;
   description: string;
+  adminOnly?: boolean;
 };
 
 export const DASHBOARD_NAV_ITEMS: readonly DashboardNavItem[] = [
@@ -56,6 +58,14 @@ export const DASHBOARD_NAV_ITEMS: readonly DashboardNavItem[] = [
     label: "Orders",
     description:
       "Order search, detail, and trusted status transitions with inventory effects.",
+  },
+  {
+    id: "staff",
+    href: `${DASHBOARD_ROOT_PATH}/staff`,
+    label: "Staff",
+    description:
+      "Admin-only invitations, activation, and trusted role management.",
+    adminOnly: true,
   },
 ] as const;
 
@@ -184,6 +194,16 @@ export function getSafeDisplayName(profile: SafeShellProfile): string {
   }
 
   return profile.role === "admin" ? "Admin" : "Staff member";
+}
+
+export function getDashboardNavItemsForRole(
+  role: SafeShellProfile["role"],
+): readonly DashboardNavItem[] {
+  if (role === "admin") {
+    return DASHBOARD_NAV_ITEMS;
+  }
+
+  return DASHBOARD_NAV_ITEMS.filter((item) => !item.adminOnly);
 }
 
 export function getTrustedRoleLabel(role: "staff" | "admin"): string {

@@ -725,6 +725,95 @@ begin
 
   if has_function_privilege(
     'public',
+    'public.list_cms_staff(text, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on list_cms_staff';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.list_cms_staff(text, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on list_cms_staff';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.list_cms_staff(text, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: authenticated missing EXECUTE on list_cms_staff';
+  end if;
+  if has_function_privilege(
+    'service_role',
+    'public.list_cms_staff(text, text, text, text, integer, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role has EXECUTE on list_cms_staff';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.update_cms_staff(uuid, text, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on update_cms_staff';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.update_cms_staff(uuid, text, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on update_cms_staff';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.update_cms_staff(uuid, text, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: authenticated missing EXECUTE on update_cms_staff';
+  end if;
+  if has_function_privilege(
+    'service_role',
+    'public.update_cms_staff(uuid, text, boolean)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: service_role has EXECUTE on update_cms_staff';
+  end if;
+
+  if has_function_privilege(
+    'public',
+    'public.finalize_cms_staff_invitation(uuid, uuid, text, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on finalize_cms_staff_invitation';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.finalize_cms_staff_invitation(uuid, uuid, text, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on finalize_cms_staff_invitation';
+  end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.finalize_cms_staff_invitation(uuid, uuid, text, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated has EXECUTE on finalize_cms_staff_invitation';
+  end if;
+  if not has_function_privilege(
+    'service_role',
+    'public.finalize_cms_staff_invitation(uuid, uuid, text, text, text)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role missing EXECUTE on finalize_cms_staff_invitation';
+  end if;
+
+  if has_function_privilege(
+    'public',
     'public.set_cms_product_image_primary(uuid, uuid)',
     'EXECUTE'
   ) then

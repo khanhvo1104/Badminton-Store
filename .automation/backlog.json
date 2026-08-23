@@ -280,6 +280,13 @@
       "task_file": ".automation/tasks/TASK-040-cms-operational-dashboard.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-041",
+      "title": "Build CMS staff management",
+      "task_file": ".automation/tasks/TASK-041-cms-staff-management.md",
+      "risk": "high",
+      "status": "complete"
     }
   ]
 }

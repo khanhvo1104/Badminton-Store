@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildDashboardBreadcrumbs,
+  getDashboardNavItemsForRole,
   getSafeDisplayName,
   getTrustedRoleLabel,
   isDashboardNavCurrent,
@@ -86,5 +87,13 @@ describe("dashboard routes", () => {
     expect(getSafeDisplayName({ fullName: " ", role: "admin" })).toBe("Admin");
     expect(getTrustedRoleLabel("staff")).toBe("Staff");
     expect(getTrustedRoleLabel("admin")).toBe("Admin");
+  });
+
+  it("hides admin-only navigation from staff profiles", () => {
+    const staffItems = getDashboardNavItemsForRole("staff");
+    const adminItems = getDashboardNavItemsForRole("admin");
+
+    expect(staffItems.some((item) => item.id === "staff")).toBe(false);
+    expect(adminItems.some((item) => item.id === "staff")).toBe(true);
   });
 });
