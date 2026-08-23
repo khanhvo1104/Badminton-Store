@@ -95,6 +95,29 @@ invitation boundary:
   Default SMTP rate limits surface as sanitized, actionable UI errors; tests never
   send real invitations.
 
+## Privileged audit trail (TASK-042)
+
+`public.cms_privileged_audit_events` is the canonical append-only ledger for
+privileged CMS mutations. It is fed transactionally from trusted catalog writes,
+`inventory_history`, staff-only `order_status_history` rows, product media
+mutations, and `staff_management_events`. Customer checkout seed history
+(`from_status IS NULL`) is excluded.
+
+- Metadata is allowlisted per entity/action via
+  `validate_cms_privileged_audit_metadata`. No secrets, tokens, addresses, phone
+  numbers, customer notes, raw payloads, `cost_price`, or unrestricted row JSON.
+- Actor identity comes from `auth.uid()` on staff/admin catalog writes or from
+  immutable trusted source columns (`inventory_history.actor_id`,
+  `order_status_history.changed_by`, `staff_management_events.actor_id`).
+- Direct INSERT/UPDATE/DELETE on the ledger are revoked from PUBLIC/anon/
+  authenticated. Reads are admin-only via `list_cms_privileged_audit_events`
+  (SECURITY DEFINER, empty search_path, EXECUTE granted to authenticated only).
+- Immutability is enforced by grants, RLS, an insert boundary trigger, and
+  `prevent_cms_privileged_audit_mutation`. Local/test cleanup uses
+  `app.cms_audit_test_cleanup=1` under `session_user = postgres` only.
+- CMS `/dashboard/audit` re-authorizes active admin, calls the list RPC, and
+  fail-closes malformed metadata in the mapper before rendering summaries.
+
 ## Password recovery
 
 Forgotten passwords are recovered through the CMS, not by assigning a password

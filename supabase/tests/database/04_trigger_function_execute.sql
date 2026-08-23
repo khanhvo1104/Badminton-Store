@@ -49,6 +49,39 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- CMS audit internals: no API-role EXECUTE (trigger-only / owner-only)
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  audit_internal text[] := array[
+    'public.append_cms_privileged_audit_event(uuid, text, uuid, text, jsonb, timestamptz)',
+    'public.validate_cms_privileged_audit_metadata(text, text, jsonb)',
+    'public.cms_audit_metadata_value_valid(text, text, jsonb)',
+    'public.cms_audit_resolve_staff_actor()',
+    'public.cms_audit_is_staff_profile(uuid)',
+    'public.cms_audit_record_category_change()',
+    'public.enforce_cms_privileged_audit_insert_boundary()',
+    'public.prevent_cms_privileged_audit_mutation()'
+  ];
+  sig text;
+  grantee text;
+begin
+  foreach sig in array audit_internal loop
+    foreach grantee in array array['public', 'anon', 'authenticated', 'service_role'] loop
+      if has_function_privilege(grantee, sig, 'EXECUTE') then
+        raise exception
+          'FAIL: % still has EXECUTE on %',
+          grantee,
+          sig;
+      end if;
+    end loop;
+  end loop;
+
+  raise notice
+    'OK: CMS audit internals — PUBLIC/anon/authenticated/service_role denied EXECUTE';
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Direct client calls must fail with insufficient_privilege (42501)
 -- before any trigger-only runtime error.
 -- ---------------------------------------------------------------------------

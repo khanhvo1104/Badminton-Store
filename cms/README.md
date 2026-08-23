@@ -199,6 +199,15 @@ that forwards the caller access token to the `invite-cms-staff` Edge Function;
 no service-role key is present in the CMS bundle. Navigation hides the Staff item
 from non-admin profiles.
 
+### Privileged audit trail (TASK-042)
+
+`/dashboard/audit` is admin-only. The Server Component calls
+`list_cms_privileged_audit_events` after `authorizeCmsAdminRequest` with bounded
+cursor pagination and filters for entity, action, actor, and time range. The
+mapper validates allowlisted metadata per entity/action and fail-closes malformed
+RPC payloads before rendering semantic summaries. Navigation hides the Audit item
+from non-admin profiles.
+
 Add new dashboard areas by extending
 `src/lib/navigation/dashboard-routes.ts` and placing pages under
 `src/app/dashboard/`. Do not trust client state or URL text for roles or

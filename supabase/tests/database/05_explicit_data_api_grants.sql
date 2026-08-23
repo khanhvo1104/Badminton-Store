@@ -209,7 +209,8 @@ declare
     'product_variants', 'product_images', 'inventory', 'inventory_history',
     'favorites',
     'carts', 'cart_items', 'orders', 'order_items', 'order_status_history',
-    'notifications', 'product_catalog', 'inventory_availability'
+    'notifications', 'product_catalog', 'inventory_availability',
+    'staff_management_events', 'cms_privileged_audit_events'
   ];
   t text;
   priv text;
@@ -255,6 +256,12 @@ begin
   perform pg_temp.assert_siud('anon', 'inventory', false, false, false, false);
   perform pg_temp.assert_siud(
     'anon', 'inventory_history', false, false, false, false
+  );
+  perform pg_temp.assert_siud(
+    'anon', 'staff_management_events', false, false, false, false
+  );
+  perform pg_temp.assert_siud(
+    'anon', 'cms_privileged_audit_events', false, false, false, false
   );
   perform pg_temp.assert_siud(
     'anon', 'inventory_availability', false, false, false, false
@@ -319,6 +326,12 @@ begin
   );
   perform pg_temp.assert_siud(
     'authenticated', 'inventory_history', true, false, false, false
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'staff_management_events', true, false, false, false
+  );
+  perform pg_temp.assert_siud(
+    'authenticated', 'cms_privileged_audit_events', true, false, false, false
   );
   -- Favorites: SELECT/INSERT/DELETE only (no UPDATE grant).
   perform pg_temp.assert_siud(
@@ -414,9 +427,13 @@ begin
     end if;
   end loop;
 
-  -- service_role retains full SIUD on every application table/view + cost_price.
+  -- service_role retains full SIUD on application tables except the audit ledger.
   foreach t in array app_objects loop
-    perform pg_temp.assert_siud('service_role', t, true, true, true, true);
+    if t = 'cms_privileged_audit_events' then
+      perform pg_temp.assert_siud('service_role', t, true, false, false, false);
+    else
+      perform pg_temp.assert_siud('service_role', t, true, true, true, true);
+    end if;
   end loop;
 
   if not has_column_privilege(
@@ -751,6 +768,61 @@ begin
   ) then
     raise exception 'FAIL: service_role has EXECUTE on list_cms_staff';
   end if;
+
+  if has_function_privilege(
+    'public',
+    'public.list_cms_privileged_audit_events(text, text, uuid, timestamptz, timestamptz, timestamptz, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: PUBLIC has EXECUTE on list_cms_privileged_audit_events';
+  end if;
+  if has_function_privilege(
+    'anon',
+    'public.list_cms_privileged_audit_events(text, text, uuid, timestamptz, timestamptz, timestamptz, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception 'FAIL: anon has EXECUTE on list_cms_privileged_audit_events';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.list_cms_privileged_audit_events(text, text, uuid, timestamptz, timestamptz, timestamptz, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: authenticated missing EXECUTE on list_cms_privileged_audit_events';
+  end if;
+  if has_function_privilege(
+    'service_role',
+    'public.list_cms_privileged_audit_events(text, text, uuid, timestamptz, timestamptz, timestamptz, uuid, integer)',
+    'EXECUTE'
+  ) then
+    raise exception
+      'FAIL: service_role has EXECUTE on list_cms_privileged_audit_events';
+  end if;
+
+  foreach sig in array array[
+    'public.append_cms_privileged_audit_event(uuid, text, uuid, text, jsonb, timestamptz)',
+    'public.validate_cms_privileged_audit_metadata(text, text, jsonb)',
+    'public.cms_audit_metadata_value_valid(text, text, jsonb)',
+    'public.cms_audit_resolve_staff_actor()',
+    'public.cms_audit_is_staff_profile(uuid)',
+    'public.cms_audit_record_category_change()',
+    'public.enforce_cms_privileged_audit_insert_boundary()',
+    'public.prevent_cms_privileged_audit_mutation()'
+  ] loop
+    if has_function_privilege('public', sig, 'EXECUTE') then
+      raise exception 'FAIL: PUBLIC has EXECUTE on %', sig;
+    end if;
+    if has_function_privilege('anon', sig, 'EXECUTE') then
+      raise exception 'FAIL: anon has EXECUTE on %', sig;
+    end if;
+    if has_function_privilege('authenticated', sig, 'EXECUTE') then
+      raise exception 'FAIL: authenticated has EXECUTE on %', sig;
+    end if;
+    if has_function_privilege('service_role', sig, 'EXECUTE') then
+      raise exception 'FAIL: service_role has EXECUTE on %', sig;
+    end if;
+  end loop;
 
   if has_function_privilege(
     'public',
