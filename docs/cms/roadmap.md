@@ -85,8 +85,9 @@ Completion of TASK-034 defines the product-management MVP.
 ## Milestone 4: production readiness
 
 - **TASK-039:** end-to-end, accessibility, security, and failure recovery suite.
+  Delivered as TASK-043 in the automation backlog.
 - **TASK-040:** staging/production deployment, monitoring, backup checks, and
-  operational runbook.
+  operational runbook. Delivered as TASK-044 in the automation backlog.
 
 ## Dependency order
 

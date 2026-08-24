@@ -24,9 +24,20 @@ npm run lint
 npm run typecheck
 npm test -- --run
 npm run build
+npm run test:smoke -- --base-url https://YOUR_CMS_HOST
 npm run test:e2e:install
 npm run test:e2e
 ```
+
+### Health and deployment smoke
+
+- `GET /api/health` — process liveness (`no-store` JSON).
+- `GET /api/ready` — Supabase dependency readiness with a bounded timeout.
+- `node scripts/smoke-check.mjs --base-url https://YOUR_CMS_HOST` — operator/CI
+  HTTPS smoke check (add `--allow-localhost` only for local HTTP). Rejects
+  base URLs that embed URL userinfo/credentials.
+
+See [docs/cms/operations-runbook.md](../docs/cms/operations-runbook.md).
 
 ### Production-readiness E2E
 

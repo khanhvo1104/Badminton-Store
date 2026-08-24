@@ -12,6 +12,7 @@
     "test:e2e:env": "node scripts/e2e-local-env.mjs",
     "test:e2e:install": "playwright install chromium",
     "test:e2e": "npm run test:e2e:env && npm run build && playwright test",
+    "test:smoke": "node scripts/smoke-check.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
