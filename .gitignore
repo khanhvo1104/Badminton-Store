@@ -59,3 +59,10 @@ cms/.env*
 .tools/
 supabase/.temp/
 .tools
+
+# CMS Playwright artifacts (never commit)
+cms/playwright-report/
+cms/test-results/
+cms/blob-report/
+cms/playwright/.cache/
+cms/.env.e2e.local

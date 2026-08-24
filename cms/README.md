@@ -24,6 +24,28 @@ npm run lint
 npm run typecheck
 npm test -- --run
 npm run build
+npm run test:e2e:install
+npm run test:e2e
+```
+
+### Production-readiness E2E
+
+Playwright covers auth boundaries, a representative catalog mutation, inventory
+and order read/transition UI, accessibility (axe), keyboard/modal focus, session
+fail-closed behavior, and sanitized mutation failure recovery. See
+[docs/cms/e2e-production-readiness.md](../docs/cms/e2e-production-readiness.md)
+for prerequisites, ports, teardown, and troubleshooting.
+
+The suite uses disposable local Supabase + local Next.js only. It does not use
+hosted Supabase or hosted SMTP.
+
+```bash
+# repo root
+supabase start
+supabase db reset --yes
+
+# cms/
+npm run test:e2e
 ```
 
 ## Authentication flow

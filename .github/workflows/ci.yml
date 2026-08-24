@@ -85,3 +85,58 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  cms-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: cms
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: cms/package-lock.json
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+        with:
+          version: 2.111.0
+
+      - name: Install CMS dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Start local Supabase
+        working-directory: .
+        run: supabase start
+
+      - name: Reset local database with migrations and seed
+        working-directory: .
+        run: supabase db reset --yes
+
+      - name: Prepare CMS E2E public env
+        run: |
+          npm run test:e2e:env
+          cp .env.e2e.local .env.local
+
+      - name: Build CMS for E2E
+        run: npm run build
+
+      - name: Run CMS Playwright production-readiness suite
+        run: npx playwright test
+        env:
+          CI: true
+          CMS_E2E_BASE_URL: http://127.0.0.1:3000
+
+      - name: Stop local Supabase
+        if: always()
+        working-directory: .
+        run: supabase stop --no-backup

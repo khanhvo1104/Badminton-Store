@@ -78,24 +78,26 @@ export function OperationalDashboard({
             <dt className="text-sm font-medium text-slate-300">
               Gross order value
             </dt>
-            <dd className="mt-3 space-y-2">
-              {snapshot.grossOrderValueByCurrency.length === 0 ? (
-                <p className="text-2xl font-semibold text-white">0</p>
-              ) : (
-                snapshot.grossOrderValueByCurrency.map((entry) => (
-                  <p
-                    key={entry.currencyCode}
-                    className="text-2xl font-semibold text-white"
-                  >
-                    {entry.grossOrderValueLabel}
-                  </p>
-                ))
-              )}
+            <dd className="mt-3 space-y-3">
+              <div className="space-y-2">
+                {snapshot.grossOrderValueByCurrency.length === 0 ? (
+                  <p className="text-2xl font-semibold text-white">0</p>
+                ) : (
+                  snapshot.grossOrderValueByCurrency.map((entry) => (
+                    <p
+                      key={entry.currencyCode}
+                      className="text-2xl font-semibold text-white"
+                    >
+                      {entry.grossOrderValueLabel}
+                    </p>
+                  ))
+                )}
+              </div>
+              <p className="text-sm leading-6 text-slate-400">
+                Non-cancelled, non-returned orders in the window, grouped by
+                currency. Not recognized revenue.
+              </p>
             </dd>
-            <p className="mt-3 text-sm leading-6 text-slate-400">
-              Non-cancelled, non-returned orders in the window, grouped by
-              currency. Not recognized revenue.
-            </p>
           </div>
         </dl>
       </section>
@@ -340,15 +342,15 @@ function MetricCard({ term, description, value, href }: MetricCardProps) {
   return (
     <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-5">
       <dt className="text-sm font-medium text-slate-300">{term}</dt>
-      <dd className="mt-3">
+      <dd className="mt-3 space-y-3">
         <Link
           href={href}
-          className="text-3xl font-semibold text-white hover:text-emerald-200"
+          className="block text-3xl font-semibold text-white hover:text-emerald-200"
         >
           {value}
         </Link>
+        <p className="text-sm leading-6 text-slate-400">{description}</p>
       </dd>
-      <p className="mt-3 text-sm leading-6 text-slate-400">{description}</p>
     </div>
   );
 }
