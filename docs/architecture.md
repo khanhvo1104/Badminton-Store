@@ -77,8 +77,7 @@ Repositories are the **only** boundary between presentation and infrastructure.
 - Methods return `Future<Result<T>>`.
 - Presentation imports providers from `di/`, never concrete data sources.
 - Most shop features call `supabaseClientProvider` directly from repository
-  implementations (generic `SupabaseDatabase` / `SupabaseStorage` facades in
-  `core/supabase/` remain unwired and throw if read).
+  implementations. There is no shared generic DB/Storage facade layer.
 
 ### Naming note
 
@@ -142,8 +141,6 @@ badges, etc.) so catalog/product/cart can share UI without circular imports.
 
 - **Notifications** — placeholder page; no `notifications` table; repository
   provider throws `UnimplementedError` if read.
-- **Generic Supabase DB/Storage facades** — interfaces/providers exist but are
-  unwired; feature repositories use `SupabaseClient` directly.
 - **Home UX** — featured products as dashboard-style cards, not a full
   merchandising storefront.
 - **Money in Dart** — domain snapshots use `double` for whole VND display

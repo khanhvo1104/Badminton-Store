@@ -12,7 +12,7 @@
 
 **Commerce MVP path is implementable end-to-end for authenticated COD.** Auth, catalog browse, product detail, search, favorites, cart, addresses (validated form), order history, Profile account navigation, configuration-error UX, and Flutter checkout UI are wired to Supabase adapters / the trusted `checkout_cod` RPC. Table RLS is enabled; Data API grants, trigger EXECUTE lockdown, and executable suites `00`–`05` plus checkout concurrency cover the local DB. Flutter repository regressions exist for catalog/search/favorites/cart/addresses/orders (TASK-011–015) plus route-guard/nav tests (TASK-017). Documentation, money guidance, and stale “later milestone” comments on wired repos are aligned in TASK-018.
 
-**Remaining work (P2):** Notifications (placeholder), optional `SupabaseDatabase` / `SupabaseStorage` facade cleanup, Home storefront polish.
+**Remaining work (P2):** Notifications (placeholder), Home storefront polish.
 
 **Legend:** *Verified* = confirmed in source/migrations. *Inferred* = likely impact from wiring/docs without runtime proof.
 
@@ -37,8 +37,8 @@
 | Settings / logout | Push `/settings` | Appearance prefs | N/A | Appearance + nav tests | Reachable from Profile |
 | Notifications | Push `/notifications` | `UnimplementedError` if provider read | **No notifications table** | None | UI is placeholder only (safe); intentionally unlinked |
 | Design system | Debug `/design-system` | N/A | N/A | Glass widget tests | Gated by `kDebugMode` |
-| Supabase core facades | N/A | Auth DS wired; DB/Storage providers throw | Migrations present | None | Repos use `supabaseClientProvider` directly |
-| Storage buckets | N/A | Storage provider unwired | Buckets + policies in migration | Suite `01` Storage SIUD | Public read catalog; staff write; avatar ownership |
+| Supabase core DI | N/A | Auth DS + `supabaseClientProvider` wired; no generic DB/Storage facades | Migrations present | Bootstrap/config tests | Repos use `supabaseClientProvider` directly (TASK-045) |
+| Storage buckets | N/A | Feature repos / `supabaseClientProvider.storage` | Buckets + policies in migration | Suite `01` Storage SIUD | Public read catalog; staff write; avatar ownership |
 | RLS verification | N/A | N/A | Policies in `...00008_rls_policies.sql` | Executable suite `01` (+ `05`) | Grants asserted separately from RLS |
 | Route guards / nav | Shell + push | `auth_redirect_policy.dart` | N/A | TASK-017 regressions | Unauth redirect + authenticated hub links |
 
@@ -50,7 +50,6 @@
 |------|----------|-------------------|-------------|
 | `lib/features/notifications/presentation/views/notifications_page.dart` | `ShopPlaceholderPage` | Only via deep link (no nav entry) | Empty placeholder |
 | `lib/features/notifications/di/notifications_providers.dart` | `UnimplementedError` | **No** — page does not watch the provider | Crash only if a future caller reads the provider |
-| `lib/core/supabase/supabase_providers.dart` (`supabaseDatabaseProvider`, `supabaseStorageProvider`) | `UnimplementedError` | **No** — no feature watches them | Interim repos use `SupabaseClient` directly |
 | `lib/core/config/environment_provider.dart` | Must override | Overridden in bootstrap/tests | Expected DI pattern |
 | `lib/core/storage/storage_providers.dart` (`sharedPreferencesProvider`) | Must override | Overridden in bootstrap/tests | Expected DI pattern |
 | `lib/core/supabase/supabase_session_manager.dart` (`PendingSupabaseSessionManager`) | Placeholder when not initialized | Used when init skipped | Soft-degraded session manager; client provider still hard-fails |
@@ -96,8 +95,8 @@
 
 - **Resolved in TASK-018:**
   - `README.md` — Badminton Store identity, implemented flows, Flutter/Supabase stack, `.env.example` setup, run/quality/DB commands; no demo credentials or “replace fake adapters” instructions
-  - `docs/architecture.md` — current bootstrap/`ConfigurationErrorApp`, wired feature repositories, `checkout_cod` boundary, Riverpod/MVVM/GoRouter, Notifications + facade limitations
-  - `docs/coding_guidelines.md` — money guidance aligned with `double` VND snapshots + server authority; shop repos documented as wired (Notifications/facades excluded)
+  - `docs/architecture.md` — current bootstrap/`ConfigurationErrorApp`, wired feature repositories, `checkout_cod` boundary, Riverpod/MVVM/GoRouter, Notifications limitations (generic DB/Storage facades later removed in TASK-045)
+  - `docs/coding_guidelines.md` — money guidance aligned with `double` VND snapshots + server authority; shop repos documented as wired (Notifications excluded; facades later removed in TASK-045)
   - `supabase/README.md` — local verification checklist; no longer implies Flutter repository wiring is future Supabase work
   - Stale “later milestone” comments corrected on wired address/cart/catalog/favorites/orders/product/search repository interfaces and catalog providers; Notifications comments unchanged
 - **Earlier (TASK-005):** `docs/backend/flutter_integration_notes.md` documents checkout RPC payload, estimate-only totals, sanitized errors, and success navigation.
@@ -126,11 +125,11 @@
 - **Impact:** Secondary feature; provider throws if wired prematurely.
 - **Recommendation:** After commerce MVP, add schema + RLS + repository, then replace placeholder. **Still remaining.**
 
-### P2-2. Generic `SupabaseDatabase` / `SupabaseStorage` providers unwired
+### P2-2. Generic `SupabaseDatabase` / `SupabaseStorage` providers unwired — **RESOLVED (TASK-045)**
 
-- **Path:** `lib/core/supabase/supabase_providers.dart`
-- **Impact:** Dead DI surface; repos bypass facades via `SupabaseClient`.
-- **Recommendation:** Implement facades and migrate repositories, or delete unused providers to reduce trap hazards. **Still remaining (optional).**
+- **Prior gap:** Dead DI surface (`supabaseDatabaseProvider` / `supabaseStorageProvider`) threw `UnimplementedError` if read while feature repositories already used `SupabaseClient` directly.
+- **Resolution (TASK-045):** Deleted unused `supabase_database.dart` / `supabase_storage.dart` interfaces and the throw-on-read providers. Preserved `supabaseClientProvider`, auth/session providers, initialization, Riverpod architecture, feature behavior, RLS, and storage boundaries. Docs no longer claim this gap remains.
+- **Impact:** Removes the unused facade trap without migrating working repositories.
 
 ### P2-3. Flutter tests for shop repositories / route guards — **MOSTLY RESOLVED (TASK-011–015, TASK-017)**
 
@@ -158,7 +157,7 @@
 
 ### P2-6. Stale inline comments on wired providers — **RESOLVED (TASK-018)**
 
-- **Resolution:** Corrected “later milestone” comments on wired address/cart/catalog/favorites/orders/product/search repository interfaces and `catalog_providers.dart`. Notifications (and unwired core facades outside TASK-018 scope) retain unimplemented wording.
+- **Resolution:** Corrected “later milestone” comments on wired address/cart/catalog/favorites/orders/product/search repository interfaces and `catalog_providers.dart`. Notifications retain unimplemented wording; generic core facades were later removed in TASK-045.
 - **Impact (historical):** Local confusion during reviews.
 
 ### P2-7. Home still presents a generic dashboard, not storefront merchandising
@@ -206,7 +205,7 @@ Small, dependency-ordered backlog (each should be its own implementation task):
 9. ~~**Route-guard / authenticated navigation regressions**~~ — **done in TASK-017**.
 10. ~~**Documentation cleanup**~~ — **done in TASK-018** (`README.md`, `docs/architecture.md`, `docs/coding_guidelines.md`, `supabase/README.md`, this audit, stale wired-repo comments).
 11. **Notifications** — only after schema/RLS designed; then repository + UI (`P2-1`).
-12. **Optional facade cleanup** — implement or remove `SupabaseDatabase` / `SupabaseStorage` providers (`P2-2`).
+12. ~~**Optional facade cleanup**~~ — **done in TASK-045** (removed unused `SupabaseDatabase` / `SupabaseStorage` providers; `P2-2`).
 13. **Home storefront polish** — merchandising UX beyond dashboard cards (`P2-7`).
 
 Any future schema change must use a **new** Supabase CLI migration and include database/RLS tests. Do not edit deployed migrations.
@@ -332,11 +331,22 @@ No remote Supabase migration or link commands are run for TASK-008. Remote apply
 |-------|--------|
 | `flutter analyze` / `flutter test` | Passed during audit authoring |
 
+### TASK-045 (unused Supabase facade removal)
+
+| Check | Result |
+|-------|--------|
+| Repository-wide reference proof | Passed — no runtime/test consumers beyond declarations/docs |
+| `dart format` (changed Dart) | Passed |
+| `flutter analyze` | Passed — no issues |
+| Focused `test/app/bootstrap_test.dart` | Passed (6) |
+| `flutter test` | Passed — 323 tests |
+| `python3 scripts/automation.py policy-check` | Passed |
+
 ---
 
 ## Remaining work (out of scope for TASK-018)
 
 - Notifications schema + repository + UI (`P2-1`)
-- Optional `SupabaseDatabase` / `SupabaseStorage` facade cleanup (`P2-2`)
+- ~~Optional `SupabaseDatabase` / `SupabaseStorage` facade cleanup (`P2-2`)~~ — **done in TASK-045**
 - Home storefront polish (`P2-7`)
 - Remote apply of prior migrations remains post-approval/merge only (this task changes no migrations)

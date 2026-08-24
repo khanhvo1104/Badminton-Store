@@ -4,11 +4,9 @@ import 'package:base_project/core/logging/logger_provider.dart';
 import 'package:base_project/core/supabase/supabase_auth_data_source.dart';
 import 'package:base_project/core/supabase/supabase_auth_data_source_impl.dart';
 import 'package:base_project/core/supabase/supabase_config.dart';
-import 'package:base_project/core/supabase/supabase_database.dart';
 import 'package:base_project/core/supabase/supabase_exception_mapper.dart';
 import 'package:base_project/core/supabase/supabase_initializer.dart';
 import 'package:base_project/core/supabase/supabase_session_manager.dart';
-import 'package:base_project/core/supabase/supabase_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -48,23 +46,9 @@ final supabaseExceptionMapperProvider = Provider<SupabaseExceptionMapper>((
   return SupabaseExceptionMapper(ref.watch(appLoggerProvider));
 });
 
-/// Auth / DB / Storage facades — repository wiring lands in a later milestone.
+/// Auth data-source facade used by the authentication feature.
 final supabaseAuthDataSourceProvider = Provider<SupabaseAuthDataSource>((ref) {
   return SupabaseAuthDataSourceImpl(ref.watch(supabaseClientProvider));
-});
-
-final supabaseDatabaseProvider = Provider<SupabaseDatabase>((ref) {
-  throw UnimplementedError(
-    'SupabaseDatabase is not wired yet. '
-    'Use supabaseClientProvider.from(...) for interim access.',
-  );
-});
-
-final supabaseStorageProvider = Provider<SupabaseStorage>((ref) {
-  throw UnimplementedError(
-    'SupabaseStorage is not wired yet. '
-    'Use supabaseClientProvider.storage for interim access.',
-  );
 });
 
 /// Loads URL + publishable/anon key from `--dart-define` or dotenv.
