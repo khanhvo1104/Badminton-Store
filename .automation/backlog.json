@@ -294,6 +294,27 @@
       "task_file": ".automation/tasks/TASK-042-cms-immutable-audit-trail.md",
       "risk": "high",
       "status": "complete"
+    },
+    {
+      "id": "TASK-043",
+      "title": "CMS production-readiness Playwright suite",
+      "task_file": ".automation/tasks/TASK-043-cms-production-readiness-suite.md",
+      "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-044",
+      "title": "CMS deployment operations and production readiness",
+      "task_file": ".automation/tasks/TASK-044-cms-deployment-operations.md",
+      "risk": "high",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-045",
+      "title": "Remove unused generic SupabaseDatabase/SupabaseStorage facades",
+      "task_file": ".automation/tasks/TASK-045-remove-unused-supabase-facades.md",
+      "risk": "low",
+      "status": "complete"
     }
   ]
 }

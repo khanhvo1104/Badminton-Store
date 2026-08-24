@@ -39,8 +39,9 @@ Reuse an existing feature when the domain already owns the concept
 1. Fill `SUPABASE_URL` / `SUPABASE_ANON_KEY` in env files or dart-defines.
 2. Replace `PendingSupabaseInitializer` with a real
    `supabase_flutter` initializer.
-3. Implement `SupabaseDatabase` / `SupabaseAuthDataSource` /
-   `SupabaseStorage`.
+3. Wire feature repositories through `supabaseClientProvider` (and
+   `supabaseAuthDataSourceProvider` when auth-specific). Do not reintroduce
+   unused generic DB/Storage facades.
 4. Expand `SupabaseExceptionMapper` for Auth / PostgREST / Storage codes.
 5. Keep RLS and SQL in Supabase — not in the Flutter app.
 
@@ -74,6 +75,6 @@ Reuse an existing feature when the domain already owns the concept
 1. Prefer `features/product/` (reviews belong to product).
 2. Add `ProductReview` entity + `ProductRepository` methods (or a dedicated
    `ReviewRepository` if lifecycle diverges).
-3. Supabase table + RLS → `SupabaseDatabase` queries.
+3. Supabase table + RLS → repository queries via `supabaseClientProvider`.
 4. UI under `product/presentation/` using `GlassCard` / existing tokens.
 5. No new top-level architecture modules required.

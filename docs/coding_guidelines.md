@@ -61,9 +61,9 @@ Map infrastructure failures at the data boundary:
 - Feature ViewModels: `StateNotifierProvider.autoDispose`.
 - Session / appearance: long-lived providers.
 - Commerce feature repositories are wired to Supabase implementations via
-  `di/*_providers.dart`. **Notifications** and the generic
-  `supabaseDatabaseProvider` / `supabaseStorageProvider` facades remain
-  unimplemented and throw if read.
+  `di/*_providers.dart` and call `supabaseClientProvider` directly. Keep
+  intentional feature-level override providers (for example Notifications)
+  out of the shared core DI surface.
 - Override providers in tests via `createTestContainer` helpers.
 
 ## Analysis
