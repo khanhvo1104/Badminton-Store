@@ -63,7 +63,8 @@ export default defineConfig({
   webServer: {
     command: "node scripts/e2e-start.mjs",
     url: baseURL,
-    reuseExistingServer: false,
+    // CI may pre-start the server for the deployment smoke-check CLI.
+    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
     timeout: 120_000,
   },
 });

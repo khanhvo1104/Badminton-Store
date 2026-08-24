@@ -11,6 +11,7 @@ project with the Flutter storefront.
 - [Security and authorization](security.md)
 - [Delivery roadmap](roadmap.md)
 - [Production-readiness E2E](e2e-production-readiness.md)
+- [Deployment and operations runbook](operations-runbook.md)
 - [ADR-006: Next.js for the CMS](../architecture/006-nextjs-cms.md)
 
 ## Product boundary

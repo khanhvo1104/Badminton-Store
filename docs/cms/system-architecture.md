@@ -214,6 +214,9 @@ no product rule may depend on a Vercel-only service. A Go service can be added
 later for workers, large imports, ERP synchronization, or high-throughput
 webhooks without replacing the CMS.
 
+Operational deployment safeguards, smoke checks, backup rehearsal, and the
+incident runbook live in [operations-runbook.md](operations-runbook.md).
+
 ## Quality gates
 
 Every CMS pull request must run, as applicable:

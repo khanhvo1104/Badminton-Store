@@ -122,6 +122,11 @@ jobs:
         working-directory: .
         run: supabase db reset --yes
 
+      - name: Local backup/restore rehearsal
+        working-directory: .
+        timeout-minutes: 15
+        run: bash scripts/cms-backup-rehearsal.sh
+
       - name: Prepare CMS E2E public env
         run: |
           npm run test:e2e:env
@@ -130,11 +135,39 @@ jobs:
       - name: Build CMS for E2E
         run: npm run build
 
+      - name: Start CMS for smoke check
+        run: |
+          node scripts/e2e-start.mjs &
+          echo $! > /tmp/cms-e2e-server.pid
+
+      - name: Wait for CMS liveness
+        run: |
+          for i in $(seq 1 90); do
+            if curl -sf "http://127.0.0.1:3000/api/health" >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "CMS did not become live in time" >&2
+          exit 1
+
+      - name: CMS deployment smoke check
+        run: node scripts/smoke-check.mjs --base-url http://127.0.0.1:3000 --allow-localhost
+
       - name: Run CMS Playwright production-readiness suite
         run: npx playwright test
         env:
           CI: true
           CMS_E2E_BASE_URL: http://127.0.0.1:3000
+          PLAYWRIGHT_REUSE_SERVER: "1"
+
+      - name: Stop CMS server
+        if: always()
+        run: |
+          if [ -f /tmp/cms-e2e-server.pid ]; then
+            kill "$(cat /tmp/cms-e2e-server.pid)" 2>/dev/null || true
+          fi
+          pkill -f "next start --hostname 127.0.0.1 --port 3000" 2>/dev/null || true
 
       - name: Stop local Supabase
         if: always()
