@@ -7,6 +7,8 @@ import { CMS_DASHBOARD_PATH, CMS_LOGIN_PATH } from "@/lib/auth/authorization";
 import { getPublicEnvironment } from "@/lib/env/public-env";
 import { isPublicEnvironmentError } from "@/lib/errors/public-environment-error";
 
+export const dynamic = "force-dynamic";
+
 export default function UnauthorizedPage() {
   try {
     getPublicEnvironment();

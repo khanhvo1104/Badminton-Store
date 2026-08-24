@@ -42,11 +42,11 @@ export function validateCategoryImageFile(
     return { ok: true, image: null };
   }
 
-  if (file.size === 0 && (!file.name || file.name === "")) {
+  if (file.size === 0) {
     return { ok: true, image: null };
   }
 
-  if (file.size <= 0 || file.size > CATEGORY_IMAGE_MAX_BYTES) {
+  if (file.size > CATEGORY_IMAGE_MAX_BYTES) {
     return { ok: false, message: CATEGORY_IMAGE_INVALID_MESSAGE };
   }
 
