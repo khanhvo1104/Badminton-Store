@@ -200,6 +200,11 @@ export function validateBaseUrl(raw, allowLocalhost) {
     throw new Error("Invalid --base-url.");
   }
 
+  // Reject embedded userinfo even over HTTPS (never echo the raw URL).
+  if (url.username !== "" || url.password !== "") {
+    throw new Error("URL userinfo is not allowed in --base-url.");
+  }
+
   const host = url.hostname.toLowerCase();
   const isLocal =
     host === "localhost" ||

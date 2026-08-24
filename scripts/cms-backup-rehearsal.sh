@@ -59,24 +59,56 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
 }
 
-assert_local_db_url() {
-  local url="$1"
-  local lowered
-  lowered="$(printf '%s' "${url}" | tr '[:upper:]' '[:lower:]')"
+# Fail closed: never call `supabase status` (any format) — its output includes
+# service-role/secret values. Local-only guarantees come from: no args,
+# unique supabase_db_* container, and explicit `supabase db dump --local`.
+resolve_local_db_container() {
+  docker ps --format '{{.Names}}' | python3 -c '
+import sys
+names = [line.strip() for line in sys.stdin if line.strip()]
+matches = [name for name in names if name.startswith("supabase_db_")]
+if len(matches) != 1:
+    raise SystemExit(1)
+print(matches[0])
+'
+}
 
-  case "${lowered}" in
-    *"127.0.0.1"*|*"localhost"*|*"\[::1\]"*|*host.docker.internal*)
+assert_local_db_container() {
+  local name="$1"
+  local image
+  local network_mode
+
+  case "${name}" in
+    supabase_db_*)
       ;;
     *)
-      fail "Refusing non-local database URL. Rehearsal is local-only."
+      fail "Refusing unexpected database container name."
       ;;
   esac
 
-  case "${lowered}" in
-    *supabase.co*|*pooler.supabase.com*|*aws.supabase.com*)
-      fail "Refusing hosted Supabase URL."
+  image="$(docker inspect -f '{{.Config.Image}}' "${name}" 2>/dev/null)" \
+    || fail "Could not inspect local supabase_db_* container."
+  case "$(printf '%s' "${image}" | tr '[:upper:]' '[:lower:]')" in
+    *supabase*postgres*|*postgres*)
+      ;;
+    *)
+      fail "Refusing non-Postgres image for supabase_db_* container."
       ;;
   esac
+
+  network_mode="$(docker inspect -f '{{.HostConfig.NetworkMode}}' "${name}" 2>/dev/null)" \
+    || fail "Could not inspect local supabase_db_* network mode."
+  case "$(printf '%s' "${network_mode}" | tr '[:upper:]' '[:lower:]')" in
+    *host*)
+      fail "Refusing host-networked database container."
+      ;;
+  esac
+
+  docker exec "${name}" \
+    psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+    -c "SELECT 1;" \
+    >/dev/null \
+    || fail "Local supabase_db_* container is not accepting connections. Start it with: supabase start"
 }
 
 if [[ "${#}" -gt 0 ]]; then
@@ -91,32 +123,11 @@ if [[ -e "${ROOT_DIR}/supabase/.temp/project-ref" ]]; then
   log "Note: supabase/.temp/project-ref exists; rehearsal still forces --local only."
 fi
 
-log "Checking disposable local Supabase status..."
-STATUS_ENV="$(supabase status -o env 2>/dev/null)" || fail "Local Supabase is not running. Start it with: supabase start"
-
-DB_URL="$(
-  printf '%s\n' "${STATUS_ENV}" | python3 -c '
-import sys
-for line in sys.stdin:
-    line = line.strip()
-    if line.startswith("DB_URL="):
-        value = line.split("=", 1)[1].strip().strip("\"").strip("'\''")
-        print(value)
-        raise SystemExit(0)
-raise SystemExit(1)
-'
-)" || fail "Could not resolve local DB_URL from supabase status."
-
-assert_local_db_url "${DB_URL}"
-
-DB_CONTAINER="$(docker ps --format '{{.Names}}' | python3 -c '
-import sys
-names=[line.strip() for line in sys.stdin if line.strip()]
-matches=[name for name in names if name.startswith("supabase_db_")]
-if len(matches) != 1:
-    raise SystemExit(1)
-print(matches[0])
-')" || fail "Could not uniquely identify local supabase_db_* container."
+log "Identifying unique local supabase_db_* container (no status/env key capture)..."
+DB_CONTAINER="$(resolve_local_db_container)" \
+  || fail "Could not uniquely identify local supabase_db_* container. Start local stack with: supabase start"
+assert_local_db_container "${DB_CONTAINER}"
+log "Using local container ${DB_CONTAINER}."
 
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/cms-backup-rehearsal.XXXXXX")"
 SCHEMA_DUMP="${WORK_DIR}/schema.sql"
@@ -125,11 +136,11 @@ chmod 700 "${WORK_DIR}"
 
 log "Creating local logical schema dump (--local, public schema)..."
 supabase db dump --local --schema public -f "${SCHEMA_DUMP}" \
-  >/dev/null || fail "Local schema dump failed."
+  >/dev/null || fail "Local schema dump failed (ensure disposable local stack is running)."
 
 log "Creating local logical data dump (--local, public schema)..."
 supabase db dump --local --data-only --use-copy --schema public -f "${DATA_DUMP}" \
-  >/dev/null || fail "Local data dump failed."
+  >/dev/null || fail "Local data dump failed (ensure disposable local stack is running)."
 
 [[ -s "${SCHEMA_DUMP}" ]] || fail "Schema dump is empty."
 [[ -s "${DATA_DUMP}" ]] || fail "Data dump is empty."

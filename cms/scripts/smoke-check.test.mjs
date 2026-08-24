@@ -25,6 +25,31 @@ describe("smoke-check", () => {
     );
   });
 
+  it("rejects base URLs with non-empty userinfo even over HTTPS", () => {
+    const credentialed = [
+      "https://user:s3cret@cms.example.com",
+      "https://user:@cms.example.com",
+      "https://:s3cret@cms.example.com",
+      "http://user:s3cret@127.0.0.1:3000",
+    ];
+
+    for (const baseUrl of credentialed) {
+      let thrown;
+      try {
+        validateBaseUrl(baseUrl, true);
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBeInstanceOf(Error);
+      expect(String(thrown.message)).toMatch(/userinfo/i);
+      expect(String(thrown.message)).not.toMatch(/s3cret|user:|:@/);
+      expect(sanitizeSmokeMessage(thrown)).toBe(
+        "URL userinfo is not allowed in --base-url.",
+      );
+      expect(sanitizeSmokeMessage(thrown)).not.toMatch(/s3cret|user:/);
+    }
+  });
+
   it("parses bounded timeout and retry flags", () => {
     expect(
       parseSmokeCheckArgs([

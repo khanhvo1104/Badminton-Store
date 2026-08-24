@@ -15,11 +15,11 @@ Official references (verify in product docs before changing entitlements):
 
 ## 1. Environment separation and ownership
 
-| Environment | CMS app | Supabase project | Owner |
-| --- | --- | --- | --- |
-| Local | `cms/` + disposable CLI stack | Local Docker via `supabase start` | Developers |
-| Staging / preview | Vercel Preview (or staging domain) | Non-production Supabase project | CMS maintainers |
-| Production | Vercel Production domain | Production Supabase project | CMS maintainers + on-call |
+| Environment       | CMS app                            | Supabase project                  | Owner                     |
+| ----------------- | ---------------------------------- | --------------------------------- | ------------------------- |
+| Local             | `cms/` + disposable CLI stack      | Local Docker via `supabase start` | Developers                |
+| Staging / preview | Vercel Preview (or staging domain) | Non-production Supabase project   | CMS maintainers           |
+| Production        | Vercel Production domain           | Production Supabase project       | CMS maintainers + on-call |
 
 Rules:
 
@@ -132,13 +132,13 @@ repo does **not** enable or verify hosted backups automatically.
 
 Operator checklist (record in the ops log / ticket):
 
-| Field | What to record |
-| --- | --- |
-| Backup tier | Plan feature actually enabled (dashboard evidence) |
-| PITR window | Retention hours/days shown in project settings |
-| Last backup verification date | Timestamp of successful check |
-| RPO target / actual | e.g. target 24h; actual based on last good backup |
-| RTO target / actual | Time to restore into a **separate non-production** project |
+| Field                         | What to record                                             |
+| ----------------------------- | ---------------------------------------------------------- |
+| Backup tier                   | Plan feature actually enabled (dashboard evidence)         |
+| PITR window                   | Retention hours/days shown in project settings             |
+| Last backup verification date | Timestamp of successful check                              |
+| RPO target / actual           | e.g. target 24h; actual based on last good backup          |
+| RTO target / actual           | Time to restore into a **separate non-production** project |
 
 Automated **local** rehearsal (no hosted project, no artifacts committed):
 
@@ -150,8 +150,11 @@ supabase stop --no-backup
 ```
 
 This proves logical `supabase db dump --local` → isolated restore of
-representative `public` schema/data. It does **not** replace hosted
-PITR/physical backup drills.
+representative `public` schema/data. The rehearsal never runs
+`supabase status` (env/JSON/table) or otherwise reads service-role/secret
+keys; it fail-closes on unique local `supabase_db_*` container checks plus
+`--local` dumps only. It does **not** replace hosted PITR/physical backup
+drills.
 
 ## 8. Quarterly restore drill (**HUMAN**)
 
@@ -168,13 +171,13 @@ At least once per quarter:
 
 ## 9. Monitoring signals and thresholds
 
-| Signal | Source | Suggested threshold | Action |
-| --- | --- | --- | --- |
-| Liveness fail | `GET /api/health` | Any non-200 from probe | Page on-call; check Vercel runtime |
-| Readiness fail | `GET /api/ready` | Non-200 for >2 min | Check Supabase status + CMS env |
-| HTTP 5xx rate | Vercel analytics/logs | Agree team baseline (start: >2% / 5 min) | Rollback candidate |
-| Auth errors | Supabase Auth logs | Spike vs baseline | Check SMTP/custom SMTP + rate limits |
-| Build fail | Vercel build | Any production build failure | Block release |
+| Signal         | Source                | Suggested threshold                      | Action                               |
+| -------------- | --------------------- | ---------------------------------------- | ------------------------------------ |
+| Liveness fail  | `GET /api/health`     | Any non-200 from probe                   | Page on-call; check Vercel runtime   |
+| Readiness fail | `GET /api/ready`      | Non-200 for >2 min                       | Check Supabase status + CMS env      |
+| HTTP 5xx rate  | Vercel analytics/logs | Agree team baseline (start: >2% / 5 min) | Rollback candidate                   |
+| Auth errors    | Supabase Auth logs    | Spike vs baseline                        | Check SMTP/custom SMTP + rate limits |
+| Build fail     | Vercel build          | Any production build failure             | Block release                        |
 
 Wire external uptime checks to `/api/health` (process) and `/api/ready`
 (dependency). Both endpoints are `no-store`, JSON-only, and omit secrets,
@@ -211,12 +214,12 @@ logged.
 
 ### Severity
 
-| Level | Example | Response |
-| --- | --- | --- |
+| Level | Example                                    | Response                                               |
+| ----- | ------------------------------------------ | ------------------------------------------------------ |
 | SEV-1 | Production CMS down / data corruption risk | Immediate rollback/restore decision; all-hands on-call |
-| SEV-2 | Readiness failing / staff cannot login | Rollback or env fix within business hours SLA |
-| SEV-3 | Non-blocking UI defect | Ticket; next release |
-| SEV-4 | Docs/tooling | Backlog |
+| SEV-2 | Readiness failing / staff cannot login     | Rollback or env fix within business hours SLA          |
+| SEV-3 | Non-blocking UI defect                     | Ticket; next release                                   |
+| SEV-4 | Docs/tooling                               | Backlog                                                |
 
 ### Roles
 
