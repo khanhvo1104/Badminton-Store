@@ -1,7 +1,10 @@
 # Notifications security
 
 Private in-app notifications live in `public.notifications`. This document is
-the backend contract for the later Flutter repository / UI task.
+the backend contract for Flutter owner read/mark-read and for trusted writers
+(service_role or SECURITY DEFINER paths). Flutter consumers are wired
+(TASK-019–022); in-repo trusted producers are the readiness follow-up
+(TASK-047).
 
 ## Ownership and roles
 
@@ -93,4 +96,9 @@ logs, or client examples.
 
 Realtime publication, push / email / SMS delivery, Edge Functions, cron,
 broadcast, device tokens, notification preferences, customer `INSERT`/`DELETE`,
-and staff UI are intentionally not part of this schema.
+and staff compose UI are intentionally not part of the original schema task.
+
+**Current producer gap:** no in-repo migration path inserts notification rows
+from `checkout_cod` or `transition_cms_order_status`. Until TASK-047 (or an
+equivalent trusted writer) ships, the table remains empty unless operators
+insert via `service_role` tooling.

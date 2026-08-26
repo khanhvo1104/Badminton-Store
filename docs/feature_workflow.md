@@ -31,14 +31,15 @@ Reuse an existing feature when the domain already owns the concept
    - call data sources
    - map models → entities
    - map errors via `ErrorMapper` / `SupabaseExceptionMapper`
-4. Register the impl in `di/<name>_providers.dart`, replacing
-   `UnimplementedError` stubs.
+4. Register the impl in `di/<name>_providers.dart` (replace any temporary
+   throw-on-read stubs only when a real implementation is ready).
 
 ## 4. Supabase wiring (when ready)
 
-1. Fill `SUPABASE_URL` / `SUPABASE_ANON_KEY` in env files or dart-defines.
-2. Replace `PendingSupabaseInitializer` with a real
-   `supabase_flutter` initializer.
+1. Fill `SUPABASE_URL` / publishable (or legacy anon) key in env files or
+   dart-defines — never a service-role key.
+2. Ensure bootstrap initializes Supabase when configured (incomplete config
+   selects `ConfigurationErrorApp`).
 3. Wire feature repositories through `supabaseClientProvider` (and
    `supabaseAuthDataSourceProvider` when auth-specific). Do not reintroduce
    unused generic DB/Storage facades.

@@ -22,7 +22,7 @@ Authenticated commerce MVP path:
 | Addresses (CRUD + validated create/edit form) | Own-row RLS repository |
 | Profile | Supabase profile data source |
 | Settings / appearance | Local preferences + logout |
-| Notifications | Placeholder UI only — no schema, repository throws if read |
+| Notifications | Owner-scoped list / mark-read / Profile unread badge (no in-repo producer yet) |
 
 ## Architecture overview
 
@@ -56,7 +56,7 @@ lib/
   core/                 # Config, errors, Result, Supabase helpers
   features/             # authentication, home, catalog, product, cart,
                         # checkout, orders, favorites, addresses, search,
-                        # profile, settings, notifications (placeholder)
+                        # profile, settings, notifications
   shared/               # Cross-feature providers & shop UI
   main_development.dart
   main_staging.dart
@@ -177,10 +177,12 @@ authorizes only from the caller's trusted `public.profiles.role` plus
 `is_active`. Only active `staff` and active `admin` profiles can reach the CMS
 dashboard.
 
-The dashboard segment provides a shared application shell (sidebar/mobile nav,
-breadcrumbs, account/logout, loading/empty/error/confirmation primitives) plus
-placeholder routes for categories, brands, products, and inventory. Catalog CRUD
-arrives in later CMS tasks.
+The dashboard covers categories, brands, products, variants, inventory, media,
+orders, operational metrics, staff management, and the privileged audit trail,
+plus `/api/health` / `/api/ready` and operator smoke checks. Hosted SMTP,
+Vercel Deployment Checks, monitoring alerts, and PITR remain human dashboard
+actions — see `docs/cms/operations-runbook.md` and
+`docs/audits/application-readiness.md`.
 
 There is no CMS self-signup flow. Before first use, a trusted operator must
 manually create or promote the initial active admin profile in Supabase.
@@ -189,15 +191,14 @@ manually create or promote the initial active admin profile in Supabase.
 
 Requires Docker + Supabase CLI. Against a **local disposable** stack only (`supabase db reset` first). See `supabase/README.md` for details.
 
+Prefer the complete ordered list in `supabase/README.md` (suites `00`–`14` plus
+concurrency / postgrest helpers). At minimum after `supabase db reset`:
+
 ```bash
-supabase db reset
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/00_constraints.sql
 bash supabase/tests/database/01_rls_checklist.sh
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/02_product_variant_cost_price.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/03_trusted_cod_checkout.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/04_trigger_function_execute.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/05_explicit_data_api_grants.sql
-bash supabase/tests/database/03_trusted_cod_checkout_concurrency.sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/06_notifications.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/database/07_cms_security_contract.sql
 ```
 
 Never run destructive resets against a linked remote production project from this README.
@@ -221,7 +222,8 @@ Repositories return `Result<T>` (`Success` / `Failure`). Infrastructure errors b
 4. Add sealed state + ViewModel + page in presentation.
 5. Register providers and routes; do **not** import another feature’s data or presentation layers.
 
-**Notifications** remain unimplemented (placeholder page; no table). Do not treat them as a wired commerce feature.
+**Notifications** are wired for owner read/mark-read; trusted row producers are
+not yet in-repo (see readiness audit / TASK-047). Do not add customer INSERT.
 
 ## Common mistakes to avoid
 

@@ -65,7 +65,7 @@ main_* → bootstrap(AppEnvironment)
 | `addresses` | Shipping / billing addresses | `SupabaseAddressRepository` |
 | `search` | Product search | `SupabaseSearchRepository` |
 | `settings` | Appearance / logout | Local prefs + auth logout |
-| `notifications` | In-app notifications | **Placeholder only** — provider throws |
+| `notifications` | In-app notifications | `SupabaseNotificationRepository` (owner read / mark-read) |
 
 ## Repositories
 
@@ -106,13 +106,13 @@ See `docs/backend/checkout_security.md` and
 Shell tabs: **Home · Catalog · Cart · Favorites · Profile**
 
 Push routes: product detail, checkout, orders, addresses, search, settings,
-notifications (placeholder; not linked from Profile until a backend exists).
+notifications.
 
 Auth redirect continues to gate unauthenticated access via
 `authSessionProvider` / `auth_redirect_policy.dart`.
 
-Authenticated Profile links to orders, addresses, and settings (logout lives
-on Settings).
+Authenticated Profile links to orders, addresses, settings, and notifications
+(with best-effort unread badge). Logout lives on Settings.
 
 ## Error model
 
@@ -139,10 +139,14 @@ badges, etc.) so catalog/product/cart can share UI without circular imports.
 
 ## Known limitations (intentional)
 
-- **Notifications** — placeholder page; no `notifications` table; repository
-  provider throws `UnimplementedError` if read.
-- **Home UX** — featured products as dashboard-style cards, not a full
-  merchandising storefront.
+- **Notifications producers** — Flutter can list / mark-read / show unread
+  counts, but no in-repo trusted writer inserts rows yet (`checkout_cod` /
+  order transitions do not emit notifications). See readiness audit TASK-047.
+- **Notification navigation** — taps do not deep-link to order detail (Flutter
+  has `/orders` list only). Optional follow-up after producers exist.
 - **Money in Dart** — domain snapshots use `double` for whole VND display
   values; PostgreSQL `numeric` and `checkout_cod` remain authoritative for
   accounting (see `docs/coding_guidelines.md`).
+- **Production ops** — Custom SMTP, Vercel Deployment Checks, hosted PITR, and
+  monitoring alerts are human/dashboard actions; repository runbooks do not
+  prove they are enabled.

@@ -16,10 +16,12 @@ project with the Flutter storefront.
 
 ## Product boundary
 
-The first milestone is a product-management MVP: authenticated staff can manage
-categories, brands, products, variants, inventory, and catalog images. Order
-operations, staff administration, analytics, and audit reporting follow after
-the catalog workflow is stable.
+The CMS product-management MVP and store-operations milestones are delivered in
+`cms/` (categories, brands, products, variants, inventory, media, orders,
+dashboard, staff, audit trail) with production-readiness E2E and deployment
+ops tooling. Hosted SMTP, Vercel Deployment Checks, monitoring alerts, and
+PITR remain operator dashboard actions — see [operations runbook](operations-runbook.md)
+and `docs/audits/application-readiness.md`.
 
 The Flutter app remains the customer storefront. The CMS must not import Flutter
 code or introduce a second source of truth for database types or authorization.

@@ -315,6 +315,27 @@
       "task_file": ".automation/tasks/TASK-045-remove-unused-supabase-facades.md",
       "risk": "low",
       "status": "complete"
+    },
+    {
+      "id": "TASK-046",
+      "title": "Re-audit application readiness after CMS completion",
+      "task_file": ".automation/tasks/TASK-046-readiness-reaudit.md",
+      "risk": "low",
+      "status": "complete"
+    },
+    {
+      "id": "TASK-047",
+      "title": "Emit trusted in-app order-update notifications",
+      "task_file": ".automation/tasks/TASK-047-trusted-order-notifications.md",
+      "risk": "high",
+      "status": "ready"
+    },
+    {
+      "id": "TASK-048",
+      "title": "Open orders from order-update notification taps",
+      "task_file": ".automation/tasks/TASK-048-notification-orders-navigation.md",
+      "risk": "medium",
+      "status": "ready"
     }
   ]
 }
