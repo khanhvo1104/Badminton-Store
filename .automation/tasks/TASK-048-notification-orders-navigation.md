@@ -38,11 +38,11 @@ Risk: medium
 
 ## Acceptance criteria
 
-- Unread and read `order_update` rows navigate to `AppRoutes.orders` on tap.
-- Other notification types do not gain accidental navigation.
-- Existing mark-read, pagination, sanitized feedback, and Profile entry
+- [x] Unread and read `order_update` rows navigate to `AppRoutes.orders` on tap.
+- [x] Other notification types do not gain accidental navigation.
+- [x] Existing mark-read, pagination, sanitized feedback, and Profile entry
   behavior remain intact.
-- Tests use provider/router overrides; no live network/Supabase.
+- [x] Tests use provider/router overrides; no live network/Supabase.
 
 ## Required quality gates
 
