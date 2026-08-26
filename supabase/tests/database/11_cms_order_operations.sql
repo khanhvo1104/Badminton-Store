@@ -213,6 +213,8 @@ declare
   v_notif_payload jsonb;
   v_customer_b uuid := 'b3900000-0000-4000-8000-000000000105';
   v_other_visible integer;
+  v_audit_before integer;
+  v_history_before integer;
 begin
   perform pg_temp.ord_insert_user(v_staff, 'orders-staff@example.invalid');
   perform pg_temp.ord_insert_user(v_admin, 'orders-admin@example.invalid');
@@ -480,6 +482,32 @@ begin
     raise exception 'FAIL: cross-owner notification visibility leak';
   end if;
 
+  -- Same-status/no-op must fail without creating notifications.
+  select count(*)::integer into v_notif_before
+  from public.notifications
+  where user_id = v_customer;
+
+  perform pg_temp.ord_set_auth(v_staff);
+  perform pg_temp.ord_assert_invalid(
+    'same status confirmed',
+    format(
+      $q$select order_id from public.transition_cms_order_status(%L::uuid, 'confirmed', null)$q$,
+      v_order
+    )
+  );
+  perform pg_temp.ord_clear_auth();
+
+  select count(*)::integer into v_notif_count
+  from public.notifications
+  where user_id = v_customer;
+
+  if v_notif_count <> v_notif_before then
+    raise exception
+      'FAIL: same-status transition created notifications (% -> %)',
+      v_notif_before,
+      v_notif_count;
+  end if;
+
   -- Invalid transition
   select count(*)::integer into v_notif_before
   from public.notifications
@@ -503,6 +531,131 @@ begin
   if v_notif_count <> v_notif_before then
     raise exception
       'FAIL: invalid transition created notifications (% -> %)',
+      v_notif_before,
+      v_notif_count;
+  end if;
+
+  perform pg_temp.ord_set_auth(v_staff);
+
+  -- Notification insert failure must roll back transition side effects.
+  perform pg_temp.ord_clear_auth();
+
+  create or replace function pg_temp.ord_block_notifications()
+  returns trigger
+  language plpgsql
+  as $ord_block_fn$
+  begin
+    if current_setting('pg_temp.ord_block_notifications', true) = 'on' then
+      raise exception 'simulated notification insert failure';
+    end if;
+    return new;
+  end;
+  $ord_block_fn$;
+
+  drop trigger if exists ord_block_notifications on public.notifications;
+  create trigger ord_block_notifications
+  before insert on public.notifications
+  for each row
+  execute function pg_temp.ord_block_notifications();
+
+  select quantity_reserved, quantity_on_hand
+  into v_reserved, v_on_hand
+  from public.inventory
+  where variant_id = v_variant;
+
+  select count(*)::integer into v_history_before
+  from public.order_status_history
+  where order_id = v_order_cancel;
+
+  select count(*)::integer into v_audit_before
+  from public.cms_privileged_audit_events
+  where entity_type = 'order'
+    and entity_id = v_order_cancel;
+
+  select count(*)::integer into v_notif_before
+  from public.notifications
+  where user_id = v_customer;
+
+  perform set_config('pg_temp.ord_block_notifications', 'on', true);
+  perform pg_temp.ord_set_auth(v_staff);
+  begin
+    perform public.transition_cms_order_status(
+      v_order_cancel, 'cancelled', 'rollback probe'
+    );
+    raise exception 'FAIL: transition succeeded when notifications blocked';
+  exception
+    when others then
+      if sqlerrm not like '%simulated notification insert failure%' then
+        perform pg_temp.ord_clear_auth();
+        raise exception
+          'FAIL: blocked-notification transition raised unexpected error: %',
+          sqlerrm;
+      end if;
+  end;
+  perform set_config('pg_temp.ord_block_notifications', 'off', true);
+  perform pg_temp.ord_clear_auth();
+  drop trigger if exists ord_block_notifications on public.notifications;
+  perform pg_temp.ord_set_auth(v_staff);
+
+  if (
+    select status from public.orders where id = v_order_cancel
+  ) is distinct from 'confirmed' then
+    raise exception 'FAIL: notification failure left order cancelled';
+  end if;
+
+  if (
+    select cancelled_at from public.orders where id = v_order_cancel
+  ) is not null then
+    raise exception 'FAIL: notification failure set cancelled_at';
+  end if;
+
+  if (
+    select quantity_reserved from public.inventory where variant_id = v_variant
+  ) is distinct from v_reserved
+     or (
+       select quantity_on_hand from public.inventory where variant_id = v_variant
+     ) is distinct from v_on_hand then
+    raise exception 'FAIL: notification failure mutated inventory';
+  end if;
+
+  select count(*)::integer into v_history
+  from public.order_status_history
+  where order_id = v_order_cancel;
+
+  if v_history <> v_history_before then
+    raise exception
+      'FAIL: notification failure changed order_status_history count (% -> %)',
+      v_history_before,
+      v_history;
+  end if;
+
+  if exists (
+    select 1
+    from public.order_status_history
+    where order_id = v_order_cancel
+      and from_status = 'confirmed'
+      and to_status = 'cancelled'
+  ) then
+    raise exception 'FAIL: notification failure left cancel history row';
+  end if;
+
+  if (
+    select count(*)::integer
+    from public.cms_privileged_audit_events
+    where entity_type = 'order'
+      and entity_id = v_order_cancel
+  ) <> v_audit_before then
+    raise exception 'FAIL: notification failure changed privileged audit count';
+  end if;
+
+  perform pg_temp.ord_clear_auth();
+  select count(*)::integer into v_notif_count
+  from public.notifications
+  where user_id = v_customer;
+
+  if v_notif_count <> v_notif_before then
+    raise exception
+      'FAIL: notification failure changed notification count (% -> %)',
       v_notif_before,
       v_notif_count;
   end if;
