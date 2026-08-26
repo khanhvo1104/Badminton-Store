@@ -62,8 +62,8 @@ Map infrastructure failures at the data boundary:
 - Session / appearance: long-lived providers.
 - Commerce feature repositories are wired to Supabase implementations via
   `di/*_providers.dart` and call `supabaseClientProvider` directly. Keep
-  intentional feature-level override providers (for example Notifications)
-  out of the shared core DI surface.
+  feature DI in the owning feature; do not reintroduce unused generic
+  core DB/Storage facades.
 - Override providers in tests via `createTestContainer` helpers.
 
 ## Analysis
