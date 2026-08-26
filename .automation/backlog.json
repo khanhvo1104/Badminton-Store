@@ -335,7 +335,7 @@
       "title": "Open orders from order-update notification taps",
       "task_file": ".automation/tasks/TASK-048-notification-orders-navigation.md",
       "risk": "medium",
-      "status": "ready"
+      "status": "complete"
     }
   ]
 }

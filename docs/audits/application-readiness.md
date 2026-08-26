@@ -26,7 +26,7 @@
 | Catalog / product / search | Shell + push | Supabase repos + RPCs | RLS + views/RPCs | Repo + product select tests | `cost_price` column lockdown preserved |
 | Favorites / cart / checkout | Shell + `/checkout` | Supabase repos; checkout → `checkout_cod` only | Own-row RLS + SECURITY DEFINER RPC | TASK-005/012/013 tests | Client totals are estimates |
 | Orders / addresses / profile / settings | Push + Profile hub | Supabase repos | Own SELECT / CRUD RLS | TASK-009/014–017 | Logout on Settings |
-| Notifications | `/notifications` + Profile entry + unread badge | `SupabaseNotificationRepository` | `public.notifications` + owner RLS/grants; trusted producers in `checkout_cod` / `transition_cms_order_status` (TASK-047) | `test/features/notifications/` + suite `06` | **Consumers + trusted DB producers wired** |
+| Notifications | `/notifications` + Profile entry + unread badge; `order_update` tap → `/orders` (TASK-048) | `SupabaseNotificationRepository` | `public.notifications` + owner RLS/grants; trusted producers in `checkout_cod` / `transition_cms_order_status` (TASK-047) | `test/features/notifications/` + suite `06` | **Consumers + trusted DB producers + list deep-link wired** |
 | Supabase core DI | N/A | `supabaseClientProvider`; no generic DB/Storage facades | Migrations present | Bootstrap tests | TASK-045 removed facade trap |
 | Storage | N/A | Feature / client `.storage` | Buckets + policies | Suite `01` SIUD | Public catalog read; staff write; avatar ownership |
 | CMS auth / shell | Next.js App Router | SSR cookies + `getClaims()` + `profiles.role` | Trusted role helpers | Vitest + Playwright | No CMS self-signup |
@@ -70,7 +70,7 @@
 
 ### Code backlog
 
-1. **Order-update notification navigation** — TASK-021 intentionally omitted payload-driven navigation; Flutter has `/orders` list only (no order-detail route). Tapping an `order_update` can at least open `/orders`. → **TASK-048** (depends on TASK-047 payload contract).
+**None queued** after TASK-048. Optional maintenance and human/external cutover remain below.
 
 ### Optional maintenance
 
@@ -143,9 +143,7 @@ Full narrative for early P0/P1 items remains in git history of this file (pre–
 
 ## Ordered next backlog
 
-1. **TASK-048** — Flutter notification tap navigates to `/orders` for `order_update` (sanitized; no new order-detail route). Medium risk.
-
-Human production cutover stays on the checklist below — not automation tasks.
+**Empty** — no further automation tasks queued after TASK-048. Human production cutover stays on the checklist below — not automation tasks.
 
 ---
 

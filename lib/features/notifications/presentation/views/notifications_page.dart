@@ -1,8 +1,12 @@
+import 'dart:async';
+
+import 'package:base_project/app/router/app_routes.dart';
 import 'package:base_project/app/theme/app_spacing.dart';
 import 'package:base_project/core/ui/glass/glass_app_bar.dart';
 import 'package:base_project/core/ui/glass/glass_background.dart';
 import 'package:base_project/core/ui/glass/glass_error_view.dart';
 import 'package:base_project/core/ui/glass/glass_loading_indicator.dart';
+import 'package:base_project/features/notifications/domain/entities/notification.dart';
 import 'package:base_project/features/notifications/presentation/view_models/notifications_state.dart';
 import 'package:base_project/features/notifications/presentation/view_models/notifications_view_model.dart';
 import 'package:base_project/features/notifications/presentation/widgets/notification_list_item.dart';
@@ -215,6 +219,11 @@ class _NotificationsContentBody extends StatelessWidget {
                     onTap: () {
                       if (!notification.isRead) {
                         onMarkRead(notification.id);
+                      }
+                      if (notification.type == NotificationType.orderUpdate) {
+                        // Best-effort: do not await markRead; navigate even if
+                        // the repository call fails under the stacked route.
+                        unawaited(context.push(AppRoutes.orders));
                       }
                     },
                   );
