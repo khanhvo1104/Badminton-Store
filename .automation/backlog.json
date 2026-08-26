@@ -328,7 +328,7 @@
       "title": "Emit trusted in-app order-update notifications",
       "task_file": ".automation/tasks/TASK-047-trusted-order-notifications.md",
       "risk": "high",
-      "status": "ready"
+      "status": "complete"
     },
     {
       "id": "TASK-048",

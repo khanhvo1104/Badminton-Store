@@ -56,15 +56,15 @@ Risk: high
 
 ## Acceptance criteria
 
-- After local `db reset`, placing a COD order and transitioning order status
+- [x] After local `db reset`, placing a COD order and transitioning order status
   each create exactly one new owner notification with the contracted payload
   shape (idempotent retry of checkout must not create duplicates beyond the
   existing checkout idempotency rules — assert explicitly).
-- Suites covering checkout, order transitions, and notifications remain green;
+- [x] Suites covering checkout, order transitions, and notifications remain green;
   grant/RLS inventories still deny customer INSERT/DELETE on notifications.
-- Docs describe the producer contract and remain honest that push/Realtime are
+- [x] Docs describe the producer contract and remain honest that push/Realtime are
   out of scope.
-- Diff stays within allowed paths; no secrets.
+- [x] Diff stays within allowed paths; no secrets.
 
 ## Required quality gates
 

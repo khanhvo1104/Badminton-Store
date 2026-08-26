@@ -150,7 +150,8 @@ non-blank title/body, object-only payload, null rejection, defaults), anon and
 null-UID denial, customer A own select/mark-read, customer B isolation,
 cross-owner update denial with no-mutation checks, authenticated denial of
 content/owner updates plus INSERT/DELETE, and trusted `service_role`
-insert/read/delete.
+insert/read/delete. Trusted producers in `checkout_cod` and
+`transition_cms_order_status` are covered by suites `03` and `11` (TASK-047).
 
 **Grants vs RLS for notifications:** column grants make content immutable to
 customers (`is_read` is the only writable column); RLS `USING`/`WITH CHECK`

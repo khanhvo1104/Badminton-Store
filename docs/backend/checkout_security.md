@@ -33,12 +33,14 @@ Any price or total computed on device can be tampered with. The RPC:
 3. Re-reads active `product_variants.price` (never `cart_items.unit_price_snapshot`).
 4. Locks matching `inventory` rows in ascending `variant_id` order.
 5. Validates the full locked set, then reserves stock, inserts `orders` +
-   immutable `order_items`, and marks the cart `converted` in one transaction.
+   immutable `order_items`, marks the cart `converted`, and emits one
+   owner-scoped `order_update` notification in the same transaction.
 
 Insufficient stock (unless that inventory row has `allow_backorder = true`),
 empty carts, inactive profiles, cross-user addresses, inactive variants, or
 non-active products raise an error and roll everything back—including any
-status-history row created by the order insert trigger.
+status-history row created by the order insert trigger and any notification
+insert attempted in the same transaction.
 
 ## Concurrent cart mutations
 
@@ -78,8 +80,9 @@ JSON (no `cost_price`, never `to_jsonb(product_variants)`).
 ## Idempotent retry
 
 A second checkout after cart conversion finds no `active` cart and fails with a
-stable "requires an active cart" error. It does not create a duplicate order.
-Concurrent callers serialize on the cart row lock.
+stable "requires an active cart" error. It does not create a duplicate order or
+a duplicate `order_update` notification. Concurrent callers serialize on the
+cart row lock.
 
 ## Keys
 
