@@ -12,7 +12,7 @@
 
 **Customer COD commerce MVP and staff CMS product/ops surface are implemented in-repo end-to-end.** Flutter covers auth → browse → cart → trusted `checkout_cod` → orders/addresses/profile, plus wired in-app notifications (TASK-019–022) and a navigable Home storefront (TASK-023). Unused generic Supabase facades are gone (TASK-045). The Next.js CMS covers auth, catalog CRUD, inventory, media, orders, dashboard, staff, audit trail, Playwright readiness, and deployment health/smoke/backup-rehearsal tooling (TASK-024–044). Local DB suites `00`–`14` plus Flutter/CMS CI exist; latest `develop` CI (merge of PR #77 / TASK-045, run `32716606367`) concluded **success**.
 
-**No repository-evident release blockers** in application code for the COD + CMS MVP path. Remaining work is mainly (1) a hollow notifications *producer* gap, (2) optional maintenance, and (3) **human/external** production configuration that this repository cannot prove.
+**No repository-evident release blockers** in application code for the COD + CMS MVP path. Remaining work is mainly (1) optional maintenance, and (2) **human/external** production configuration that this repository cannot prove.
 
 ---
 
@@ -26,7 +26,7 @@
 | Catalog / product / search | Shell + push | Supabase repos + RPCs | RLS + views/RPCs | Repo + product select tests | `cost_price` column lockdown preserved |
 | Favorites / cart / checkout | Shell + `/checkout` | Supabase repos; checkout → `checkout_cod` only | Own-row RLS + SECURITY DEFINER RPC | TASK-005/012/013 tests | Client totals are estimates |
 | Orders / addresses / profile / settings | Push + Profile hub | Supabase repos | Own SELECT / CRUD RLS | TASK-009/014–017 | Logout on Settings |
-| Notifications | `/notifications` + Profile entry + unread badge | `SupabaseNotificationRepository` | `public.notifications` + owner RLS/grants | `test/features/notifications/` + suite `06` | **Consumers wired; no in-repo trusted writer** (see Current gaps) |
+| Notifications | `/notifications` + Profile entry + unread badge | `SupabaseNotificationRepository` | `public.notifications` + owner RLS/grants; trusted producers in `checkout_cod` / `transition_cms_order_status` (TASK-047) | `test/features/notifications/` + suite `06` | **Consumers + trusted DB producers wired** |
 | Supabase core DI | N/A | `supabaseClientProvider`; no generic DB/Storage facades | Migrations present | Bootstrap tests | TASK-045 removed facade trap |
 | Storage | N/A | Feature / client `.storage` | Buckets + policies | Suite `01` SIUD | Public catalog read; staff write; avatar ownership |
 | CMS auth / shell | Next.js App Router | SSR cookies + `getClaims()` + `profiles.role` | Trusted role helpers | Vitest + Playwright | No CMS self-signup |
@@ -70,8 +70,7 @@
 
 ### Code backlog
 
-1. **Hollow notifications producer** — Customers can list/mark-read, but no migration/CMS/Flutter path inserts `public.notifications` rows. `checkout_cod` and `transition_cms_order_status` do not write notifications. Content creation is documented as `service_role`/trusted backend only (`docs/backend/notifications_security.md`), yet no trusted writer exists in-repo. → **TASK-047**.
-2. **Order-update notification navigation** — TASK-021 intentionally omitted payload-driven navigation; Flutter has `/orders` list only (no order-detail route). After producers exist, tapping an `order_update` can at least open `/orders`. → **TASK-048** (depends on TASK-047 payload contract).
+1. **Order-update notification navigation** — TASK-021 intentionally omitted payload-driven navigation; Flutter has `/orders` list only (no order-detail route). Tapping an `order_update` can at least open `/orders`. → **TASK-048** (depends on TASK-047 payload contract).
 
 ### Optional maintenance
 
@@ -144,8 +143,7 @@ Full narrative for early P0/P1 items remains in git history of this file (pre–
 
 ## Ordered next backlog
 
-1. **TASK-047** — Emit owner-scoped `order_update` rows from trusted order lifecycle writers (`checkout_cod`, `transition_cms_order_status`) with DB regressions. High risk; migration-only producer; no Flutter/CMS UI expansion.
-2. **TASK-048** — After TASK-047 payload contract: Flutter notification tap navigates to `/orders` for `order_update` (sanitized; no new order-detail route). Medium risk.
+1. **TASK-048** — Flutter notification tap navigates to `/orders` for `order_update` (sanitized; no new order-detail route). Medium risk.
 
 Human production cutover stays on the checklist below — not automation tasks.
 

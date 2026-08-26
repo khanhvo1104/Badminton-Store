@@ -758,6 +758,9 @@ declare
   v_history_count integer;
   v_snapshot_keys text[];
   v_buyer_order_count integer;
+  v_notif_count integer;
+  v_notif_payload jsonb;
+  v_notif_user uuid;
 begin
   select price into v_price_a
   from public.product_variants where id = v_variant_a;
@@ -869,6 +872,40 @@ begin
     raise exception 'FAIL: cart was not converted';
   end if;
 
+  select count(*)::integer into v_notif_count
+  from public.notifications
+  where user_id = v_buyer
+    and type = 'order_update';
+
+  if v_notif_count <> 1 then
+    raise exception
+      'FAIL: successful checkout expected one order_update notification (got %)',
+      v_notif_count;
+  end if;
+
+  select payload, user_id
+  into v_notif_payload, v_notif_user
+  from public.notifications
+  where user_id = v_buyer
+    and type = 'order_update'
+    and payload ->> 'order_id' = v_order_id::text;
+
+  if v_notif_user is distinct from v_buyer
+     or v_notif_payload ->> 'order_number' is null
+     or pg_catalog.btrim(v_notif_payload ->> 'order_number') = ''
+     or v_notif_payload ->> 'order_number'
+          is distinct from v_order.order_number
+     or v_notif_payload ->> 'event' is distinct from 'order_placed'
+     or v_notif_payload ->> 'status' is distinct from 'pending'
+     or v_notif_payload ? 'from_status'
+     or v_notif_payload ? 'to_status'
+     or v_notif_payload ? 'phone_number'
+     or v_notif_payload ? 'email'
+     or v_notif_payload ? 'note'
+  then
+    raise exception 'FAIL: checkout order_update notification payload contract';
+  end if;
+
   -- Idempotent retry after conversion must not create a second order.
   select count(*)::integer into v_buyer_order_count
   from public.orders where user_id = v_buyer;
@@ -892,6 +929,17 @@ begin
     select count(*)::integer from public.orders where user_id = v_buyer
   ) <> v_buyer_order_count then
     raise exception 'FAIL: retry after conversion created a duplicate order';
+  end if;
+
+  select count(*)::integer into v_notif_count
+  from public.notifications
+  where user_id = v_buyer
+    and type = 'order_update';
+
+  if v_notif_count <> 1 then
+    raise exception
+      'FAIL: checkout retry created duplicate notifications (count=%)',
+      v_notif_count;
   end if;
 
   -- Explicit backorder path
@@ -985,6 +1033,139 @@ begin
   delete from public.carts where id = v_cart;
   raise notice 'OK: converted-cart cart_items INSERT rejected by active-cart trigger';
 end $$;
+
+-- Failed checkout must not emit notifications (atomic side-effect pairing).
+do $$
+declare
+  v_buyer uuid := 'a1000000-0000-4000-8000-000000000001';
+  v_address uuid := 'a2000000-0000-4000-8000-000000000001';
+  v_cart uuid := 'a3000000-0000-4000-8000-0000000000ff';
+  v_before integer;
+  v_after integer;
+begin
+  select count(*)::integer into v_before
+  from public.notifications
+  where user_id = v_buyer;
+
+  insert into public.carts (id, user_id, status, currency_code)
+  values (v_cart, v_buyer, 'active', 'VND');
+
+  perform pg_temp.checkout_test_set_auth(v_buyer);
+  begin
+    perform public.checkout_cod(v_address, null);
+    raise exception 'FAIL: empty-cart checkout unexpectedly succeeded';
+  exception
+    when others then
+      if sqlerrm not like '%empty%' then
+        raise exception
+          'FAIL: empty-cart checkout raised unexpected error: %',
+          sqlerrm;
+      end if;
+  end;
+  perform pg_temp.checkout_test_clear_auth();
+
+  select count(*)::integer into v_after
+  from public.notifications
+  where user_id = v_buyer;
+
+  if v_after <> v_before then
+    raise exception
+      'FAIL: failed checkout changed notification count (% -> %)',
+      v_before,
+      v_after;
+  end if;
+
+  delete from public.carts where id = v_cart;
+  raise notice 'OK: failed checkout emits no notification';
+end $$;
+
+-- Notification insert failure must roll back the checkout transaction.
+do $checkout_atomicity$
+declare
+  v_buyer uuid := 'a1000000-0000-4000-8000-000000000001';
+  v_address uuid := 'a2000000-0000-4000-8000-000000000001';
+  v_cart uuid := 'a3000000-0000-4000-8000-0000000000aa';
+  v_variant uuid := '40000000-0000-4000-8000-000000000001';
+  v_orders_before integer;
+  v_orders_after integer;
+  v_notif_before integer;
+  v_notif_after integer;
+begin
+  create or replace function pg_temp.checkout_block_notifications()
+  returns trigger
+  language plpgsql
+  as $block_fn$
+  begin
+    if current_setting('pg_temp.checkout_block_notifications', true) = 'on' then
+      raise exception 'simulated notification insert failure';
+    end if;
+    return new;
+  end;
+  $block_fn$;
+
+  drop trigger if exists checkout_block_notifications on public.notifications;
+  create trigger checkout_block_notifications
+  before insert on public.notifications
+  for each row
+  execute function pg_temp.checkout_block_notifications();
+
+  insert into public.carts (id, user_id, status, currency_code)
+  values (v_cart, v_buyer, 'active', 'VND');
+
+  insert into public.cart_items (cart_id, variant_id, quantity)
+  values (v_cart, v_variant, 1);
+
+  select count(*)::integer into v_orders_before
+  from public.orders
+  where user_id = v_buyer;
+
+  select count(*)::integer into v_notif_before
+  from public.notifications
+  where user_id = v_buyer;
+
+  perform set_config('pg_temp.checkout_block_notifications', 'on', true);
+  perform pg_temp.checkout_test_set_auth(v_buyer);
+  begin
+    perform public.checkout_cod(v_address, null);
+    perform pg_temp.checkout_test_clear_auth();
+    raise exception 'FAIL: checkout succeeded when notifications blocked';
+  exception
+    when others then
+      perform pg_temp.checkout_test_clear_auth();
+      if sqlerrm not like '%simulated notification insert failure%' then
+        raise exception
+          'FAIL: blocked-notification checkout raised unexpected error: %',
+          sqlerrm;
+      end if;
+  end;
+  perform set_config('pg_temp.checkout_block_notifications', 'off', true);
+
+  select count(*)::integer into v_orders_after
+  from public.orders
+  where user_id = v_buyer;
+
+  select count(*)::integer into v_notif_after
+  from public.notifications
+  where user_id = v_buyer;
+
+  if v_orders_after <> v_orders_before or v_notif_after <> v_notif_before then
+    raise exception
+      'FAIL: notification failure did not roll back checkout side effects';
+  end if;
+
+  if (
+    select status from public.carts where id = v_cart
+  ) is distinct from 'active' then
+    raise exception 'FAIL: notification failure left cart converted';
+  end if;
+
+  drop trigger if exists checkout_block_notifications on public.notifications;
+  delete from public.cart_items where cart_id = v_cart;
+  delete from public.carts where id = v_cart;
+
+  raise notice 'OK: notification insert failure rolls back checkout';
+end;
+$checkout_atomicity$;
 
 -- Deterministic lock ordering is encoded in the RPC (cart lines by
 -- variant_id/id, inventory by variant_id). Concurrent retries serialize on the

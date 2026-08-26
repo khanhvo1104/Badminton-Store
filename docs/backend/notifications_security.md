@@ -98,7 +98,22 @@ Realtime publication, push / email / SMS delivery, Edge Functions, cron,
 broadcast, device tokens, notification preferences, customer `INSERT`/`DELETE`,
 and staff compose UI are intentionally not part of the original schema task.
 
-**Current producer gap:** no in-repo migration path inserts notification rows
-from `checkout_cod` or `transition_cms_order_status`. Until TASK-047 (or an
-equivalent trusted writer) ships, the table remains empty unless operators
-insert via `service_role` tooling.
+**Current producer gap:** ~~no in-repo migration path inserts notification rows
+from `checkout_cod` or `transition_cms_order_status`.~~ **Resolved (TASK-047):**
+trusted writers insert exactly one owner-scoped `order_update` row per successful
+checkout or status transition inside the same transaction (fail-closed). Push,
+Realtime, and other delivery channels remain out of scope.
+
+## Trusted producers (TASK-047)
+
+| Writer | When | Owner | Payload keys |
+| --- | --- | --- | --- |
+| `public.checkout_cod` | New order successfully created (not idempotent retry) | `orders.user_id` | `order_id`, `order_number`, `event`=`order_placed`, `status`=`pending` |
+| `public.transition_cms_order_status` | Successful actual status change only | `orders.user_id` | `order_id`, `order_number`, `event`=`status_changed`, `status`, `from_status`, `to_status` |
+
+Contract:
+
+- `type` is always `order_update`; `title` and `body` are non-blank safe copy (order number + status only).
+- `payload` is object-only JSON with string values for the keys above. No address, phone, email, notes, staff identity, tokens, secrets, raw errors, or privileged fields.
+- Inserts run inside the writer transaction. Constraint or privilege failure on `public.notifications` rolls back the order write (no silent drop).
+- Customers still have no `INSERT`/`DELETE` on `public.notifications`; only these SECURITY DEFINER writers (and `service_role`) create rows.

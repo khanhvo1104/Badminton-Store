@@ -208,11 +208,17 @@ declare
   v_proconfig_arr text[];
   v_prosecdef boolean;
   v_provolatile char;
+  v_notif_count integer;
+  v_notif_before integer;
+  v_notif_payload jsonb;
+  v_customer_b uuid := 'b3900000-0000-4000-8000-000000000105';
+  v_other_visible integer;
 begin
   perform pg_temp.ord_insert_user(v_staff, 'orders-staff@example.invalid');
   perform pg_temp.ord_insert_user(v_admin, 'orders-admin@example.invalid');
   perform pg_temp.ord_insert_user(v_customer, 'orders-customer@example.invalid');
   perform pg_temp.ord_insert_user(v_inactive, 'orders-inactive@example.invalid');
+  perform pg_temp.ord_insert_user(v_customer_b, 'orders-customer-b@example.invalid');
 
   update public.profiles
   set role = 'staff', full_name = 'Orders Staff', is_active = true
@@ -226,6 +232,9 @@ begin
   update public.profiles
   set role = 'staff', full_name = 'Orders Inactive', is_active = false
   where id = v_inactive;
+  update public.profiles
+  set role = 'customer', full_name = 'Orders Customer B', is_active = true
+  where id = v_customer_b;
 
   insert into public.categories (id, name, slug, sort_order, is_active)
   values (v_category, 'Orders Category', 'orders-category', 390, true);
@@ -430,7 +439,53 @@ begin
     raise exception 'FAIL: staff note was not stamped on history row';
   end if;
 
+  perform pg_temp.ord_clear_auth();
+
+  select count(*)::integer into v_notif_count
+  from public.notifications
+  where user_id = v_customer
+    and type = 'order_update';
+
+  if v_notif_count <> 1 then
+    raise exception
+      'FAIL: confirmed transition expected one order_update notification (got %)',
+      v_notif_count;
+  end if;
+
+  select payload into v_notif_payload
+  from public.notifications
+  where user_id = v_customer
+    and type = 'order_update'
+    and payload ->> 'order_id' = v_order::text
+  order by created_at desc, id desc
+  limit 1;
+
+  if v_notif_payload ->> 'order_number' is distinct from 'BDM-ORD-OPS-001'
+     or v_notif_payload ->> 'event' is distinct from 'status_changed'
+     or v_notif_payload ->> 'status' is distinct from 'confirmed'
+     or v_notif_payload ->> 'from_status' is distinct from 'pending'
+     or v_notif_payload ->> 'to_status' is distinct from 'confirmed'
+     or v_notif_payload ? 'note'
+     or v_notif_payload ? 'phone_number'
+  then
+    raise exception 'FAIL: transition notification payload contract';
+  end if;
+
+  perform pg_temp.ord_set_auth(v_customer_b);
+  select count(*)::integer into v_other_visible
+  from public.notifications
+  where payload ->> 'order_id' = v_order::text;
+  perform pg_temp.ord_clear_auth();
+  if v_other_visible <> 0 then
+    raise exception 'FAIL: cross-owner notification visibility leak';
+  end if;
+
   -- Invalid transition
+  select count(*)::integer into v_notif_before
+  from public.notifications
+  where user_id = v_customer;
+
+  perform pg_temp.ord_set_auth(v_staff);
   perform pg_temp.ord_assert_invalid(
     'skip to shipping',
     format(
@@ -438,6 +493,21 @@ begin
       v_order
     )
   );
+
+  perform pg_temp.ord_clear_auth();
+
+  select count(*)::integer into v_notif_count
+  from public.notifications
+  where user_id = v_customer;
+
+  if v_notif_count <> v_notif_before then
+    raise exception
+      'FAIL: invalid transition created notifications (% -> %)',
+      v_notif_before,
+      v_notif_count;
+  end if;
+
+  perform pg_temp.ord_set_auth(v_staff);
 
   -- Cancel releases reservation
   select quantity_reserved into v_reserved
@@ -525,6 +595,17 @@ begin
   perform public.transition_cms_order_status(v_order, 'preparing', null);
   perform public.transition_cms_order_status(v_order, 'shipping', null);
   perform pg_temp.ord_clear_auth();
+
+  select count(*)::integer into v_notif_count
+  from public.notifications
+  where user_id = v_customer
+    and type = 'order_update';
+
+  if v_notif_count <> 6 then
+    raise exception
+      'FAIL: expected six order_update notifications for owner (got %)',
+      v_notif_count;
+  end if;
 
   raise notice 'OK: CMS order operations regression';
 end;
